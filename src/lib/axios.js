@@ -19,6 +19,38 @@ const api = axios.create({
   timeout: config.api.timeout,
 });
 
+// Rewrite supplier paths to Ghana namespace
+// /suppliers/dashboard → /travioghana/supplier/dashboard
+// /tours/supplier/* → /travioghana/supplier/tours/*
+// /bookings/supplier/* → /travioghana/supplier/bookings/*
+// Auth endpoints stay on shared backend
+const GHANA_SUPPLIER_REWRITES = [
+  [/^\/suppliers\/dashboard/, '/travioghana/supplier/dashboard'],
+  [/^\/suppliers\/monthly-revenue/, '/travioghana/supplier/monthly-revenue'],
+  [/^\/tours\/supplier\/my-tours/, '/travioghana/supplier/tours'],
+  [/^\/bookings\/supplier\/bookings/, '/travioghana/supplier/bookings'],
+  [/^\/bookings\/supplier\/pickup-planner/, '/travioghana/supplier/pickup-planner'],
+  [/^\/reviews\/supplier\/reviews/, '/travioghana/supplier/reviews'],
+  [/^\/suppliers\/settings/, '/travioghana/supplier/settings'],
+  [/^\/suppliers\/special-offers/, '/travioghana/supplier/special-offers'],
+  [/^\/suppliers\/cancellation/, '/travioghana/supplier/cancellation'],
+  [/^\/finance\//, '/travioghana/supplier/finance/'],
+  [/^\/payouts\/me/, '/travioghana/supplier/payouts'],
+  [/^\/payout-methods\/me/, '/travioghana/supplier/payout-methods'],
+  [/^\/notifications/, '/travioghana/supplier/notifications'],
+];
+
+api.interceptors.request.use((config) => {
+  const url = config.url || '';
+  for (const [pattern, replacement] of GHANA_SUPPLIER_REWRITES) {
+    if (pattern.test(url)) {
+      config.url = url.replace(pattern, replacement);
+      break;
+    }
+  }
+  return config;
+});
+
 function getRequestAuthorization(headers) {
   if (!headers) return null;
   if (typeof headers.get === "function") {
