@@ -1,0 +1,26 @@
+@font-face {
+  font-family: 'GT Eesti Display Trial';
+  font-style: normal;
+  font-weight: 400;
+  src: local('GT Eesti Display Trial'),
+       url('./GT-Eesti-Display-Regular-Trial.woff') format('woff');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'GT Eesti Display Trial';
+  font-style: normal;
+  font-weight: 500;
+  src: local('GT Eesti Display Trial'),
+       url('./GT-Eesti-Display-Medium-Trial.woff') format('woff');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'GT Eesti Display Trial';
+  font-style: normal;
+  font-weight: 700;
+  src: local('GT Eesti Display Trial'),
+       url('./GT-Eesti-Display-Bold-Trial.woff') format('woff');
+  font-display: swap;
+}

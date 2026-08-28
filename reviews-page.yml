@@ -1,0 +1,39 @@
+- generic [ref=e2]:
+  - generic [ref=e11]:
+    - generic [ref=e12]:
+      - img [ref=e14]
+      - heading "Supplier Login" [level=1] [ref=e17]
+      - paragraph [ref=e18]: Approved & active suppliers only
+    - generic [ref=e19]:
+      - generic [ref=e20]:
+        - generic [ref=e21] [cursor=pointer]: Email address
+        - generic [ref=e22]:
+          - img [ref=e23]
+          - textbox "Email address" [ref=e26]:
+            - /placeholder: you@example.com
+      - generic [ref=e27]:
+        - generic [ref=e28] [cursor=pointer]: Password
+        - generic [ref=e29]:
+          - img [ref=e30]
+          - textbox "Password" [ref=e33]:
+            - /placeholder: Enter your password
+          - button "Show password" [ref=e34] [cursor=pointer]:
+            - img [ref=e35]
+      - button "Sign in" [ref=e38] [cursor=pointer]
+    - generic [ref=e43]: or continue with
+    - button "Sign in with Google" [ref=e44] [cursor=pointer]:
+      - img [ref=e45]
+      - text: Sign in with Google
+    - paragraph [ref=e50]:
+      - text: Don't have an account?
+      - link "Create one on TravioAfrica" [ref=e51] [cursor=pointer]:
+        - /url: https://travioafrica.com
+    - paragraph [ref=e52]:
+      - text: Only suppliers with
+      - strong [ref=e53]: Approved
+      - text: or
+      - strong [ref=e54]: Active
+      - text: status can access the dashboard.
+      - link "Apply to become a supplier" [ref=e55] [cursor=pointer]:
+        - /url: https://travioafrica.com/become-a-supplier
+  - region "Notifications alt+T"
