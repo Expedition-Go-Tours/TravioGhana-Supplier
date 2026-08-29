@@ -70,6 +70,25 @@ const PAYMENT_META = {
   },
 };
 
+// Which storefront the customer booked through. Visible so a supplier can tell
+// a Travio Ghana booking from one that came in via the Expedition site at a glance.
+function SourceBadge({ source }) {
+  const isGhana = source === "GHANA";
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border",
+        isGhana
+          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+          : "bg-sky-50 text-sky-700 border-sky-200"
+      )}
+    >
+      <span className={cn("w-1.5 h-1.5 rounded-full", isGhana ? "bg-emerald-500" : "bg-sky-500")} />
+      {isGhana ? "Travio Ghana" : "Expedition"}
+    </span>
+  );
+}
+
 function PaymentStatus({ paymentStatus, paymentTiming }) {
   const key =
     paymentStatus === "SUCCEEDED"
@@ -213,6 +232,7 @@ export default function BookingCard({
             <span className="font-mono text-[11px] text-slate-500">
               {booking.bookingNumber}
             </span>
+            <SourceBadge source={booking.source} />
             <span className="text-slate-300">·</span>
             <span className="flex items-center gap-1">
               <Users size={12} className="shrink-0" />
@@ -339,6 +359,9 @@ export default function BookingCard({
                     <p className="text-sm font-medium text-slate-800 font-mono">
                       {booking.bookingNumber}
                     </p>
+                    <div className="mt-1">
+                      <SourceBadge source={booking.source} />
+                    </div>
                   </div>
                   <div>
                     <p className="text-xs text-slate-500 mb-0.5">Purchased</p>

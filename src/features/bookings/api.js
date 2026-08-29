@@ -6,6 +6,9 @@ export function mapBookingRow(booking) {
   return {
     id: booking.id,
     bookingNumber: booking.bookingNumber,
+    // Which storefront the customer booked through: 'GHANA' | 'EXPEDITION'.
+    // Fallback parses the booking-number prefix so older rows still label correctly.
+    source: booking.source || (booking.bookingNumber?.startsWith("GHA") ? "GHANA" : "EXPEDITION"),
     customerId: booking.customer?.id || "",
     customerName: booking.customer?.name || "—",
     customerEmail: booking.customer?.email || "",
