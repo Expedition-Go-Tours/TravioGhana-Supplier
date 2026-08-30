@@ -254,7 +254,9 @@ export default function SupportFloating() {
 
   useEffect(() => {
     if (messages.length > 0 && messagesEndRef.current && !loadingMore) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+      requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      });
     }
   }, [messages.length, loadingMore]);
 
