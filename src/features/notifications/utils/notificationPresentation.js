@@ -1,4 +1,4 @@
-﻿const BACKEND_TYPE_TO_UI = {
+const BACKEND_TYPE_TO_UI = {
   BOOKING_CONFIRMED: "booking",
   BOOKING_CANCELLED: "booking",
   PAYMENT_RECEIVED: "payment",
@@ -38,6 +38,9 @@ function getNotificationRoute(type, data = {}) {
     return { path: `/finance?tab=requests`, label: "View Payout Request" };
   }
   if (data.conversationId) {
+    if (data.conversationType === 'SUPPLIER_CUSTOMER' && data.senderId) {
+      return { path: `/chat?customerId=${data.senderId}`, label: "View Message" };
+    }
     return { path: "/chat", label: "View Message" };
   }
 
