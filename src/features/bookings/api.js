@@ -23,7 +23,9 @@ export function mapBookingRow(booking) {
     // Per-tour confirmation mode (from bookingAndTickets). Missing/unset => instant.
     instantConfirmation: booking.tour?.bookingAndTickets?.instantConfirmation !== false,
     tourId: booking.tourId,
-    tourPhoto: booking.tour?.photos?.[0] || "",
+    // The Ghana supplier bookings endpoint selects coverPhoto but not the
+    // full photos array — prefer coverPhoto, fall back to the first photo.
+    tourPhoto: booking.tour?.coverPhoto || booking.tour?.photos?.[0] || "",
     travelDate: booking.travelDate,
     bookingDate: booking.createdAt,
     travelers: getTravelerCount(travelers),
