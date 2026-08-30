@@ -70,21 +70,30 @@ const PAYMENT_META = {
   },
 };
 
-// Which storefront the customer booked through. Visible so a supplier can tell
-// a Travio Ghana booking from one that came in via the Expedition site at a glance.
+// Which storefront the customer booked through. Three entities: Travio Ghana,
+// Expedition Go, Travio Africa. Visible so a supplier can tell at a glance
+// which platform a booking came in via.
+const SOURCE_META = {
+  GHANA: { label: "Travio Ghana", className: "bg-emerald-50 text-emerald-700 border-emerald-200", dot: "bg-emerald-500" },
+  EXPEDITION: { label: "Expedition Go", className: "bg-sky-50 text-sky-700 border-sky-200", dot: "bg-sky-500" },
+  TRAVIO_AFRICA: { label: "Travio Africa", className: "bg-violet-50 text-violet-700 border-violet-200", dot: "bg-violet-500" },
+};
+
 function SourceBadge({ source }) {
-  const isGhana = source === "GHANA";
+  const meta = SOURCE_META[String(source || "").toUpperCase()] || {
+    label: source || "—",
+    className: "bg-gray-50 text-gray-600 border-gray-200",
+    dot: "bg-gray-400",
+  };
   return (
     <span
       className={cn(
         "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border",
-        isGhana
-          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-          : "bg-sky-50 text-sky-700 border-sky-200"
+        meta.className
       )}
     >
-      <span className={cn("w-1.5 h-1.5 rounded-full", isGhana ? "bg-emerald-500" : "bg-sky-500")} />
-      {isGhana ? "Travio Ghana" : "Expedition"}
+      <span className={cn("w-1.5 h-1.5 rounded-full", meta.dot)} />
+      {meta.label}
     </span>
   );
 }
