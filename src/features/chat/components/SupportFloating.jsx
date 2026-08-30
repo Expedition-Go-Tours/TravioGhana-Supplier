@@ -130,16 +130,19 @@ export default function SupportFloating() {
       setMessages([]);
       try {
         const now = Date.now();
-        let convs = (now - convCacheRef.current.time < CONV_CACHE_TTL) ? convCacheRef.current.data : null;
+        const state = useChatFloatingStore.getState();
+        const targetConvId = state.pendingConversationId;
+        if (targetConvId) state.clearPendingConversation();
+        let convs = null;
+        if (!targetConvId && (now - convCacheRef.current.time < CONV_CACHE_TTL)) {
+          convs = convCacheRef.current.data;
+        }
         if (!convs) {
           convs = await getConversations();
           convCacheRef.current = { data: convs, time: now };
         }
         if (cancelled) return;
         setConversations(convs);
-        const state = useChatFloatingStore.getState();
-        const targetConvId = state.pendingConversationId;
-        if (targetConvId) state.clearPendingConversation();
         let target = null;
         if (targetConvId) {
           target = convs.find((c) => c.id === targetConvId) || null;

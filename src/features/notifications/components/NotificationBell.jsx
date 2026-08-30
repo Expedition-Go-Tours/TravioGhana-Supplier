@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Bell, Check, Loader2, ArrowRight } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
@@ -86,7 +86,12 @@ export default function NotificationBell() {
     }
     closePanel();
     if (notification.backendType === "NEW_MESSAGE") {
-      useChatFloatingStore.getState().open(notification.data?.conversationId);
+      const convType = notification.data?.conversationType;
+      if (convType === "SUPPLIER_CUSTOMER") {
+        navigate(`/chat?customerId=${notification.data?.senderId}`);
+      } else {
+        useChatFloatingStore.getState().open(notification.data?.conversationId);
+      }
       return;
     }
     if (notification.action) {
