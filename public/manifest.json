@@ -1,7 +1,7 @@
 {
-  "name": "TravioAfrica Supplier Dashboard",
+  "name": "Travio Ghana Supplier Dashboard",
   "short_name": "Supplier Hub",
-  "description": "Manage your tours, bookings, and supplier profile on TravioAfrica",
+  "description": "Manage your tours, bookings, and supplier profile on Travio Ghana",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
