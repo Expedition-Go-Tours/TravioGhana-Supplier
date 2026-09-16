@@ -167,24 +167,24 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
           ${isCollapsed ? "lg:w-[64px] lg:translate-x-0" : "lg:w-[270px] lg:translate-x-0"}
           w-[260px]`}
       >
-        {/* Collapse toggle */}
-        <div className={`flex items-center shrink-0 ${isCollapsed ? "justify-center px-2 py-1.5" : "justify-end px-3 py-1.5"}`}>
-          <button
-            onClick={() => isMobileOpen ? closeMobile() : toggle()}
-            className="flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200 p-1.5"
-            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            <ChevronLeft size={15} />
-          </button>
-        </div>
-
-        {/* Profile */}
+        {/* Profile — starts at the very top, collapse button overlaid */}
         <button
           onClick={() => navigate("/settings?tab=profile")}
           onMouseEnter={() => setProfileHover(true)}
           onMouseLeave={() => setProfileHover(false)}
-          className={`shrink-0 w-full text-center cursor-pointer hover:bg-white/5 transition-colors border-b border-white/5 relative ${isCollapsed ? "py-4" : "py-4 px-5"}`}
+          className={`shrink-0 w-full text-center cursor-pointer hover:bg-white/5 transition-colors border-b border-white/5 relative ${isCollapsed ? "py-4" : "pt-5 pb-4 px-5"}`}
         >
+          {/* Collapse toggle — absolute top-right corner */}
+          <div className={`absolute top-1.5 ${isCollapsed ? "right-1" : "right-2"}`}>
+            <button
+              onClick={(e) => { e.stopPropagation(); isMobileOpen ? closeMobile() : toggle() }}
+              className="flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200 p-1.5"
+              title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              <ChevronLeft size={15} />
+            </button>
+          </div>
+
           <div className={`flex flex-col items-center gap-2 ${isCollapsed ? "" : "relative"}`}>
             <div className="relative shrink-0">
               {effectiveLogoUrl ? (

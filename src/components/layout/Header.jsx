@@ -49,11 +49,9 @@ export default function Header() {
         </a>
       </div>
 
-      {/* Center: Search */}
-      <div className="flex-1 flex justify-center min-w-0">
-        <div className="w-full max-w-4xl">
-          <SearchDropdown />
-        </div>
+      {/* Center: Search — fills available space */}
+      <div className="flex-1 flex items-center min-w-0 px-2 lg:px-4">
+        <SearchDropdown />
       </div>
 
       {/* Right: Notifications + Profile */}
