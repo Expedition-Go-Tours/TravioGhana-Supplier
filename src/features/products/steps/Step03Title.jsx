@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useProductBuilderStore } from '@/features/products/productBuilderStore'
 import { useStepErrors } from '@/features/products/useStepErrors'
 import { TITLE_MAX_CHARS, REFERENCE_CODE_MAX_CHARS, limitMessage } from '@/features/products/productFormSchema'
+import { syncExternalReviews } from '@/features/products/api'
 
 /* ── Platform config ── */
 const PLATFORMS = [
@@ -219,8 +220,12 @@ function AddPlatformForm({ existingKeys, onSave, onCancel }) {
 function ExternalReviewsSection() {
   const externalReviews = useProductBuilderStore((s) => s.externalReviews)
   const setField = useProductBuilderStore((s) => s.setField)
+  const currentId = useProductBuilderStore((s) => s.currentId)
   const [showForm, setShowForm] = useState(false)
   const [confirmed, setConfirmed] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+  const [syncResult, setSyncResult] = useState(null)
+  const [syncError, setSyncError] = useState(null)
 
   const savedKeys = (externalReviews || []).map((r) => r.platform)
   const allAdded = savedKeys.length >= PLATFORMS.length
@@ -232,6 +237,21 @@ function ExternalReviewsSection() {
 
   const handleRemove = (index) => {
     setField('externalReviews', (externalReviews || []).filter((_, i) => i !== index))
+  }
+
+  const handleSync = async () => {
+    if (!currentId || syncing) return
+    setSyncing(true)
+    setSyncResult(null)
+    setSyncError(null)
+    try {
+      const res = await syncExternalReviews(currentId)
+      setSyncResult(res.data?.data || { imported: 0, skipped: 0, errors: [] })
+    } catch (err) {
+      setSyncError(err.response?.data?.message || 'Sync failed. Please try again.')
+    } finally {
+      setSyncing(false)
+    }
   }
 
   return (
@@ -250,6 +270,57 @@ function ExternalReviewsSection() {
           {externalReviews.map((entry, i) => (
             <SavedReviewCard key={entry.platform} entry={entry} onRemove={() => handleRemove(i)} />
           ))}
+        </div>
+      )}
+
+      {/* Sync button — shown when URLs are configured and product is saved */}
+      {(externalReviews || []).length > 0 && currentId && (
+        <div className="mb-3">
+          <button
+            type="button"
+            onClick={handleSync}
+            disabled={syncing}
+            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-[13px] font-semibold text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {syncing ? (
+              <>
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Syncing reviews...
+              </>
+            ) : (
+              <>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9" />
+                </svg>
+                Sync Reviews Now
+              </>
+            )}
+          </button>
+
+          {/* Sync result */}
+          {syncResult && (
+            <div className="mt-2 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2">
+              <p className="text-[13px] text-emerald-700 font-medium">
+                ✓ Imported {syncResult.imported} review{syncResult.imported !== 1 ? 's' : ''}
+                {syncResult.skipped > 0 && ` (${syncResult.skipped} already synced)`}
+              </p>
+              {syncResult.errors?.length > 0 && (
+                <p className="text-[12px] text-amber-600 mt-1">
+                  {syncResult.errors.length} error{syncResult.errors.length !== 1 ? 's' : ''} occurred during sync
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Sync error */}
+          {syncError && (
+            <div className="mt-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2">
+              <p className="text-[13px] text-red-700">{syncError}</p>
+            </div>
+          )}
         </div>
       )}
 
