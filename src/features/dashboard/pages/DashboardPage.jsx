@@ -123,6 +123,7 @@ export default function DashboardPage() {
   const tours = dashboardData?.tours || {};
   const bookings = dashboardData?.bookings || {};
   const earnings = dashboardData?.earnings || {};
+  const topProducts = dashboardData?.topProducts || [];
 
   const activeTours = tours.active || 0;
   const activeBookings = bookings.confirmed || 0;
@@ -452,8 +453,49 @@ export default function DashboardPage() {
             <div className="space-y-3">
               {[1, 2, 3].map((i) => <div key={i} className="h-16 bg-emerald-50/40 rounded-lg animate-pulse" />)}
             </div>
+          ) : topProducts.length > 0 ? (
+            <div className="space-y-2">
+              {topProducts.map((product, i) => (
+                <button
+                  key={product.id}
+                  onClick={() => navigate(`/products/${product.id}`)}
+                  className="w-full flex items-center gap-3 rounded-lg border border-transparent hover:border-emerald-200 hover:bg-emerald-50/30 p-2 text-left transition-all"
+                >
+                  <span className="w-5 shrink-0 text-xs font-semibold text-slate-400 tabular-nums">{i + 1}</span>
+                  <div className="w-10 h-10 rounded-lg overflow-hidden bg-emerald-50 shrink-0">
+                    {product.coverPhoto ? (
+                      <OptimizedImage src={product.coverPhoto} width={40} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-emerald-300">
+                        <ShoppingBag size={16} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-medium text-slate-800 truncate" title={product.title}>
+                      {product.title}
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      {product.bookings} booking{product.bookings !== 1 ? "s" : ""}
+                      {product.reviewCount > 0 && (
+                        <span className="ml-2 inline-flex items-center gap-0.5">
+                          <Star size={10} className="fill-amber-400 text-amber-400" />
+                          {product.averageRating.toFixed(1)}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <span className="text-[13px] font-semibold text-emerald-600 shrink-0 tabular-nums">
+                    {formatCurrency(product.revenue)}
+                  </span>
+                </button>
+              ))}
+            </div>
           ) : (
-            <p className="text-xs font-medium text-slate-400 text-center py-8">Product analytics coming soon</p>
+            <div className="flex flex-col items-center justify-center py-8 gap-1.5">
+              <ShoppingBag size={20} className="text-slate-300" />
+              <p className="text-xs font-medium text-slate-400">No product bookings yet</p>
+            </div>
           )}
         </div>
       </div>
