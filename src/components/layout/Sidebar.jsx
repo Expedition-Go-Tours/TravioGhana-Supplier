@@ -189,12 +189,12 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
           <div className="flex flex-col items-center gap-2">
             <div className="relative shrink-0">
               {effectiveLogoUrl ? (
-                <div className="w-20 h-20 rounded-full overflow-hidden ring-[3px] ring-white/20 shadow-[0_4px_16px_rgba(0,0,0,0.2)]">
-                  <OptimizedImage src={effectiveLogoUrl} width={80} className="w-full h-full object-cover" />
+                <div className={`${isCollapsed ? "w-9 h-9" : "w-20 h-20"} rounded-full overflow-hidden ring-[3px] ring-white/20 shadow-[0_4px_16px_rgba(0,0,0,0.2)]`}>
+                  <OptimizedImage src={effectiveLogoUrl} width={isCollapsed ? 36 : 80} className="w-full h-full object-cover" />
                 </div>
               ) : (
-                <div className="w-20 h-20 rounded-full bg-white/15 flex items-center justify-center ring-[3px] ring-white/20 shadow-[0_4px_16px_rgba(0,0,0,0.2)]">
-                  <span className="text-2xl font-bold text-white">
+                <div className={`${isCollapsed ? "w-9 h-9" : "w-20 h-20"} rounded-full bg-white/15 flex items-center justify-center ring-[3px] ring-white/20 shadow-[0_4px_16px_rgba(0,0,0,0.2)]`}>
+                  <span className={`${isCollapsed ? "text-sm" : "text-2xl"} font-bold text-white`}>
                     {(businessName || user?.name || "S").charAt(0).toUpperCase()}
                   </span>
                 </div>
