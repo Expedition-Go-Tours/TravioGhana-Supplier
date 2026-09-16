@@ -320,13 +320,13 @@ export default function SearchDropdown() {
         aria-expanded={open}
         aria-haspopup="dialog"
       >
-        <Search className="h-3.5 w-3.5" />
         <span className="hidden sm:inline">{query || "Search…"}</span>
         {!open && (
-          <kbd className="hidden sm:ml-2 sm:inline-block rounded-md border border-[#eaeaea] bg-[#f8fafc] px-1.5 py-0.5 text-[10px] font-medium text-[#64748b]">
+          <kbd className="hidden sm:ml-auto sm:inline-block rounded-md border border-[#eaeaea] bg-[#f8fafc] px-1.5 py-0.5 text-[10px] font-medium text-[#64748b]">
             ⌘K
           </kbd>
         )}
+        <Search className="h-3.5 w-3.5 ml-auto" />
       </button>
 
       <AnimatePresence>

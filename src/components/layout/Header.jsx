@@ -51,7 +51,7 @@ export default function Header() {
 
       {/* Center: Search — centered with controlled width */}
       <div className="flex-1 flex items-center justify-center min-w-0 px-2 lg:px-4">
-        <div className="w-full max-w-2xl">
+        <div className="w-full max-w-sm">
           <SearchDropdown />
         </div>
       </div>
