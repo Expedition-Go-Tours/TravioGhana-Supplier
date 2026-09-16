@@ -58,7 +58,6 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
   // Derived state: a collapsed sidebar can never show the confirm dialog.
   // Expressing the reset during render avoids a setState-from-effect cascade.
   const showLogoutConfirm = logoutConfirmOpen && !isCollapsed;
-  const [profileHover, setProfileHover] = useState(false);
   const { hasPermission } = useTeamRole();
 
   const navItems = allNavItems.filter((item) => {
@@ -167,25 +166,23 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
           ${isCollapsed ? "lg:w-[64px] lg:translate-x-0" : "lg:w-[270px] lg:translate-x-0"}
           w-[260px]`}
       >
-        {/* Profile — starts at the very top, collapse button overlaid */}
+        {/* Collapse toggle — separate from profile */}
+        <div className={`flex shrink-0 ${isCollapsed ? "justify-center px-2 pt-2 pb-1" : "justify-end px-3 pt-2 pb-1"}`}>
+          <button
+            onClick={() => isMobileOpen ? closeMobile() : toggle()}
+            className="flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200 p-1.5"
+            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <ChevronLeft size={15} />
+          </button>
+        </div>
+
+        {/* Profile */}
         <button
           onClick={() => navigate("/settings?tab=profile")}
-          onMouseEnter={() => setProfileHover(true)}
-          onMouseLeave={() => setProfileHover(false)}
-          className={`shrink-0 w-full text-center cursor-pointer hover:bg-white/5 transition-colors border-b border-white/5 relative ${isCollapsed ? "py-4" : "pt-5 pb-4 px-5"}`}
+          className={`shrink-0 w-full text-center cursor-pointer hover:bg-white/5 transition-colors border-b border-white/5 ${isCollapsed ? "py-3" : "pb-4 px-5"}`}
         >
-          {/* Collapse toggle — absolute top-right corner */}
-          <div className={`absolute top-1.5 ${isCollapsed ? "right-1" : "right-2"}`}>
-            <button
-              onClick={(e) => { e.stopPropagation(); isMobileOpen ? closeMobile() : toggle() }}
-              className="flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200 p-1.5"
-              title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            >
-              <ChevronLeft size={15} />
-            </button>
-          </div>
-
-          <div className={`flex flex-col items-center gap-2 ${isCollapsed ? "" : "relative"}`}>
+          <div className={`flex flex-col items-center gap-2`}>
             <div className="relative shrink-0">
               {effectiveLogoUrl ? (
                 <div className="w-12 h-12 rounded-full overflow-hidden ring-2 ring-white/20">
