@@ -183,7 +183,7 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
           className={`shrink-0 cursor-pointer transition-all duration-200 ${
             isCollapsed
               ? "py-3 px-2"
-              : "bg-white/10 backdrop-blur-[16px] border border-white/[0.18] rounded-[18px] shadow-[0_8px_32px_rgba(0,0,0,0.25)] hover:bg-white/[0.14] p-6 mx-3 mb-3"
+              : "bg-white/[0.06] backdrop-blur-[16px] border border-white/[0.1] rounded-[18px] hover:bg-white/[0.09] p-6 mx-3 mb-3"
           }`}
         >
           <div className="flex flex-col items-center gap-2">
