@@ -168,7 +168,7 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
           w-[260px]`}
       >
         {/* Collapse toggle */}
-        <div className={`flex items-center h-[48px] shrink-0 border-b border-white/10 ${isCollapsed ? "justify-center px-2" : "justify-end px-3"}`}>
+        <div className={`flex items-center shrink-0 ${isCollapsed ? "justify-center px-2 py-1.5" : "justify-end px-3 py-1.5"}`}>
           <button
             onClick={() => isMobileOpen ? closeMobile() : toggle()}
             className="flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200 p-1.5"

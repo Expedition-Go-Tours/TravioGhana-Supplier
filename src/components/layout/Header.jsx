@@ -45,13 +45,13 @@ export default function Header() {
           onClick={(e) => { e.preventDefault(); navigate('/') }}
           className="flex items-center"
         >
-          <img src={logoSrc} alt="Travio Ghana" className="w-[110px] lg:w-[140px] h-auto" />
+          <img src={logoSrc} alt="Travio Ghana" className="w-[140px] lg:w-[180px] h-auto" />
         </a>
       </div>
 
       {/* Center: Search */}
       <div className="flex-1 flex justify-center min-w-0">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-4xl">
           <SearchDropdown />
         </div>
       </div>
