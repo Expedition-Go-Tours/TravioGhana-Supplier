@@ -180,10 +180,10 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
         {/* Profile — Glassmorphism card */}
         <div
           onClick={() => navigate("/settings?tab=profile")}
-          className={`shrink-0 cursor-pointer transition-all duration-200 ${
+          className={`shrink-0 cursor-pointer ${
             isCollapsed
               ? "py-3 px-2"
-              : "bg-white/[0.06] backdrop-blur-[16px] border border-white/[0.1] rounded-[18px] hover:bg-white/[0.09] p-6 mx-3 mb-3"
+              : "bg-white/[0.06] backdrop-blur-[16px] border border-white/[0.1] rounded-[18px] p-6 mx-3 mb-3"
           }`}
         >
           <div className="flex flex-col items-center gap-2">
