@@ -88,6 +88,10 @@ export const stepSchemas = {
   2: z.object({
       title: z.string().min(1, 'Title is required').max(TITLE_MAX_CHARS, `Title must be ${TITLE_MAX_CHARS} characters or fewer`),
       referenceCode: z.string().max(REFERENCE_CODE_MAX_CHARS, `Reference code must be ${REFERENCE_CODE_MAX_CHARS} characters or fewer`).optional(),
+      externalReviews: z.array(z.object({
+        platform: z.string().optional(),
+        url: z.string().url('Enter a valid URL').or(z.literal('')).optional(),
+      })).optional(),
     }),
     3: z.object({
       category: z.enum(['tour', 'activity', 'transport'], { errorMap: () => ({ message: 'Select a product type' }) }),

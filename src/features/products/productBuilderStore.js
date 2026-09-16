@@ -72,6 +72,7 @@ const INITIAL_FORM = {
   durationUnit: 'hours',
   title: '',
   referenceCode: '',
+  externalReviews: [],
   shortDescription: '',
   fullDescription: '',
   highlights: ['', '', ''],

@@ -7,7 +7,7 @@ import {
 
 const STEP_FIELDS = {
   1: ['language'],
-  2: ['title', 'referenceCode'],
+  2: ['title', 'referenceCode', 'externalReviews'],
   3: ['category', 'activitiesIncluded', 'transportModes', 'transportServices', 'difficulty', 'duration', 'durationUnit', 'accommodationIncluded'],
   4: ['shortDescription', 'fullDescription', 'highlights'],
   5: ['locations'],
