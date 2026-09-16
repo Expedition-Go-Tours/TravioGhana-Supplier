@@ -118,32 +118,6 @@ export const submitProductForReview = (id, payload) => {
 export const withdrawProductForReview = (id) => api.post(`/tours/${id}/withdraw-review`, undefined, { skipGlobalErrorHandler: true });
 
 /**
- * Trigger external review sync for a tour.
- * Crawls review platforms and imports 4+ star reviews.
- * @param {string} tourId - Tour ID
- * @returns {Promise} Axios response with { imported, skipped, errors, total }
- */
-export const syncExternalReviews = (tourId) =>
-  api.post(`/tours/${tourId}/external-reviews/sync`, {}, { skipGlobalErrorHandler: true });
-
-/**
- * Get external reviews for a tour (supplier view).
- * @param {string} tourId - Tour ID
- * @returns {Promise} Axios response with external reviews array
- */
-export const getExternalReviews = (tourId) =>
-  api.get(`/tours/${tourId}/external-reviews`, { skipGlobalErrorHandler: true });
-
-/**
- * Delete (soft) an external review.
- * @param {string} tourId - Tour ID
- * @param {string} reviewId - Review ID
- * @returns {Promise} Axios response
- */
-export const deleteExternalReview = (tourId, reviewId) =>
-  api.delete(`/tours/${tourId}/external-reviews/${reviewId}`, { skipGlobalErrorHandler: true });
-
-/**
  * Request a new keyword to be added to the pre-approved list
  * @param {string} keyword
  * @returns {Promise} Axios response
