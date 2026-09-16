@@ -22,12 +22,17 @@ export default function CancelBookingModal({
   const [customReason, setCustomReason] = useState("");
   const cancelRef = useRef(null);
 
-  useEffect(() => {
-    if (!isOpen) {
-      setReason("");
-      setCustomReason("");
-    }
-  }, [isOpen]);
+  // Reset the form when the modal opens (adjust-state-during-render pattern —
+  // the linter-approved way to sync state to a prop change without an effect).
+  const [prevOpen, setPrevOpen] = useState(isOpen);
+  if (isOpen && !prevOpen) {
+    setPrevOpen(true);
+    setReason("");
+    setCustomReason("");
+  }
+  if (!isOpen && prevOpen) {
+    setPrevOpen(false);
+  }
 
   useEffect(() => {
     if (!isOpen) return;

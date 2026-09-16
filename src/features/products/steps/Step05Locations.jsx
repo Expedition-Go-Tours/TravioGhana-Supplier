@@ -432,7 +432,7 @@ function DietarySection({ showDietaryRestrictions, dietaryOptions, onToggle, onA
       {open && (
         <div className="px-4 pb-4 border-t border-slate-100 pt-3">
           <p className="text-[12px] text-slate-400 mb-3">Select which dietary needs you can accommodate across the whole tour.</p>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
             {DIETARY_OPTIONS.map((opt) => {
               const checked = dietaryOptions.includes(opt)
               return (
@@ -591,7 +591,7 @@ function LastDayWrapUp({ day, logistics, setDayLogistics, startLocationName }) {
         <Flag size={12} />
         Last day wrap-up
       </div>
-      <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         <button
           type="button"
           onClick={() => toggle('returnToStart')}

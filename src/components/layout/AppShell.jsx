@@ -9,6 +9,7 @@ export default function AppShell() {
   const { isCollapsed, isMobileOpen } = useSidebarStore();
   const location = useLocation();
   const isProductBuilder = location.pathname.includes('/products/build');
+  const isChatPage = location.pathname.startsWith('/chat');
   useRealtimeNotifications();
 
   return (
@@ -30,7 +31,7 @@ export default function AppShell() {
           <Outlet />
         </div>
       </main>
-      {!isProductBuilder && <SupportFloating />}
+      {!isProductBuilder && !isChatPage && <SupportFloating />}
     </div>
   );
 }

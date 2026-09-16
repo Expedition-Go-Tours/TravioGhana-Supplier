@@ -338,7 +338,7 @@ export default function Step02Category() {
         <label className="block text-sm font-semibold mb-2 text-slate-800">
           Difficulty level
         </label>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {['easy', 'moderate', 'challenging', 'extreme'].map((level) => (
             <button
               key={level}
@@ -362,7 +362,7 @@ export default function Step02Category() {
         <label className="block text-sm font-semibold mb-2 text-slate-800">
           Duration
         </label>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <div className="w-[90px]">
             <input
               data-field="duration"

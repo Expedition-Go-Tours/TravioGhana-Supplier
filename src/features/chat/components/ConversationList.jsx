@@ -76,18 +76,20 @@ export default function ConversationList({ conversations, selectedId, onSelect, 
                 isSelected ? "bg-emerald-50 ring-1 ring-emerald-200" : "hover:bg-slate-50"
               }`}
             >
-              <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-emerald-600 text-sm font-bold text-white">
-                <span>{initial}</span>
-                {otherUser?.photoURL && (
-                    <OptimizedImage
-                      src={otherUser.photoURL}
-                      width={40}
-                      className="absolute inset-0 h-full w-full object-cover"
-                      onError={(e) => { e.target.style.display = "none"; }}
-                    />
-                )}
+              <div className="relative h-10 w-10 shrink-0">
+                <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-emerald-600 text-sm font-bold text-white">
+                  <span>{initial}</span>
+                  {otherUser?.photoURL && (
+                      <OptimizedImage
+                        src={otherUser.photoURL}
+                        width={40}
+                        className="absolute inset-0 h-full w-full object-cover"
+                        onError={(e) => { e.target.style.display = "none"; }}
+                      />
+                  )}
+                </div>
                 {(conv.unreadCount ?? 0) > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-emerald-600 px-1 text-[9px] font-bold text-white ring-2 ring-white">
+                  <span className="absolute -top-3 -right-3 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-emerald-600 px-1 text-[9px] font-bold text-white ring-2 ring-white">
                     {conv.unreadCount}
                   </span>
                 )}

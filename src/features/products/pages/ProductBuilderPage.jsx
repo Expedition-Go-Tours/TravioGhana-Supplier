@@ -309,6 +309,7 @@ export default function ProductBuilderPage() {
 
   const [saving, setSaving] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [mobileStepsOpen, setMobileStepsOpen] = useState(false)
   const queryClient = useQueryClient()
   const savedProductId = useProductBuilderStore((s) => s.savedProductId)
   const setStoreSavedProductId = useProductBuilderStore((s) => s.setSavedProductId)
@@ -490,10 +491,16 @@ export default function ProductBuilderPage() {
 
   useEffect(() => {
     return () => {
-      const urls = useProductBuilderStore.getState()._uploadedUrls
-      if (urls.length > 0) {
-        cleanupMediaUrls(urls)
-        useProductBuilderStore.getState().clearUploadedUrls()
+      const state = useProductBuilderStore.getState()
+      // If the tour was saved (has an ID), the backend has already marked
+      // uploaded media as ATTACHED — do NOT delete them. Only clean up
+      // truly unsaved uploads (new tour never persisted).
+      if (!state.savedProductId) {
+        const urls = state._uploadedUrls
+        if (urls.length > 0) {
+          cleanupMediaUrls(urls)
+          state.clearUploadedUrls()
+        }
       }
     }
   }, [])
@@ -575,6 +582,9 @@ export default function ProductBuilderPage() {
         submittedAt: new Date().toISOString(),
         signature,
       })
+      // Prevent the unmount cleanup from deleting these media assets — they
+      // are now referenced by the submitted draft on the server.
+      storeAfter.clearUploadedUrls()
       await queryClient.invalidateQueries({ queryKey: ['products', 'list'] })
       navigate('/products')
     } finally {
@@ -662,44 +672,53 @@ export default function ProductBuilderPage() {
       transition={{ duration: 0.25, ease: 'easeOut' }}
       className="fixed inset-0 z-50 bg-white overflow-hidden"
     ><div className="h-full flex flex-col">
-          {/* Header bar */}
-          <div className="flex items-center justify-between px-6 py-3 border-b border-slate-200 bg-white shrink-0">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => navigate('/products')}
-                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
-                type="button"
-              >
-                <X size={20} />
-              </button>
-              <div className="w-0.5 h-6 bg-gradient-to-b from-emerald-500 to-emerald-300 rounded-full" />
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-base font-bold text-slate-800">
-                    {id && id !== 'new' ? 'Edit Product' : 'Create New Product'}
-                  </h1>
-                  {draftInfo?.draftStatus === 'PENDING_APPROVAL' && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 text-[11px] font-semibold">
-                      Pending approval
-                    </span>
-                  )}
-                  {draftInfo?.draftStatus === 'REJECTED' && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 text-[11px] font-semibold">
-                      Changes requested
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-slate-500">
-                  Step {gygStepNumber} of {GYG_STEPS.length}: {STEP_LABELS[gygStepNumber]}
-                </p>
-              </div>
+      {/* Header bar */}
+      <div className="flex items-center justify-between px-3 sm:px-4 lg:px-6 py-2.5 sm:py-3 border-b border-slate-200 bg-white shrink-0 gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <button
+            onClick={() => navigate('/products')}
+            className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors shrink-0"
+            type="button"
+            aria-label="Close and return to products"
+          >
+            <X size={20} />
+          </button>
+          {/* Mobile: toggle the step list drawer */}
+          <button
+            onClick={() => setMobileStepsOpen(true)}
+            className="lg:hidden p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors shrink-0"
+            type="button"
+            aria-label="Open product steps"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <div className="w-0.5 h-6 bg-gradient-to-b from-emerald-500 to-emerald-300 rounded-full hidden sm:block" />
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-sm sm:text-base font-bold text-slate-800 truncate">
+                {id && id !== 'new' ? 'Edit Product' : 'Create New Product'}
+              </h1>
+              {draftInfo?.draftStatus === 'PENDING_APPROVAL' && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 text-[11px] font-semibold">
+                  Pending approval
+                </span>
+              )}
+              {draftInfo?.draftStatus === 'REJECTED' && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 text-[11px] font-semibold">
+                  Changes requested
+                </span>
+              )}
             </div>
+            <p className="text-[11px] sm:text-xs text-slate-500 truncate">
+              Step {gygStepNumber} of {GYG_STEPS.length}: {STEP_LABELS[gygStepNumber]}
+            </p>
           </div>
+        </div>
+      </div>
 
-          {/* Draft banner */}
           {draftInfo && (
             <div className={[
-              'flex items-start gap-2.5 px-6 py-2.5 border-b text-sm shrink-0',
+              'flex items-start gap-2.5 px-3 sm:px-4 lg:px-6 py-2.5 border-b text-[13px] sm:text-sm shrink-0',
               draftInfo.draftStatus === 'PENDING_APPROVAL'
                 ? 'bg-amber-50 border-amber-200 text-amber-800'
                 : draftInfo.draftStatus === 'REJECTED'
@@ -707,10 +726,10 @@ export default function ProductBuilderPage() {
                   : 'bg-sky-50 border-sky-200 text-sky-800',
             ].join(' ')}>
               <AlertCircle size={16} className="shrink-0 mt-0.5" />
-              <div>
+              <div className="min-w-0 flex-1">
                 {draftInfo.draftStatus === 'PENDING_APPROVAL' && (
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="flex-1">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2.5">
+                    <p className="flex-1 min-w-0">
                       This product is pending admin review.{' '}
                       <span className="opacity-80">
                         Editing is locked while an admin reviews your submission. Withdraw it to make changes and resubmit.
@@ -720,7 +739,7 @@ export default function ProductBuilderPage() {
                       type="button"
                       onClick={handleWithdraw}
                       disabled={withdrawing}
-                      className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-100 text-amber-800 border border-amber-300 text-xs font-semibold hover:bg-amber-200 disabled:opacity-60 transition-colors"
+                      className="self-start sm:self-auto shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-100 text-amber-800 border border-amber-300 text-xs font-semibold hover:bg-amber-200 disabled:opacity-60 transition-colors"
                     >
                       {withdrawing ? 'Withdrawing…' : 'Withdraw'}
                     </button>
@@ -744,12 +763,55 @@ export default function ProductBuilderPage() {
             </div>
           )}
 
+          {/* Mobile step drawer (hidden on lg+) */}
+          <AnimatePresence>
+            {mobileStepsOpen && (
+              <>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="fixed inset-0 z-40 bg-black/25 lg:hidden"
+                  onClick={() => setMobileStepsOpen(false)}
+                />
+                <motion.div
+                  initial={{ x: '-100%' }}
+                  animate={{ x: 0 }}
+                  exit={{ x: '-100%' }}
+                  transition={{ type: 'tween', duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
+                  className="fixed inset-y-0 left-0 z-50 w-[300px] max-w-[85vw] lg:hidden flex flex-col bg-slate-50"
+                >
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-white shrink-0">
+                    <span className="text-sm font-bold text-slate-800">Product steps</span>
+                    <button
+                      onClick={() => setMobileStepsOpen(false)}
+                      className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
+                      type="button"
+                      aria-label="Close product steps"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+                  <div className="flex-1 min-h-0 overflow-hidden bg-white">
+                    <WizardSidebar currentStep={gygStepNumber} onSelectStep={(id) => { handleSelectStep(id); setMobileStepsOpen(false); }} />
+                  </div>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+
           {/* Main area: sidebar + content */}
-          <div className="flex-1 flex gap-0 min-h-0 px-6 py-5">
-            <WizardSidebar currentStep={gygStepNumber} onSelectStep={handleSelectStep} />
-            <div className="flex-1 flex flex-col ml-6 bg-white overflow-hidden">
-              <div ref={contentRef} className="flex-1 p-8 overflow-y-auto">
-                <h2 className="text-xl font-bold mb-6 tracking-tight">{STEP_LABELS[gygStepNumber]}</h2>
+          <div className="flex-1 flex gap-0 min-h-0 px-3 sm:px-4 lg:px-6 py-3 sm:py-4 lg:py-5">
+            {/* Desktop sidebar */}
+            <div className="hidden lg:flex shrink-0">
+              <WizardSidebar currentStep={gygStepNumber} onSelectStep={handleSelectStep} />
+            </div>
+            <div className="flex-1 flex flex-col lg:ml-6 bg-white overflow-hidden min-w-0">
+              <div ref={contentRef} className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto overflow-x-hidden">
+                {![11, 16].includes(gygStepNumber) && (
+                  <h2 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6 tracking-tight">{STEP_LABELS[gygStepNumber]}</h2>
+                )}
                 <AnimatePresence mode="wait" custom={stepDirection}>
                   {StepComponent && (
                     <motion.div

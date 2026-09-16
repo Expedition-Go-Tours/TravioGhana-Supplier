@@ -13,15 +13,30 @@ import { cn } from "@/lib/utils";
 import EmptyState from "@/components/shared/EmptyState";
 import { fetchPickupPlanner } from "../api";
 import { getAuthToken } from "@/stores/authStore";
-import PickupBookingCard, { isPickupIncomplete } from "../components/pickup/PickupBookingCard";
+import PickupBookingCard from "../components/pickup/PickupBookingCard";
 import EditPickupModal from "../components/pickup/EditPickupModal";
 import ExportMenu from "../components/pickup/ExportMenu";
+import { pickupLabel, isPickupIncomplete } from "../lib/pickupHelpers";
 
 const RANGE_PRESETS = [
   { key: "today", label: "Today" },
   { key: "7d", label: "Next 7 days" },
   { key: "30d", label: "Next 30 days" },
 ];
+
+const PICKUP_FILTERS = [
+  { key: "all", label: "All" },
+  { key: "deferred", label: "Awaiting customer" },
+  { key: "incomplete", label: "Incomplete" },
+  { key: "confirmed", label: "Confirmed" },
+];
+
+/** Server-computed pickup state, falling back to client inference. */
+function pickupStateOf(booking) {
+  if (booking.pickupStatus) return booking.pickupStatus;
+  if (booking.pickupDeferred) return "deferred";
+  return isPickupIncomplete(booking.pickup) ? "incomplete" : "confirmed";
+}
 
 function toDateKey(d) {
   const dt = new Date(d);
@@ -46,16 +61,6 @@ function formatDateHeader(dateKey) {
   });
 }
 
-function pickupLabel(pickup) {
-  if (!pickup) return "";
-  if (pickup.place) return pickup.place;
-  if (pickup.areaName) return `Pickup area: ${pickup.areaName}`;
-  if (pickup.locationName) return pickup.locationName;
-  if (pickup.address?.name) return pickup.address.name;
-  if (pickup.address?.address) return pickup.address.address;
-  return "Pickup requested";
-}
-
 function sortBookingsByPriority(bookings) {
   return [...bookings].sort((a, b) => {
     const aIncomplete = isPickupIncomplete(a.pickup) ? 0 : 1;
@@ -71,6 +76,7 @@ export default function PickupPlannerPage() {
   const [error, setError] = useState(null);
   const [range, setRange] = useState("7d");
   const [status, setStatus] = useState("");
+  const [pickupFilter, setPickupFilter] = useState("all");
   const [editing, setEditing] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showIncompleteOnly, setShowIncompleteOnly] = useState(false);
@@ -119,9 +125,16 @@ export default function PickupPlannerPage() {
     }
   }, [computeRange, status, page]);
 
-  useEffect(() => {
+  // Changing the range or status resets back to page 1 (event-handler driven —
+  // not an effect, so the linter stays happy and the reset is deterministic).
+  const handleRangeChange = useCallback((next) => {
+    setRange(next);
     setPage(1);
-  }, [range, status]);
+  }, []);
+  const handleStatusChange = useCallback((e) => {
+    setStatus(e.target.value);
+    setPage(1);
+  }, []);
 
   useEffect(() => {
     Promise.resolve().then(() => loadPlanner());
@@ -142,11 +155,15 @@ export default function PickupPlannerPage() {
           pickupLabel(b.pickup)?.toLowerCase().includes(q)
       );
     }
-    if (showIncompleteOnly) {
-      filtered = filtered.filter((b) => isPickupIncomplete(b.pickup));
+    if (pickupFilter !== "all") {
+      filtered = filtered.filter((b) => pickupStateOf(b) === pickupFilter);
+    } else if (showIncompleteOnly) {
+      filtered = filtered.filter((b) =>
+        b.isIncomplete != null ? b.isIncomplete : isPickupIncomplete(b.pickup)
+      );
     }
     return sortBookingsByPriority(filtered);
-  }, [bookings, searchQuery, showIncompleteOnly]);
+  }, [bookings, searchQuery, pickupFilter, showIncompleteOnly]);
 
   const groupedBookings = useMemo(() => {
     const groups = {};
@@ -160,9 +177,22 @@ export default function PickupPlannerPage() {
   }, [filteredBookings]);
 
   const incompleteCount = useMemo(
-    () => bookings.filter((b) => isPickupIncomplete(b.pickup)).length,
+    () =>
+      bookings.filter((b) => (b.isIncomplete != null ? b.isIncomplete : isPickupIncomplete(b.pickup)))
+        .length,
     [bookings]
   );
+
+  const stateCounts = useMemo(() => {
+    const counts = { deferred: 0, incomplete: 0, confirmed: 0 };
+    for (const b of bookings) {
+      const s = pickupStateOf(b);
+      if (s === "deferred") counts.deferred += 1;
+      else if (s === "confirmed") counts.confirmed += 1;
+      else counts.incomplete += 1;
+    }
+    return counts;
+  }, [bookings]);
 
   const totalPages = pagination?.totalPages || 1;
 
@@ -214,7 +244,7 @@ export default function PickupPlannerPage() {
             <button
               key={preset.key}
               type="button"
-              onClick={() => setRange(preset.key)}
+              onClick={() => handleRangeChange(preset.key)}
               className={cn(
                 "px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all",
                 range === preset.key
@@ -229,7 +259,7 @@ export default function PickupPlannerPage() {
 
         <select
           value={status}
-          onChange={(e) => setStatus(e.target.value)}
+          onChange={handleStatusChange}
           className="h-10 rounded-xl border border-emerald-100/60 bg-emerald-50/30 px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#044b3b]/20 focus:border-[#044b3b] focus:bg-white transition-all"
         >
           <option value="">All statuses</option>
@@ -263,6 +293,39 @@ export default function PickupPlannerPage() {
             <X size={12} /> Clear filter
           </button>
         )}
+
+        {/* Pickup state filter — deferred / incomplete / confirmed */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {PICKUP_FILTERS.map((f) => {
+            const count = f.key === "all" ? bookings.length : stateCounts[f.key] || 0;
+            return (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => {
+                  setPickupFilter(f.key);
+                  if (f.key !== "all") setShowIncompleteOnly(false);
+                }}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                  pickupFilter === f.key
+                    ? "bg-[#044b3b] text-white shadow-sm"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                )}
+              >
+                {f.label}
+                <span
+                  className={cn(
+                    "text-[10px] px-1.5 py-0.5 rounded",
+                    pickupFilter === f.key ? "bg-white/20 text-white" : "bg-white text-slate-500"
+                  )}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
 
         <span className="text-xs text-slate-400 ml-auto hidden sm:block">
           {from} → {to}
@@ -308,9 +371,14 @@ export default function PickupPlannerPage() {
                     {dayBookings.length} booking
                     {dayBookings.length !== 1 ? "s" : ""}
                   </span>
-                  {dayBookings.some((b) => isPickupIncomplete(b.pickup)) && (
+                  {dayBookings.some((b) =>
+                    b.isIncomplete != null ? b.isIncomplete : isPickupIncomplete(b.pickup)
+                  ) && (
                     <span className="text-[10px] font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
-                      {dayBookings.filter((b) => isPickupIncomplete(b.pickup)).length} incomplete
+                      {dayBookings.filter((b) =>
+                        b.isIncomplete != null ? b.isIncomplete : isPickupIncomplete(b.pickup)
+                      ).length}{" "}
+                      incomplete
                     </span>
                   )}
                 </div>

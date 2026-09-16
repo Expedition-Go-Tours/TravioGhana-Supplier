@@ -5,36 +5,29 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import PickupMapPreview from "../PickupMapPreview";
 import CompletenessIndicator from "./CompletenessIndicator";
 import TravelerManifest from "./TravelerManifest";
-
-function pickupLabel(pickup) {
-  if (!pickup) return "";
-  if (pickup.place) return pickup.place;
-  if (pickup.areaName) return `Pickup area: ${pickup.areaName}`;
-  if (pickup.locationName) return pickup.locationName;
-  if (pickup.address?.name) return pickup.address.name;
-  if (pickup.address?.address) return pickup.address.address;
-  return "Pickup requested";
-}
-
-function isPickupIncomplete(pickup) {
-  if (!pickup) return true;
-  if (!pickup.place && !pickup.areaName && !pickup.locationName && !pickup.address) return true;
-  if (!pickup.time) return true;
-  if (!pickup.instructions) return true;
-  return false;
-}
+import { pickupLabel, isPickupIncomplete } from "../../lib/pickupHelpers";
 
 export default function PickupBookingCard({ booking, onEdit }) {
   const pickup = booking.pickup || {};
   const incomplete = isPickupIncomplete(pickup);
+  const deferred =
+    booking.pickupDeferred ||
+    pickup.pickupLater ||
+    pickup.skipValidation ||
+    pickup.status === "deferred";
+  const needsAttention = deferred || incomplete;
   const address = pickup.place || pickup.address?.name || pickup.address?.address || "";
+  // Area pickups store the customer's exact point nested under `address` while
+  // supplier-set points live at the top level — resolve both for the preview.
+  const previewLat = pickup.lat ?? pickup.address?.lat ?? null;
+  const previewLng = pickup.lng ?? pickup.address?.lng ?? null;
 
   return (
     <div
       className={cn(
         "bg-white border rounded-xl overflow-hidden transition-all duration-200",
         "hover:shadow-md hover:shadow-slate-900/5",
-        incomplete
+        needsAttention
           ? "border-l-4 border-l-amber-400 border border-amber-100"
           : "border-l-4 border-l-emerald-500 border border-emerald-100/60"
       )}
@@ -60,6 +53,17 @@ export default function PickupBookingCard({ booking, onEdit }) {
             <div className="flex items-center gap-2 flex-wrap">
               <p className="text-sm font-bold text-slate-800">{booking.tourName}</p>
               <StatusBadge status={booking.status} />
+              {deferred && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-[10px] font-semibold text-amber-700">
+                  <Clock size={10} />
+                  Awaiting customer pickup
+                </span>
+              )}
+              {!deferred && incomplete && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-50 text-[10px] font-semibold text-rose-600">
+                  Incomplete
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-3 mt-1 flex-wrap">
               <span className="text-xs text-slate-500 flex items-center gap-1">
@@ -92,7 +96,7 @@ export default function PickupBookingCard({ booking, onEdit }) {
         <div
           className={cn(
             "rounded-lg p-3.5 border",
-            incomplete
+            needsAttention
               ? "bg-amber-50/50 border-amber-200/60"
               : "bg-emerald-50/30 border-emerald-200/40"
           )}
@@ -102,23 +106,25 @@ export default function PickupBookingCard({ booking, onEdit }) {
               <div
                 className={cn(
                   "p-1 rounded-md shrink-0",
-                  incomplete ? "bg-amber-100" : "bg-emerald-100"
+                  needsAttention ? "bg-amber-100" : "bg-emerald-100"
                 )}
               >
                 <MapPinned
                   size={12}
-                  className={incomplete ? "text-amber-600" : "text-emerald-600"}
+                  className={needsAttention ? "text-amber-600" : "text-emerald-600"}
                 />
               </div>
               <span
                 className={cn(
                   "text-sm font-medium truncate",
-                  incomplete ? "text-amber-800" : "text-emerald-800"
+                  needsAttention ? "text-amber-800" : "text-emerald-800"
                 )}
               >
                 {pickup.place || pickup.areaName || pickup.locationName || pickup.address?.name
                   ? pickupLabel(pickup)
-                  : "No pickup location set"}
+                  : deferred
+                    ? "Customer will arrange pickup later"
+                    : "No pickup location set"}
               </span>
             </div>
           </div>
@@ -154,7 +160,7 @@ export default function PickupBookingCard({ booking, onEdit }) {
           </div>
 
           <div className="mt-2.5 ml-6">
-            <PickupMapPreview lat={pickup.lat} lng={pickup.lng} address={address} />
+            <PickupMapPreview lat={previewLat} lng={previewLng} address={address} />
           </div>
         </div>
 
@@ -180,5 +186,3 @@ export default function PickupBookingCard({ booking, onEdit }) {
     </div>
   );
 }
-
-export { pickupLabel, isPickupIncomplete };

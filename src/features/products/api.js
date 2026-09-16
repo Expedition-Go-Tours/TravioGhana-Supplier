@@ -88,6 +88,15 @@ export const uploadPhotos = (formData) =>
 export const deleteProduct = (id) => api.delete(`/tours/${id}`);
 
 /**
+ * Delete a single photo from a tour (Cloudinary + DB)
+ * @param {string} id - Product/Tour ID
+ * @param {string} photoUrl - Cloudinary URL of the photo to delete
+ * @returns {Promise} Axios response
+ */
+export const deleteTourPhoto = (id, photoUrl) =>
+  api.delete(`/tours/${id}/photos`, { data: { photoUrl } });
+
+/**
  * Submit a product/tour for admin review (replaces direct publishing)
  * Sets status to PENDING_APPROVAL and notifies the admins.
  * The full submitted payload is passed so the server persists + validates

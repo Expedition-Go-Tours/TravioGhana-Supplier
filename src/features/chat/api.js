@@ -5,9 +5,14 @@ export async function getConversations() {
   return res.data.data?.conversations || [];
 }
 
-export async function getOrCreateConversation(recipientId, type) {
+export async function getOrCreateConversation(recipientId, type, context) {
   const body = { recipientId };
   if (type) body.type = type;
+  if (context) {
+    if (context.bookingId) body.bookingId = context.bookingId;
+    if (context.bookingNumber) body.bookingNumber = context.bookingNumber;
+    if (context.tourTitle) body.tourTitle = context.tourTitle;
+  }
   const res = await api.post("/chat/conversations", body);
   return res.data.data.conversation;
 }
@@ -36,8 +41,9 @@ export async function markConversationAsRead(conversationId) {
   return res.data.data;
 }
 
-export async function getUnreadCount() {
-  const res = await api.get("/chat/conversations/unread-count");
+export async function getUnreadCount(type) {
+  const params = type ? `?type=${encodeURIComponent(type)}` : "";
+  const res = await api.get(`/chat/conversations/unread-count${params}`);
   return res.data.data?.unreadCount ?? 0;
 }
 

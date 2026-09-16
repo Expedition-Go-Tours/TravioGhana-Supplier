@@ -8,10 +8,10 @@ const STATUS_STYLES = {
     dot: "bg-[#ffc400]",
   },
   CONFIRMED: {
-    bg: "bg-[#ebfcf5]",
-    text: "text-[#047857]",
-    border: "border-[#6ee7b7]",
-    dot: "bg-[#00d67f]",
+    bg: "bg-[#eff6ff]",
+    text: "text-[#1d4ed8]",
+    border: "border-[#93c5fd]",
+    dot: "bg-[#298dff]",
   },
   CANCELLED: {
     bg: "bg-[#ffebeb]",

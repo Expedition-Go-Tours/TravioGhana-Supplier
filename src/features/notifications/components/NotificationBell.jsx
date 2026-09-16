@@ -86,6 +86,8 @@ export default function NotificationBell() {
     }
     closePanel();
     if (notification.backendType === "NEW_MESSAGE") {
+      // Route by conversation type: customer messages go to full-page chat,
+      // admin/support messages go to the floating bubble.
       const convType = notification.data?.conversationType;
       if (convType === "SUPPLIER_CUSTOMER") {
         navigate(`/chat?customerId=${notification.data?.senderId}`);

@@ -10,6 +10,7 @@ import ChatWindow from "../components/ChatWindow";
 import CustomerDetailsPanel from "../components/CustomerDetailsPanel";
 import { getConversations, getOrCreateConversation, getMessages, sendMessage, markConversationAsRead, deleteConversation } from "../api";
 import { useChatSocket } from "../hooks/useChatSocket";
+import { getChatSocket } from "../chatSocket";
 
 const PAGE_SIZE = 50;
 const TABS = [
@@ -25,11 +26,13 @@ export default function ChatPage() {
 
   const tabParam = searchParams.get("tab") === "unread" ? "unread" : "all";
   const customerIdParam = searchParams.get("customerId");
+  const bookingIdParam = searchParams.get("bookingId");
+  const bookingNumberParam = searchParams.get("bookingNumber");
+  const tourTitleParam = searchParams.get("tourTitle");
 
   const [activeTab, setActiveTab] = useState(tabParam);
   const [loadingMore, setLoadingMore] = useState(false);
   const [sending, setSending] = useState(false);
-  const [creatingConv, setCreatingConv] = useState(false);
   const [showDetailsPanel, setShowDetailsPanel] = useState(false);
   const [mobileView, setMobileView] = useState('list');
   const isFetchingRef = useRef(false);
@@ -43,7 +46,6 @@ export default function ChatPage() {
   const hasMore = useChatStore((s) => s.hasMore);
   const loadingConvs = useChatStore((s) => s.loadingConvs);
   const loadingMsgs = useChatStore((s) => s.loadingMsgs);
-  const loaded = useChatStore((s) => s.loaded);
 
   const setConversations = useChatStore((s) => s.setConversations);
   const appendConversation = useChatStore((s) => s.appendConversation);
@@ -73,13 +75,27 @@ export default function ChatPage() {
     }
   }, [currentUserId, setConversations]);
 
-  // Initial fetch only if store is empty
+  // Always refresh conversations on mount to avoid stale data
   useEffect(() => {
     if (!currentUserId) return;
-    if (!loaded) {
-      loadConversations();
-    }
-  }, [currentUserId, loaded, loadConversations]);
+    loadConversations();
+  }, [currentUserId, loadConversations]);
+
+  // Live refresh: when a new chat message or notification arrives for this
+  // user (e.g. an email reply routed back into a conversation they haven't
+  // opened), re-fetch the conversation list so it appears without a manual
+  // browser refresh.
+  useEffect(() => {
+    if (!currentUserId) return;
+    const socket = getChatSocket(currentUserId);
+    const refresh = () => loadConversations();
+    socket.on("chat:message", refresh);
+    socket.on("notification", refresh);
+    return () => {
+      socket.off("chat:message", refresh);
+      socket.off("notification", refresh);
+    };
+  }, [currentUserId, loadConversations]);
 
   const loadMessages = useCallback(async (convId, conv) => {
     if (!convId || isFetchingRef.current) return;
@@ -144,19 +160,27 @@ export default function ChatPage() {
       return;
     }
 
-    setCreatingConv(true);
-    getOrCreateConversation(customerIdParam, 'SUPPLIER_CUSTOMER')
+    getOrCreateConversation(
+      customerIdParam,
+      'SUPPLIER_CUSTOMER',
+      bookingIdParam || bookingNumberParam || tourTitleParam
+        ? {
+            bookingId: bookingIdParam || undefined,
+            bookingNumber: bookingNumberParam || undefined,
+            tourTitle: tourTitleParam || undefined,
+          }
+        : undefined,
+    )
       .then((conv) => {
         appendConversation(conv);
         Promise.resolve().then(() => handleSelectConversation(conv));
+        // Refresh conversation list to ensure it includes the new conversation
+        loadConversations();
       })
       .catch(() => {
         toast.error("Failed to open conversation");
-      })
-      .finally(() => {
-        setCreatingConv(false);
       });
-  }, [customerIdParam, currentUserId, conversations, handleSelectConversation, appendConversation]);
+  }, [customerIdParam, bookingIdParam, bookingNumberParam, tourTitleParam, currentUserId, conversations, handleSelectConversation, appendConversation, loadConversations]);
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -273,6 +297,7 @@ export default function ChatPage() {
     emitMarkRead(selectedConv.id);
   }, [selectedConv?.id, currentUserId, emitMarkRead]);
 
+  // Customer conversations only — admin chats go in the floating bubble
   const customerConversations = conversations.filter((c) => c.type === "SUPPLIER_CUSTOMER");
   const filteredConversations = activeTab === "unread"
     ? customerConversations.filter((c) => (c.unreadCount ?? 0) > 0)

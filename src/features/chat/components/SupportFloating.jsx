@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import {
   MessageCircle, X, Send, Paperclip, Loader2, Headphones,
-  Phone, Mail, Clock, ChevronLeft, ChevronRight,
+  Phone, Mail, Clock, ChevronLeft, ChevronRight, ChevronDown,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
@@ -66,7 +66,7 @@ export default function SupportFloating() {
   const currentUserId = user?.id;
 
   const { isOpen, open: openStore, close: closeStore } = useChatFloatingStore();
-  const [, setConversations] = useState([]);
+  const [conversations, setConversations] = useState([]);
   const [selectedConv, setSelectedConv] = useState(null);
   const [messages, setMessages] = useState([]);
   const [messageStatuses, setMessageStatuses] = useState({});
@@ -80,6 +80,7 @@ export default function SupportFloating() {
   const [adminTyping, setAdminTyping] = useState(false);
   const [welcomePage, setWelcomePage] = useState("main");
   const [slideDir, setSlideDir] = useState("right");
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
 
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -90,11 +91,30 @@ export default function SupportFloating() {
   const typingIntervalRef = useRef(null);
   const typingStopRef = useRef(null);
   const convCacheRef = useRef({ data: null, time: 0 });
-  const scrollPosRef = useRef(0);
+  const prevConvIdRef = useRef(null);
+  const pendingScrollRef = useRef(null);
+  const prevCountRef = useRef(0);
+  const conversationsRef = useRef([]);
 
   useEffect(() => {
     selectedIdRef.current = selectedConv?.id || null;
   }, [selectedConv?.id]);
+
+  useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
+
+  const isNearBottom = useCallback(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+  }, []);
+
+  const scrollToBottom = useCallback((force) => {
+    if (force || isNearBottom()) {
+      messagesEndRef.current?.scrollIntoView({ behavior: force ? "auto" : "smooth", block: "end" });
+    }
+  }, [isNearBottom]);
 
   const loadAndSetMessages = useCallback(async (convId) => {
     if (!convId || isFetchingRef.current) return;
@@ -133,6 +153,8 @@ export default function SupportFloating() {
         const state = useChatFloatingStore.getState();
         const targetConvId = state.pendingConversationId;
         if (targetConvId) state.clearPendingConversation();
+        // Bypass cache when opening a specific conversation (e.g. from a
+        // notification) to ensure the target is in the list.
         let convs = null;
         if (!targetConvId && (now - convCacheRef.current.time < CONV_CACHE_TTL)) {
           convs = convCacheRef.current.data;
@@ -157,7 +179,14 @@ export default function SupportFloating() {
           }
         }
         if (!cancelled) {
-          const badgeCount = convs.reduce((sum, c) => sum + (c.id === target?.id ? 0 : (c.unreadCount || 0)), 0);
+          // The floating bubble only displays the SUPPLIER_ADMIN ("Admin Support")
+          // thread, so its badge must never count unread from other chatrooms
+          // (SUPPLIER_CUSTOMER / EXPEDITION_CUSTOMER) that it cannot open.
+          const badgeCount = convs.reduce(
+            (sum, c) =>
+              sum + (c.type === "SUPPLIER_ADMIN" && c.id !== target?.id ? (c.unreadCount || 0) : 0),
+            0
+          );
           setUnreadBadge(badgeCount);
         }
       } catch (err) { console.error('[SupportFloating] Failed to load conversations:', err); } finally {
@@ -181,6 +210,12 @@ export default function SupportFloating() {
         });
         setMessageStatuses((prev) => ({ ...prev, [msg.id]: "delivered" }));
       } else {
+        // Only count toward the floating bubble badge when the message lands in
+        // the SUPPLIER_ADMIN ("Admin Support") thread it displays. Other
+        // chatrooms (SUPPLIER_CUSTOMER / EXPEDITION_CUSTOMER) keep their own
+        // unread on the full Chat page but must not inflate this badge.
+        const existing = conversationsRef.current.find((c) => c.id === conversationId);
+        const isAdminThread = existing ? existing.type === "SUPPLIER_ADMIN" : false;
         setConversations((prev) => {
           if (prev.some((c) => c.id === conversationId)) {
             return prev.map((c) =>
@@ -189,7 +224,7 @@ export default function SupportFloating() {
           }
           return [{ id: conversationId, messages: [msg], updatedAt: msg.createdAt, unreadCount: 1 }, ...prev];
         });
-        setUnreadBadge((prev) => prev + 1);
+        if (isAdminThread) setUnreadBadge((prev) => prev + 1);
       }
     };
 
@@ -252,25 +287,49 @@ export default function SupportFloating() {
     };
   }, [selectedConv?.id]);
 
+  // Remember which conversation still needs a force-scroll-to-latest after its
+  // messages first mount (opening the bubble, or switching threads).
   useEffect(() => {
-    if (messages.length > 0 && messagesEndRef.current && !loadingMore) {
-      requestAnimationFrame(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-      });
+    if (selectedConv?.id && prevConvIdRef.current !== selectedConv?.id) {
+      prevConvIdRef.current = selectedConv?.id;
+      pendingScrollRef.current = selectedConv?.id;
     }
-  }, [messages.length, loadingMore]);
+  }, [selectedConv?.id]);
+
+  // Scroll handling:
+  //  - On open / thread switch: force an INSTANT jump to the latest message
+  //    once the list actually mounts (messages.length > 0 and not loading).
+  //  - On new messages: only smooth-scroll if the user is already near the
+  //    bottom — never yank them out of history they're reading (show the
+  //    "jump to latest" button instead).
+  useEffect(() => {
+    if (loading || messages.length === 0) return;
+    const force = pendingScrollRef.current === selectedConv?.id;
+    if (force) pendingScrollRef.current = null;
+    const grew = messages.length > prevCountRef.current;
+    prevCountRef.current = messages.length;
+    // Prepend (load-older) must not scroll — position is restored by handleScroll.
+    if (!grew && !force) return;
+    if (!force && !isNearBottom()) {
+      setShowScrollBtn(true);
+      return;
+    }
+    const raf = requestAnimationFrame(() => scrollToBottom(force));
+    return () => cancelAnimationFrame(raf);
+  }, [messages.length, loading, selectedConv?.id, scrollToBottom, isNearBottom]);
 
   useEffect(() => {
     if (adminTyping && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+      scrollToBottom(false);
     }
-  }, [adminTyping]);
+  }, [adminTyping, scrollToBottom]);
 
   useEffect(() => {
     if (!currentUserId) return;
     const poll = async () => {
       try {
-        const count = await getUnreadCount();
+        // Scope to the SUPPLIER_ADMIN thread the floating bubble displays.
+        const count = await getUnreadCount("SUPPLIER_ADMIN");
         setUnreadBadge(count);
       } catch (err) { console.error('[SupportFloating] Failed to poll unread count:', err); }
     };
@@ -345,13 +404,13 @@ export default function SupportFloating() {
       setConversations((prev) =>
         prev.map((c) => c.id === conv.id ? { ...c, updatedAt: msg.createdAt, messages: [msg] } : c)
       );
-      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+      requestAnimationFrame(() => scrollToBottom(true));
     } catch {
       toast.error("Failed to send message");
     } finally {
       setSending(false);
     }
-  }, [sending, ensureConversation, stopTypingSignal]);
+  }, [sending, ensureConversation, stopTypingSignal, scrollToBottom]);
 
   const handleSubmit = useCallback(() => {
     if (!input.trim() || sending) return;
@@ -417,17 +476,19 @@ export default function SupportFloating() {
 
   const handleScroll = useCallback(() => {
     const el = messagesContainerRef.current;
-    if (!el || !hasMore || loadingMore) return;
-    if (el.scrollTop < 50) {
-      scrollPosRef.current = el.scrollHeight;
+    if (!el) return;
+    setShowScrollBtn(!isNearBottom());
+    if (el.scrollTop < 50 && hasMore && !loadingMore) {
+      const prevHeight = el.scrollHeight;
       handleLoadMore();
       requestAnimationFrame(() => {
         if (messagesContainerRef.current) {
-          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight - scrollPosRef.current;
+          messagesContainerRef.current.scrollTop =
+            messagesContainerRef.current.scrollHeight - prevHeight;
         }
       });
     }
-  }, [hasMore, loadingMore, handleLoadMore]);
+  }, [hasMore, loadingMore, handleLoadMore, isNearBottom]);
 
   const showContactPage = useCallback(() => {
     setSlideDir("right");
@@ -538,74 +599,85 @@ export default function SupportFloating() {
                       transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
                       className="flex h-full flex-col"
                     >
-                      <div
-                        ref={messagesContainerRef}
-                        onScroll={handleScroll}
-                        className="flex-1 overflow-y-auto px-4 py-3"
-                        style={CHAT_BG_STYLE}
-                      >
-                        {hasMore && (
-                          <div className="mb-3 flex justify-center">
-                            <button
-                              onClick={handleLoadMore}
-                              disabled={loadingMore}
-                              className="rounded-full bg-white px-3 py-1 text-[10px] font-medium text-emerald-600 shadow-sm transition-colors hover:bg-gray-50 disabled:opacity-50"
-                            >
-                              {loadingMore ? "Loading..." : "Load older messages"}
-                            </button>
-                          </div>
-                        )}
-                        <div className="space-y-1">
-                          {messages.map((msg, idx) => {
-                            const isOwn = currentUserId ? msg.senderId === currentUserId : false;
-                            const prevMsg = idx > 0 ? messages[idx - 1] : null;
-                            const showDateSep = prevMsg && isNewDay(prevMsg.createdAt, msg.createdAt);
-                            const showAvatar = true;
-                            return (
-                              <div key={msg.id}>
-                                {(showDateSep || idx === 0) && (
-                                  <div className="my-3 flex items-center gap-3">
-                                    <div className="flex-1 border-t border-gray-200" />
-                                    <span className="shrink-0 text-[10px] font-medium text-gray-400">
-                                      {formatDateSeparator(msg.createdAt)}
-                                    </span>
-                                    <div className="flex-1 border-t border-gray-200" />
-                                  </div>
-                                )}
-                                <MessageBubble
-                                  message={msg}
-                                  isOwn={isOwn}
-                                  status={isOwn ? messageStatuses[msg.id] : undefined}
-                                  showAvatar={showAvatar}
-                                  senderAvatar={isOwn ? optimizeImage(user?.avatar, 24) : undefined}
-                                  senderName={isOwn ? "You" : "Admin Support"}
-                                  avatarIcon={!isOwn ? <span className="text-xs">🤖</span> : undefined}
-                                  compact
-                                />
-                              </div>
-                            );
-                          })}
-                          {adminTyping && (
-                            <div className="flex items-start gap-2 py-0.5">
-                              <div className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-bold text-white">
-                                <span>A</span>
-                              </div>
-                              <div className="flex items-center gap-1.5 rounded-[18px] rounded-bl-[4px] border border-gray-200 bg-white px-4 py-3 shadow-sm">
-                                <span className="flex gap-1">
-                                  {[0, 1, 2].map((i) => (
-                                    <motion.span
-                                      key={i}
-                                      className="h-2 w-2 rounded-full bg-emerald-600"
-                                      animate={{ y: [0, -5, 0] }}
-                                      transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15, ease: "easeInOut" }}
-                                    />
-                                  ))}
-                                </span>
-                              </div>
+                      <div className="relative flex-1 min-h-0">
+                        <div
+                          ref={messagesContainerRef}
+                          onScroll={handleScroll}
+                          className="absolute inset-0 overflow-y-auto px-4 py-3"
+                          style={{ ...CHAT_BG_STYLE, overflowAnchor: "none" }}
+                        >
+                          {hasMore && (
+                            <div className="mb-3 flex justify-center">
+                              <button
+                                onClick={handleLoadMore}
+                                disabled={loadingMore}
+                                className="rounded-full bg-white px-3 py-1 text-[10px] font-medium text-emerald-600 shadow-sm transition-colors hover:bg-gray-50 disabled:opacity-50"
+                              >
+                                {loadingMore ? "Loading..." : "Load older messages"}
+                              </button>
                             </div>
                           )}
-                          <div ref={messagesEndRef} />
+                          <div className="space-y-1">
+                            {messages.map((msg, idx) => {
+                              const isOwn = currentUserId ? msg.senderId === currentUserId : false;
+                              const prevMsg = idx > 0 ? messages[idx - 1] : null;
+                              const showDateSep = prevMsg && isNewDay(prevMsg.createdAt, msg.createdAt);
+                              const showAvatar = true;
+                              return (
+                                <div key={msg.id}>
+                                  {(showDateSep || idx === 0) && (
+                                    <div className="my-3 flex items-center gap-3">
+                                      <div className="flex-1 border-t border-gray-200" />
+                                      <span className="shrink-0 text-[10px] font-medium text-gray-400">
+                                        {formatDateSeparator(msg.createdAt)}
+                                      </span>
+                                      <div className="flex-1 border-t border-gray-200" />
+                                    </div>
+                                  )}
+                                  <MessageBubble
+                                    message={msg}
+                                    isOwn={isOwn}
+                                    status={isOwn ? messageStatuses[msg.id] : undefined}
+                                    showAvatar={showAvatar}
+                                    senderAvatar={isOwn ? optimizeImage(user?.avatar, 24) : undefined}
+                                    senderName={isOwn ? "You" : "Admin Support"}
+                                    avatarIcon={!isOwn ? <span className="text-xs">🤖</span> : undefined}
+                                    compact
+                                  />
+                                </div>
+                              );
+                            })}
+                            {adminTyping && (
+                              <div className="flex items-start gap-2 py-0.5">
+                                <div className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-bold text-white">
+                                  <span>A</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 rounded-[18px] rounded-bl-[4px] border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                                  <span className="flex gap-1">
+                                    {[0, 1, 2].map((i) => (
+                                      <motion.span
+                                        key={i}
+                                        className="h-2 w-2 rounded-full bg-emerald-600"
+                                        animate={{ y: [0, -5, 0] }}
+                                        transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15, ease: "easeInOut" }}
+                                      />
+                                    ))}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                            <div ref={messagesEndRef} />
+                          </div>
                         </div>
+                        {showScrollBtn && (
+                          <button
+                            onClick={() => scrollToBottom(true)}
+                            aria-label="Jump to latest message"
+                            className="absolute bottom-3 right-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white text-emerald-600 shadow-lg ring-1 ring-slate-200 transition hover:bg-emerald-50"
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                       <InputBar value={input} onChange={handleInputChange} onSend={handleSubmit} onKeyDown={handleKeyDown} onFileChange={handleFileChange} sending={sending} fileInputRef={fileInputRef} />
                     </motion.div>

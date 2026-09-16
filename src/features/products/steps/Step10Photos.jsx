@@ -3,7 +3,7 @@ import { useDropzone } from 'react-dropzone'
 import { HelpCircle, Upload, Image, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Check, X, Trash2 } from 'lucide-react'
 import { useProductBuilderStore } from '@/features/products/productBuilderStore'
 import { useStepErrors } from '@/features/products/useStepErrors'
-import { uploadPhotos } from '@/features/products/api'
+import { uploadPhotos, deleteTourPhoto } from '@/features/products/api'
 import { safeId } from '@/lib/utils'
 import { transformImage } from '@/lib/image'
 
@@ -21,6 +21,7 @@ export default function Step10Photos() {
   const setCoverPhoto = useProductBuilderStore((s) => s.setCoverPhoto)
   const trackUploadedUrl = useProductBuilderStore((s) => s.trackUploadedUrl)
   const setField = useProductBuilderStore((s) => s.setField)
+  const savedProductId = useProductBuilderStore((s) => s.savedProductId)
   const errors = useStepErrors(11)
 
   const [uploading, setUploading] = useState(new Set())
@@ -102,8 +103,17 @@ export default function Step10Photos() {
 
   const deselectAll = () => setSelectedIds(new Set())
 
-  const deleteSelected = () => {
+  const deleteSelected = useCallback(async () => {
     const toRemove = photos.filter((p) => selectedIds.has(p.id))
+
+    // Delete uploaded photos from Cloudinary + DB via backend
+    if (savedProductId) {
+      const uploaded = toRemove.filter((p) => p.url)
+      await Promise.allSettled(
+        uploaded.map((p) => deleteTourPhoto(savedProductId, p.url))
+      )
+    }
+
     toRemove.forEach((photo) => {
       if (blobUrls.current[photo.id]) {
         URL.revokeObjectURL(blobUrls.current[photo.id])
@@ -123,7 +133,7 @@ export default function Step10Photos() {
       if (idsToRemove.has(photos[i].id)) removePhoto(i)
     }
     setSelectedIds(new Set())
-  }
+  }, [photos, selectedIds, savedProductId, coverPhoto, setCoverPhoto, removePhoto])
 
   const getSelectedIndex = () => {
     const idx = photos.findIndex((p) => selectedIds.has(p.id))
@@ -155,8 +165,21 @@ export default function Step10Photos() {
     if (idx >= 0 && idx < photos.length - 1) movePhoto(idx, photos.length - 1)
   }
 
-  const handleRemove = (index) => {
+  const handleRemove = useCallback(async (index) => {
     const photo = photos[index]
+    if (!photo) return
+
+    // If the photo has a Cloudinary URL and the tour is saved, delete from
+    // Cloudinary + DB via the backend endpoint.
+    if (photo.url && savedProductId) {
+      try {
+        await deleteTourPhoto(savedProductId, photo.url)
+      } catch {
+        // If the backend delete fails (e.g. photo already removed), still
+        // remove from the local store so the user is not stuck.
+      }
+    }
+
     if (blobUrls.current[photo.id]) {
       URL.revokeObjectURL(blobUrls.current[photo.id])
       delete blobUrls.current[photo.id]
@@ -166,13 +189,13 @@ export default function Step10Photos() {
     }
     setSelectedIds((prev) => { const n = new Set(prev); n.delete(photo.id); return n })
     removePhoto(index)
-  }
+  }, [photos, savedProductId, coverPhoto, setCoverPhoto, removePhoto])
 
   const hasSelection = selectedIds.size > 0
   const emptySlots = Math.max(0, MIN_PHOTOS - photos.length)
 
   return (
-    <div className="flex gap-6">
+    <div className="flex flex-col xl:flex-row gap-6">
       {/* Main content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-5">
@@ -182,7 +205,7 @@ export default function Step10Photos() {
 
         {/* Selection toolbar */}
         {hasSelection && (
-          <div className="flex items-center justify-between p-3 mb-4 bg-white border border-slate-200 rounded-xl">
+          <div className="flex flex-wrap items-center justify-between gap-2 p-3 mb-4 bg-white border border-slate-200 rounded-xl">
             <button
               type="button"
               onClick={deselectAll}
@@ -248,7 +271,7 @@ export default function Step10Photos() {
           data-field="photos"
         >
           <input {...getInputProps()} />
-          <div className="flex items-center justify-center gap-3 mb-2">
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mb-2">
             <button
               type="button"
               className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 transition-colors"
@@ -394,8 +417,8 @@ export default function Step10Photos() {
       </div>
 
       {/* Sidebar */}
-      <div className="w-[280px] shrink-0">
-        <div className="sticky top-4 space-y-5">
+      <div className="w-full xl:w-[280px] shrink-0">
+        <div className="xl:sticky xl:top-4 space-y-5">
           {/* Tips & requirements */}
           <div>
             <button

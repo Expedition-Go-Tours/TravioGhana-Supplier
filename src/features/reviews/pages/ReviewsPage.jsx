@@ -26,7 +26,7 @@ import {
   Flag,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -478,6 +478,8 @@ export default function ReviewsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const highlightId = searchParams.get("reviewId");
+  const replyRequested = searchParams.get("reply") === "1";
+  const autoReplyOpenedRef = useRef(false);
   const [highlightedReviewId, setHighlightedReviewId] = useState(null);
   const [lightboxPhotos, setLightboxPhotos] = useState(null);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -548,6 +550,7 @@ export default function ReviewsPage() {
           setSearchParams((prev) => {
             const next = new URLSearchParams(prev);
             next.delete("reviewId");
+            next.delete("reply");
             return next;
           }, { replace: true });
         }, 8000);
@@ -555,6 +558,36 @@ export default function ReviewsPage() {
       }
     }
   }, [highlightId, reviews, setSearchParams]);
+
+  // Deep link from the "reply to review" email action: once the target review
+  // is present (or fetched below), open the reply modal once and let the
+  // supplier post it explicitly.
+  useEffect(() => {
+    if (highlightId && replyRequested && reviews.length > 0) {
+      const match = reviews.find((r) => r.id === highlightId);
+      if (match && !autoReplyOpenedRef.current) {
+        autoReplyOpenedRef.current = true;
+        setReplyTarget(match);
+      }
+    } else if (!highlightId) {
+      autoReplyOpenedRef.current = false;
+    }
+  }, [highlightId, replyRequested, reviews]);
+
+  // Ensure email deep links always resolve: if the targeted review is older
+  // than the currently-loaded page, fetch it directly and prepend it.
+  useEffect(() => {
+    if (!highlightId || loading || reviews.some((r) => r.id === highlightId)) return;
+    let cancelled = false;
+    fetchSupplierReviews({ reviewId: highlightId, limit: 1 })
+      .then(({ reviews: found }) => {
+        if (cancelled || !found?.[0]) return;
+        const target = found[0];
+        setReviews((prev) => (prev.some((r) => r.id === target.id) ? prev : [target, ...prev]));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [highlightId, reviews, loading]);
 
   const handleOpenReply = (review) => setReplyTarget(review);
 

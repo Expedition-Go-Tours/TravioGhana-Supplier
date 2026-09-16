@@ -91,7 +91,7 @@ export default function AnalyticsPage() {
         const bookingCount = bookings.filter(b => (b.tourName || "Unknown") === name).length;
         return { name, revenue, bookings: bookingCount, rating: avgRating };
       });
-  }, [bookings]);
+  }, [bookings, avgRating]);
 
   return (
     <div className="p-5 md:p-6 max-w-7xl mx-auto space-y-5">

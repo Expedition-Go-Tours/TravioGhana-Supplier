@@ -1,6 +1,6 @@
 // The storefront stores travelers as an object {adults, children, infants,
 // phoneNumber, location, details[]}, but older/seed data can be a JSON string
-// or a bare array of {name, age}. Normalize every shape so the supplier UI
+// or a bare array of {name, ageGroup}. Normalize every shape so the supplier UI
 // renders a correct count + party summary regardless of source.
 
 function normalizeTravelers(travelers) {
@@ -71,12 +71,7 @@ export function formatTravelerDetails(travelers) {
   const details = Array.isArray(t) ? t : t.details;
   if (!Array.isArray(details)) return "";
   return details
-    .map((d) => {
-      if (!d) return "";
-      const name = d.name || "";
-      const age = d.age != null ? ` (${d.age})` : "";
-      return `${name}${age}`.trim();
-    })
+    .map((d) => (d ? String(d.name || "").trim() : ""))
     .filter(Boolean)
     .join(", ");
 }
@@ -88,7 +83,6 @@ export function getTravelerDetails(travelers) {
   if (Array.isArray(details) && details.length > 0) {
     return details.filter(Boolean).map((d) => ({
       name: d.name || d.firstName || "",
-      age: d.age ?? null,
       type: d.ageGroup || d.type || "adult",
     }));
   }
@@ -98,7 +92,7 @@ export function getTravelerDetails(travelers) {
     const n = Number(count);
     if (Number.isFinite(n) && n > 0) {
       for (let i = 0; i < n; i++) {
-        parts.push({ name: "", age: null, type });
+        parts.push({ name: "", type });
       }
     }
   }
@@ -108,7 +102,7 @@ export function getTravelerDetails(travelers) {
       return s + (Number.isFinite(n) && n > 0 ? n : 0);
     }, 0);
     for (let i = 0; i < Math.max(1, total); i++) {
-      parts.push({ name: "", age: null, type: "adult" });
+      parts.push({ name: "", type: "adult" });
     }
   }
   return parts;

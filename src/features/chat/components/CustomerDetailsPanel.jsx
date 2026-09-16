@@ -6,7 +6,7 @@ import OptimizedImage from "@/components/shared/OptimizedImage";
 
 const statusConfig = {
   PENDING: { label: "Pending", dot: "bg-amber-400", bg: "bg-amber-50", text: "text-amber-700" },
-  CONFIRMED: { label: "Confirmed", dot: "bg-emerald-500", bg: "bg-emerald-50", text: "text-emerald-700" },
+  CONFIRMED: { label: "Confirmed", dot: "bg-blue-500", bg: "bg-blue-50", text: "text-blue-700" },
   COMPLETED: { label: "Completed", dot: "bg-emerald-500", bg: "bg-emerald-50", text: "text-emerald-700" },
   CANCELLED: { label: "Cancelled", dot: "bg-red-400", bg: "bg-red-50", text: "text-red-600" },
   NO_SHOW: { label: "No Show", dot: "bg-slate-400", bg: "bg-slate-50", text: "text-slate-600" },

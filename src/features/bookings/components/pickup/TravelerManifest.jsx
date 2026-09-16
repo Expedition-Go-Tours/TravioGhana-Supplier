@@ -1,4 +1,4 @@
-import { Users, User } from "lucide-react";
+import { Users } from "lucide-react";
 
 function normalizeTravelers(travelers) {
   if (!travelers) return null;
@@ -16,7 +16,6 @@ function getTravelerDetails(travelers) {
   if (Array.isArray(details) && details.length > 0) {
     return details.filter(Boolean).map((d) => ({
       name: d.name || d.firstName || "",
-      age: d.age,
       type: d.ageGroup || d.type || "adult",
     }));
   }
@@ -26,7 +25,7 @@ function getTravelerDetails(travelers) {
     const n = Number(count);
     if (Number.isFinite(n) && n > 0) {
       for (let i = 0; i < n; i++) {
-        parts.push({ name: "", age: null, type });
+        parts.push({ name: "", type });
       }
     }
   }
@@ -36,7 +35,7 @@ function getTravelerDetails(travelers) {
       return s + (Number.isFinite(n) && n > 0 ? n : 0);
     }, 0);
     for (let i = 0; i < Math.max(1, total); i++) {
-      parts.push({ name: "", age: null, type: "adult" });
+      parts.push({ name: "", type: "adult" });
     }
   }
   return parts;
@@ -84,7 +83,7 @@ export default function TravelerManifest({ travelers, compact = false }) {
               {d.name || `Traveler ${i + 1}`}
             </span>
             <span className="text-slate-400">
-              {d.age != null ? `(${d.age})` : travelerTypeLabel(d.type)}
+              {travelerTypeLabel(d.type)}
             </span>
           </span>
         ))}
@@ -92,5 +91,3 @@ export default function TravelerManifest({ travelers, compact = false }) {
     </div>
   );
 }
-
-export { getTravelerDetails, normalizeTravelers };

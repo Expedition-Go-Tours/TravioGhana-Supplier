@@ -344,6 +344,7 @@ export function useAutoSave() {
           const newId = id || res.data?.data?.tour?.id
           if (newId) s.setSavedProductId(newId)
           s.markSaved()
+          s.clearUploadedUrls()
           s.setAutosaveError(null)
         } catch (err) {
           const status = err?.response?.status

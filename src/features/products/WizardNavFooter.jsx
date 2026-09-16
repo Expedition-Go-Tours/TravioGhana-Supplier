@@ -116,8 +116,8 @@ export default function WizardNavFooter({ currentStep, totalSteps, onBack, onNex
   const handleFinalClick = onSubmitForReview ? handleSubmitForReview : handleSubmit
 
   return (
-    <div className="flex items-start justify-between px-8 py-4 border-t border-slate-200 bg-slate-50/80">
-      <div className="flex items-center gap-3 pt-1">
+    <div className="flex flex-wrap sm:flex-nowrap items-center sm:items-start sm:justify-between gap-x-3 gap-y-3 px-3 sm:px-6 lg:px-8 py-3 sm:py-4 border-t border-slate-200 bg-slate-50/80">
+      <div className="flex items-center gap-3 order-2 sm:order-1 w-[calc(50%-6px)] sm:w-auto sm:pt-1">
         {!isFirstStep && (
           <button className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors" onClick={onBack} type="button">
             Back
@@ -125,7 +125,7 @@ export default function WizardNavFooter({ currentStep, totalSteps, onBack, onNex
         )}
       </div>
 
-      <div className="flex flex-col items-center gap-1">
+      <div className="flex flex-col items-center gap-1 order-1 sm:order-2 min-w-0 w-full sm:w-auto">
         {saving && (
           <span className="flex items-center gap-1.5 text-[13px] text-emerald-600 font-semibold">
             <Loader2 size={14} className="animate-spin" />
@@ -133,7 +133,7 @@ export default function WizardNavFooter({ currentStep, totalSteps, onBack, onNex
           </span>
         )}
         {!saving && hasDisplayErrors && (
-          <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-lg max-w-[500px]">
+          <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-lg max-w-[500px] w-full sm:w-auto">
             <span className="w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center shrink-0">
               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -161,12 +161,12 @@ export default function WizardNavFooter({ currentStep, totalSteps, onBack, onNex
         )}
         {isPendingReview && (
           <span className="text-xs text-amber-700 font-semibold max-w-[420px] text-center">
-            This product is locked while pending review — withdraw it above to make changes.
+            This product is locked while pending review �?" withdraw it above to make changes.
           </span>
         )}
         {!isPendingReview && noChangesToSubmit && (
           <span className="text-xs text-slate-500 font-semibold max-w-[420px] text-center">
-            No changes to submit — the current content was already submitted for review.
+            No changes to submit �?" the current content was already submitted for review.
           </span>
         )}
         {!saving && !hasDisplayErrors && !autosaveError && savedText && (
@@ -174,7 +174,7 @@ export default function WizardNavFooter({ currentStep, totalSteps, onBack, onNex
         )}
       </div>
 
-      <div className="flex items-center gap-3 pt-1">
+      <div className="flex items-center gap-3 order-3 w-[calc(50%-6px)] sm:w-auto sm:pt-1 justify-end sm:justify-start">
         {!isLastStep ? (
           <button
             className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"

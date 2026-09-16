@@ -11,6 +11,7 @@ const AUTH_REQUIRED_PREFIXES = [
   "/notifications",
   "/admin",
   "/reviews",
+  "/refund-claims",
   "/payout",
 ];
 

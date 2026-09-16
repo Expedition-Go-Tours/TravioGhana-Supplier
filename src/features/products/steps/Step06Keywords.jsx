@@ -354,9 +354,9 @@ export default function Step06Keywords() {
 
       {advancedMode && (
         <div className="border border-slate-200 rounded">
-          <div className="flex min-h-[400px]">
+          <div className="flex flex-col lg:flex-row lg:min-h-[400px]">
             {/* Left: categories */}
-            <div className="w-[200px] shrink-0 flex flex-col bg-slate-50">
+            <div className="w-full lg:w-[200px] shrink-0 flex flex-col bg-slate-50">
               <div className="p-2">
                 <input
                   ref={categorySearchRef}
@@ -372,7 +372,7 @@ export default function Step06Keywords() {
                   }}
                 />
               </div>
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 flex lg:flex-col gap-px overflow-x-auto lg:overflow-y-auto lg:overflow-x-hidden overflow-y-hidden">
                 {filteredCategories.map((name) => {
                   const count = KEYWORD_CATEGORIES[name].length
                   const isActive = selectedCategory === name
@@ -381,11 +381,11 @@ export default function Step06Keywords() {
                       key={name}
                       type="button"
                       onClick={() => setSelectedCategory(name)}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 text-left text-[13px] transition-colors border-0 cursor-pointer ${
+                      className={`shrink-0 lg:w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left text-[13px] transition-colors border-0 cursor-pointer ${
                         isActive
                           ? 'bg-white text-slate-900 font-medium shadow-sm'
                           : 'bg-transparent text-slate-600 hover:bg-slate-100'
-                      } ${isActive ? '' : 'border-b border-slate-100'}`}
+                      } ${isActive ? '' : 'lg:border-b border-b-0 border-slate-100'}`}
                     >
                       <span className="truncate">{name}</span>
                       <span className={`shrink-0 ml-2 text-[11px] font-medium px-1.5 py-0.5 rounded-full ${
@@ -405,7 +405,7 @@ export default function Step06Keywords() {
             </div>
 
             {/* Separator */}
-            <div className="w-px bg-slate-200" />
+            <div className="hidden lg:block w-px bg-slate-200" />
 
             {/* Right: keywords */}
             <div className="flex-1 p-5 overflow-y-auto">

@@ -26,26 +26,26 @@ export default function CancellationCard({ summary, days = 30, onDaysChange, onV
   const statusConfig = STATUS_CONFIG[status] || STATUS_CONFIG["Building performance record"];
 
   return (
-    <div className="bg-white border border-slate-200 rounded-[20px] shadow-none p-6">
+    <div className="bg-white border border-slate-200 rounded-[20px] shadow-none p-5 sm:p-6">
       {/* Header */}
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4 mb-6">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center">
             <CalendarX2 size={22} className="text-red-500" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-slate-800">Cancellation rate</h2>
+            <h2 className="text-lg sm:text-xl font-bold text-slate-800">Cancellation rate</h2>
             <p className="text-sm text-slate-500">Your booking performance this month</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {onDaysChange && (
             <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
               {PERIOD_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
                   onClick={() => onDaysChange(opt.value)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  className={`px-2 sm:px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                     days === opt.value
                       ? "bg-white text-slate-800 shadow-sm"
                       : "text-slate-500 hover:text-slate-700"
@@ -58,7 +58,7 @@ export default function CancellationCard({ summary, days = 30, onDaysChange, onV
           )}
           <button
             onClick={onViewDetails}
-            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all"
+            className="inline-flex items-center gap-2 px-4 sm:px-5 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all"
           >
             View details
           </button>
@@ -88,16 +88,16 @@ export default function CancellationCard({ summary, days = 30, onDaysChange, onV
         {/* Right: Stat Boxes */}
         <div className="border border-slate-200 rounded-2xl p-4">
           <div className="grid grid-cols-3 divide-x divide-slate-200">
-            <div className="text-center px-4 py-3">
-              <div className="text-3xl font-bold text-slate-800">{confirmed}</div>
+            <div className="text-center px-2 sm:px-4 py-3">
+              <div className="text-2xl sm:text-3xl font-bold text-slate-800">{confirmed}</div>
               <div className="text-xs text-slate-500 mt-1">Confirmed</div>
             </div>
-            <div className="text-center px-4 py-3">
-              <div className="text-3xl font-bold text-slate-800">{cancelled}</div>
+            <div className="text-center px-2 sm:px-4 py-3">
+              <div className="text-2xl sm:text-3xl font-bold text-slate-800">{cancelled}</div>
               <div className="text-xs text-slate-500 mt-1">Cancelled</div>
             </div>
-            <div className="text-center px-4 py-3">
-              <div className="text-3xl font-bold text-slate-800">{completed}%</div>
+            <div className="text-center px-2 sm:px-4 py-3">
+              <div className="text-2xl sm:text-3xl font-bold text-slate-800">{completed}%</div>
               <div className="text-xs text-slate-500 mt-1">Completed</div>
             </div>
           </div>

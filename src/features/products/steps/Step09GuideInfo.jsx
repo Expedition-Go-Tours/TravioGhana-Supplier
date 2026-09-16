@@ -89,7 +89,7 @@ export default function Step09GuideInfo() {
         <p className="text-[13px] text-slate-500 leading-relaxed">
           Select additional materials provided to customers as part of the guiding experience.
         </p>
-        <div className="flex gap-6 pt-1">
+        <div className="flex flex-wrap gap-x-6 gap-y-3 pt-1">
           <label className="flex items-center gap-2.5 cursor-pointer text-sm select-none">
             <div className="relative">
               <input

@@ -160,6 +160,11 @@ export default function BookingCard({
     (a) => !(travelDatePassed && a.value === 'CONFIRMED')
   );
   const pickup = booking.pickup || {};
+  const pickupDeferred =
+    booking.pickupDeferred ||
+    pickup.pickupLater ||
+    pickup.skipValidation ||
+    pickup.status === "deferred";
   const partySummary = formatPartySummary(booking.travelersRaw);
   const travelerNames = formatTravelerDetails(booking.travelersRaw);
   const travelerDetails = getTravelerDetails(booking.travelersRaw);
@@ -224,7 +229,7 @@ export default function BookingCard({
           </p>
 
           {/* Tour date + booking date */}
-          <p className="flex items-center gap-1.5 text-xs text-slate-400">
+          <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-slate-400">
             <CalendarDays size={12} className="shrink-0" />
             <span className="whitespace-nowrap">
               {formatDate(booking.travelDate)}
@@ -237,18 +242,18 @@ export default function BookingCard({
           </p>
 
           {/* Booking reference + participants */}
-          <p className="flex items-center gap-1.5 text-xs text-slate-400">
+          <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-slate-400">
             <span className="font-mono text-[11px] text-slate-500">
               {booking.bookingNumber}
             </span>
             <SourceBadge source={booking.source} />
             <span className="text-slate-300">·</span>
-            <span className="flex items-center gap-1">
+            <span className="flex items-center gap-1 whitespace-nowrap">
               <Users size={12} className="shrink-0" />
               {guestCount} traveler{guestCount !== 1 ? "s" : ""}
             </span>
             <span className="text-slate-300">·</span>
-            <span className={`flex items-center gap-1 ${booking.instantConfirmation ? "text-emerald-600" : "text-amber-600"}`}>
+            <span className={`flex items-center gap-1 whitespace-nowrap ${booking.instantConfirmation ? "text-emerald-600" : "text-amber-600"}`}>
               {booking.instantConfirmation ? <Zap size={12} className="shrink-0" /> : <Clock size={12} className="shrink-0" />}
               {booking.instantConfirmation ? "Instant confirmation" : "Manual confirmation"}
             </span>
@@ -449,14 +454,12 @@ export default function BookingCard({
                         <thead>
                           <tr className="bg-slate-50 border-b border-slate-200">
                             <th className="text-left px-3 py-2 text-xs font-medium text-slate-500">Name</th>
-                            <th className="text-left px-3 py-2 text-xs font-medium text-slate-500 w-16">Age</th>
                           </tr>
                         </thead>
                         <tbody>
                           {travelerDetails.map((d, i) => (
                             <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-slate-50/50"}>
                               <td className="px-3 py-2 text-slate-700">{d.name || `Traveler ${i + 1}`}</td>
-                              <td className="px-3 py-2 text-slate-500">{d.age ?? "—"}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -471,10 +474,20 @@ export default function BookingCard({
                 <h4 className="text-sm font-bold text-slate-900 mb-3">
                   Pickup details
                 </h4>
-                {pickup.place ||
-                pickup.areaName ||
-                pickup.locationName ||
-                pickup.address ? (
+                {pickupDeferred ? (
+                  <div className="rounded-lg bg-amber-50 border border-amber-200/60 px-3 py-2.5">
+                    <p className="flex items-center gap-1.5 text-sm font-medium text-amber-800">
+                      <Clock size={14} className="shrink-0" />
+                      Awaiting pickup details
+                    </p>
+                    <p className="mt-1 text-xs text-amber-700">
+                      The customer chose to arrange pickup later — set the time and location in the Pickup Planner.
+                    </p>
+                  </div>
+                ) : pickup.place ||
+                  pickup.areaName ||
+                  pickup.locationName ||
+                  pickup.address ? (
                   <div className="space-y-1.5">
                     <p className="flex items-center gap-1.5 text-sm text-slate-700">
                       <MapPinned size={14} className="text-slate-400 shrink-0" />
@@ -563,7 +576,7 @@ export default function BookingCard({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onMessageCustomer(booking.customerId);
+                    onMessageCustomer(booking);
                   }}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-slate-500 hover:text-[#044b3b] hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition-all"
                 >

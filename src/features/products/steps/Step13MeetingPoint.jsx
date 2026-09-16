@@ -581,7 +581,6 @@ function PickupSection({ errors }) {
         {pickupType === 'area' && (
           <div className="space-y-2 mb-3" data-field="pickupAreas">
             {pickupAreas.map((area, i) => {
-              const hasZone = Array.isArray(area.polygon) && area.polygon.length >= 3
               return (
               <div key={i} className="p-3 rounded-lg border border-slate-200 bg-white" data-field={`pickupAreas.${i}`}>
                 <div className="flex items-center gap-2">
@@ -685,7 +684,7 @@ function PickupSection({ errors }) {
                   <label className="text-sm font-semibold text-slate-800">Example activity start</label>
                   <HelpCircle size={14} className="text-slate-400" />
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                   <AmPmTimePicker
                     value={pickupStartTime}
                     onChange={(t) => setField('pickupStartTime', t)}
@@ -698,12 +697,12 @@ function PickupSection({ errors }) {
 
               {/* Pickup time table */}
               <div className="border-t border-slate-200">
-                <div className={`grid ${pickupAtSpecificTime ? 'grid-cols-[auto_1fr]' : 'grid-cols-[1fr]'} bg-slate-50 px-4 py-2.5 border-b border-slate-200 gap-4`}>
+                <div className={`grid ${pickupAtSpecificTime ? 'grid-cols-1 md:grid-cols-[auto_1fr]' : 'grid-cols-[1fr]'} bg-slate-50 px-4 py-2.5 border-b border-slate-200 gap-2 md:gap-4`}>
                   {pickupAtSpecificTime && <span className="text-xs font-bold text-slate-600">Pickup time</span>}
                   <span className="text-xs font-bold text-slate-600">Pickup locations</span>
                 </div>
                 {pickupLocations.map((loc, i) => (
-                  <div key={i} className="grid grid-cols-[auto_1fr] items-center px-4 py-3 border-b border-slate-100 last:border-b-0 gap-4">
+                  <div key={i} className="grid grid-cols-1 md:grid-cols-[auto_1fr] items-start md:items-center px-4 py-3 border-b border-slate-100 last:border-b-0 gap-2 md:gap-4">
                     {pickupAtSpecificTime && (
                       <AmPmTimePicker
                         value={loc.pickupTime || ''}

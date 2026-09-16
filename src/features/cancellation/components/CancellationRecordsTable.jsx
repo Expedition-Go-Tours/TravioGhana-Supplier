@@ -32,7 +32,7 @@ export default function CancellationRecordsTable({
 
   return (
     <div className="bg-white border border-slate-200 rounded-[20px] shadow-none overflow-hidden">
-      <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+      <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-slate-800">
           Cancellations used to calculate your rate
         </h2>
@@ -105,18 +105,18 @@ export default function CancellationRecordsTable({
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-3.5 border-t border-slate-100 bg-teal-50/30 flex items-center justify-between">
+          <div className="px-5 sm:px-6 py-3.5 border-t border-slate-100 bg-teal-50/30 flex items-center justify-between">
             <span className="text-xs font-semibold text-teal-700 uppercase tracking-wider">Total</span>
             <span className="text-sm font-bold text-teal-800">{formatCurrency(totalLost)}</span>
           </div>
 
           {/* Pagination */}
           {pagination && pagination.totalPages > 1 && (
-            <div className="px-6 py-3 border-t border-slate-100 flex items-center justify-between">
+            <div className="px-5 sm:px-6 py-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs text-slate-400">
                 Page {pagination.currentPage} of {pagination.totalPages} ({pagination.totalCount} records)
               </span>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 ml-auto">
                 <button
                   onClick={() => onPageChange((p) => Math.max(1, p - 1))}
                   disabled={pagination.currentPage <= 1}

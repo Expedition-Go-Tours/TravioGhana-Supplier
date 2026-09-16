@@ -23,8 +23,8 @@ function DietarySelect({ selected, onAdd, onRemove }) {
   return (
     <div className="mt-3">
       <label className="block text-sm font-semibold text-slate-800 mb-1">Which dietary restrictions can you accommodate?</label>
-      <p className="text-[13px] text-slate-500 mb-3">Please select all that are relevant</p>
-      <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+        <p className="text-[13px] text-slate-500 mb-3">Please select all that are relevant</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
         {DIETARY_OPTIONS.map((opt) => {
           const isChecked = selected.includes(opt)
           return (

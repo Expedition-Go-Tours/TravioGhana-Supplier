@@ -139,9 +139,9 @@ export default function DashboardPage() {
   return (
     <div className="p-5 md:p-6 max-w-7xl mx-auto space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">{getGreeting()}, {user?.name?.split(' ')[0] || 'there'}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-800 truncate">{getGreeting()}, {user?.name?.split(' ')[0] || 'there'}</h1>
           <p className="text-sm text-slate-500 mt-1.5">
             {pendingBookings > 0
               ? `You have ${pendingBookings} pending booking${pendingBookings > 1 ? 's' : ''} to review.`
@@ -201,7 +201,7 @@ export default function DashboardPage() {
               View all <ArrowUpRight size={11} />
             </button>
           </div>
-          <div className="flex-1 min-h-0">
+          <div className="flex-1 min-h-[240px]">
             {loading ? (
               <div className="h-full bg-emerald-50/40 rounded-lg animate-pulse" />
             ) : revenueData.length > 0 ? (

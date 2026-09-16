@@ -25,5 +25,3 @@ export default function CompletenessIndicator({ pickup }) {
     </span>
   );
 }
-
-export { getPickupCompleteness };

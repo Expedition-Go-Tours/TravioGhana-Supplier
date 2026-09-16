@@ -234,8 +234,7 @@ export default function ProductsListPage() {
             className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 transition-all"
           >
             <Plus size={15} />
-            <span className="hidden sm:inline">Create Product</span>
-            <span className="sm:hidden">New</span>
+            <span>Create Product</span>
           </button>
         </div>
       </div>
@@ -396,7 +395,7 @@ export default function ProductsListPage() {
       {/* Loading */}
       {isLoading && (
         viewMode === "table" ? <TableSkeleton /> : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {Array.from({ length: 8 }).map((_, i) => <ProductCardSkeleton key={i} />)}
           </div>
         )
@@ -411,7 +410,7 @@ export default function ProductsListPage() {
             initial="hidden"
             animate="show"
             exit={{ opacity: 0 }}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
           >
             {filteredProducts.map((product) => {
               const src = product.coverPhoto || product.photos?.find(p => p);
@@ -426,11 +425,11 @@ export default function ProductsListPage() {
                   key={product.id}
                   variants={FADE_UP}
                   layout
-                  className="group bg-white border border-slate-100 rounded-xl overflow-hidden hover:border-slate-200 hover:shadow-md hover:shadow-slate-900/5 transition-all duration-200"
+                  className="group bg-white border border-slate-100 rounded-lg sm:rounded-xl overflow-hidden hover:border-slate-200 hover:shadow-md hover:shadow-slate-900/5 transition-all duration-200 w-full max-w-[22rem] justify-self-center sm:max-w-none sm:justify-self-auto grid grid-rows-2 sm:block"
                 >
                   {/* Image */}
                   <div
-                    className="aspect-[4/3] bg-slate-50 relative cursor-pointer overflow-hidden"
+                    className="bg-slate-50 relative cursor-pointer overflow-hidden min-h-0 sm:aspect-[4/3]"
                     onClick={() => navigate(`/products/${product.id}`)}
                   >
                     {src ? (
@@ -464,9 +463,9 @@ export default function ProductsListPage() {
                   </div>
 
                   {/* Body */}
-                  <div className="p-4">
+                  <div className="p-4 sm:p-4 min-h-[50vw] sm:min-h-0">
                     <h3
-                      className="text-sm font-semibold text-slate-800 line-clamp-1 cursor-pointer hover:text-emerald-700 transition-colors"
+                      className="text-sm sm:text-sm font-semibold text-slate-800 line-clamp-2 sm:line-clamp-1 min-h-[2.5rem] sm:min-h-0 cursor-pointer hover:text-emerald-700 transition-colors"
                       title={product.title}
                       onClick={() => navigate(`/products/${product.id}`)}
                     >
@@ -475,9 +474,9 @@ export default function ProductsListPage() {
                     <p className="text-xs text-slate-500 mt-1">{getSupplierLabel(product)}</p>
 
                     {/* Price + Status */}
-                    <div className="mt-3 flex items-center justify-between">
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-2">
                       {price !== null ? (
-                        <div className="flex items-baseline gap-1.5">
+                        <div className="flex items-baseline gap-1.5 min-w-0">
                           <span className="text-lg font-bold text-emerald-700">
                             {formatCurrency(price, currency)}
                           </span>
@@ -493,7 +492,7 @@ export default function ProductsListPage() {
                     </div>
 
                     {/* Footer */}
-                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mt-3 pt-3 border-t border-slate-100">
                       <div className="flex items-center gap-3 text-xs text-slate-500">
                         <span className="font-medium">{product._count?.bookings ?? 0} bookings</span>
                         {product.averageRating > 0 && (

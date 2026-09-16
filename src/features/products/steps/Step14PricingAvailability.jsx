@@ -144,7 +144,7 @@ function TimeSelect({ value, onChange }) {
   return (
     <div className="flex items-center gap-0.5">
       <Select value={hour12Str} onValueChange={(h) => emit(h, minute, period)}>
-        <SelectTrigger className="h-9 w-14 px-1.5 text-sm border-slate-200 rounded-lg">
+        <SelectTrigger className="h-9 w-14 px-1 text-sm border-slate-200 rounded-lg justify-center [&>svg]:hidden [&>span]:line-clamp-none">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -153,7 +153,7 @@ function TimeSelect({ value, onChange }) {
       </Select>
       <span className="text-slate-400">:</span>
       <Select value={minute} onValueChange={(m) => emit(hour12Str, m, period)}>
-        <SelectTrigger className="h-9 w-14 px-1.5 text-sm border-slate-200 rounded-lg">
+        <SelectTrigger className="h-9 w-14 px-1 text-sm border-slate-200 rounded-lg justify-center [&>svg]:hidden [&>span]:line-clamp-none">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -166,7 +166,7 @@ function TimeSelect({ value, onChange }) {
             key={p}
             type="button"
             onClick={() => emit(hour12Str, minute, p)}
-            className={`h-9 px-2 text-xs font-semibold transition-colors ${
+            className={`h-9 px-1.5 sm:px-2 text-[11px] sm:text-xs font-semibold transition-colors ${
               p === period
                 ? 'bg-emerald-600 text-white'
                 : 'bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700'
@@ -181,28 +181,47 @@ function TimeSelect({ value, onChange }) {
 }
 
 function WizardStepper({ currentStep }) {
+  const scrollRef = useRef(null)
+  const itemRefs = useRef([])
+
+  useEffect(() => {
+    const container = scrollRef.current
+    const el = itemRefs.current[currentStep - 1]
+    if (!container || !el) return
+    const cRect = container.getBoundingClientRect()
+    const eRect = el.getBoundingClientRect()
+    const targetLeft = container.scrollLeft + (eRect.left - cRect.left) - cRect.width / 2 + eRect.width / 2
+    container.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' })
+  }, [currentStep])
+
   return (
-    <div className="flex items-center gap-0 mb-8">
+    <div ref={scrollRef} className="flex items-center gap-0 mb-6 overflow-x-auto scrollbar-none pb-1">
       {WIZARD_STEPS.map((step, i) => {
         const stepNum = i + 1
         const isActive = stepNum === currentStep
         const isCompleted = stepNum < currentStep
         return (
-          <div key={step} className="flex items-center">
+          <div
+            key={step}
+            ref={(el) => { itemRefs.current[i] = el }}
+            className="flex items-center shrink-0"
+            aria-current={isActive ? 'step' : undefined}
+            aria-label={`Step ${stepNum}: ${step}`}
+          >
             <div className="flex items-center gap-2">
               <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
                 isCompleted ? 'bg-emerald-600 text-white' : isActive ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-500'
               }`}>
                 {isCompleted ? <Check className="w-3.5 h-3.5" /> : stepNum}
               </div>
-              <span className={`text-sm font-medium whitespace-nowrap ${
+              <span className={`text-xs sm:text-sm font-medium whitespace-nowrap ${
                 isActive ? 'text-emerald-600 underline underline-offset-4' : isCompleted ? 'text-slate-700' : 'text-slate-400'
               }`}>
                 {step}
               </span>
             </div>
             {i < WIZARD_STEPS.length - 1 && (
-              <div className={`w-8 h-px mx-3 ${isCompleted ? 'bg-emerald-600' : 'bg-slate-200'}`} />
+              <div className={`w-6 sm:w-8 h-px mx-2 sm:mx-3 ${isCompleted ? 'bg-emerald-600' : 'bg-slate-200'}`} />
             )}
           </div>
         )
@@ -230,7 +249,7 @@ function ScheduleStep({ errors = {}, onTouch }) {
         setField('scheduleName', option.title)
       }
     }
-  }, [selectedOptionId])
+  }, [selectedOptionId, scheduleName, options, setField])
 
   const hasAnyHours = Object.values(weeklySchedule).some((hours) => hours.length > 0)
   const firstDayWithHours = DAYS.find((d) => weeklySchedule[d]?.length > 0)
@@ -258,7 +277,7 @@ function ScheduleStep({ errors = {}, onTouch }) {
 
       <div>
         <label className="block text-sm font-bold text-slate-900 mb-2">What's the starting date of your activity?</label>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <input
             type="date"
             value={scheduleStartDate}
@@ -345,7 +364,7 @@ function ScheduleStep({ errors = {}, onTouch }) {
         </div>
       ) : (
       <div>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 mb-4">
           <h3 className="text-sm font-bold text-slate-900">Standard weekly schedule</h3>
           {hasAnyHours && (
             <div className="flex items-center gap-3">
@@ -373,33 +392,37 @@ function ScheduleStep({ errors = {}, onTouch }) {
         <div className="space-y-1">
           {DAYS.map((day) => (
             <div key={day}>
-              <div className="flex items-start justify-between py-3 gap-4">
-                <h4 className="text-sm font-bold text-slate-900 shrink-0 pt-1">{day}</h4>
-                <div className="flex flex-wrap items-center gap-2 justify-end">
+              <div className="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
+                <h4 className="text-sm font-bold text-slate-900 shrink-0">{day}</h4>
+                <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2 sm:justify-end">
                   {(weeklySchedule[day] || []).map((hours, i) => (
-                    <div key={i} className="flex items-center gap-1.5">
-                      <TimeSelect
-                        value={hours.startTime}
-                        onChange={(v) => updateWeeklyHours(day, i, { startTime: v })}
-                      />
-                      <span className="text-slate-400">-</span>
-                      <TimeSelect
-                        value={hours.endTime}
-                        onChange={(v) => updateWeeklyHours(day, i, { endTime: v })}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeWeeklyHours(day, i)}
-                        className="w-6 h-6 flex items-center justify-center text-red-400 hover:text-red-600 transition-colors shrink-0"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
+                    <div key={i} className="flex items-center gap-1.5 flex-wrap">
+                      <span className="flex items-center gap-1.5">
+                        <TimeSelect
+                          value={hours.startTime}
+                          onChange={(v) => updateWeeklyHours(day, i, { startTime: v })}
+                        />
+                        <span className="text-slate-400">-</span>
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <TimeSelect
+                          value={hours.endTime}
+                          onChange={(v) => updateWeeklyHours(day, i, { endTime: v })}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeWeeklyHours(day, i)}
+                          className="w-6 h-6 flex items-center justify-center text-red-400 hover:text-red-600 transition-colors shrink-0"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </span>
                     </div>
                   ))}
                   <button
                     type="button"
                     onClick={() => addWeeklyHours(day)}
-                    className="flex items-center gap-1.5 text-sm text-emerald-600 hover:text-emerald-700 font-medium shrink-0"
+                    className="flex items-center gap-1.5 text-sm text-emerald-600 hover:text-emerald-700 font-medium shrink-0 sm:self-center"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     Add opening hours
@@ -486,7 +509,7 @@ function ScheduleStep({ errors = {}, onTouch }) {
 
 function PricingCategoriesStep({ errors = {}, onTouch }) {
   const {
-    pricingModel, pricingApproach, pricingCategories, showAdvancedCategorySettings,
+    pricingApproach, pricingCategories, showAdvancedCategorySettings,
     setField, addPricingCategory, updatePricingCategory, removePricingCategory,
   } = useProductBuilderStore()
 
@@ -781,11 +804,8 @@ function PricingCategoriesStep({ errors = {}, onTouch }) {
 function CapacityStep({ errors = {}, onTouch }) {
   const {
     pricingModel, minParticipants, maxParticipants, maxGroupsPerTimeSlot,
-    groupSizes, additionalPersonsEnabled, additionalPersonPrice,
-    setField, addGroupSize, updateGroupSize, removeGroupSize,
+    setField, addGroupSize,
   } = useProductBuilderStore()
-
-  const commission = 0.15
 
   useEffect(() => {
     const { pricingModel: model, groupSizes: sizes } = useProductBuilderStore.getState()
@@ -800,8 +820,8 @@ function CapacityStep({ errors = {}, onTouch }) {
         <div>
           <h3 className="text-base font-bold text-slate-900 mb-2">Capacity</h3>
           <p className="text-sm text-slate-600 mb-4">How many groups can you take per time slot?</p>
-          <div className="flex items-center gap-4">
-            <label className="text-sm text-slate-700 min-w-[130px]">Max # of groups</label>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+            <label className="text-sm text-slate-700 sm:min-w-[130px]">Max # of groups</label>
             <input
               type="number"
               value={maxGroupsPerTimeSlot ?? 1}
@@ -816,7 +836,7 @@ function CapacityStep({ errors = {}, onTouch }) {
               }}
               min={1}
               aria-invalid={!!errors.maxGroupsPerTimeSlot}
-              className={`h-11 w-32 rounded-lg border px-3.5 text-sm focus:outline-none focus:ring-1 ${
+              className={`h-11 w-full max-w-[200px] sm:max-w-none sm:w-32 rounded-lg border px-3.5 text-sm focus:outline-none focus:ring-1 ${
                 errors.maxGroupsPerTimeSlot
                   ? 'border-red-300 bg-red-50/30 focus:border-red-500 focus:ring-red-500'
                   : 'border-slate-200 focus:border-emerald-500 focus:ring-emerald-500'
@@ -836,8 +856,8 @@ function CapacityStep({ errors = {}, onTouch }) {
         <p className="text-sm text-slate-600 mb-6">How many participants can you take per time slot?</p>
 
         <div className="space-y-4">
-          <div className="flex items-center gap-4">
-            <label className="text-sm text-slate-700 min-w-[140px] flex items-center gap-1.5">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+            <label className="text-sm text-slate-700 sm:min-w-[140px] flex items-center gap-1.5">
               Minimum number
               <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
             </label>
@@ -856,16 +876,16 @@ function CapacityStep({ errors = {}, onTouch }) {
               min={1}
               data-field="minParticipants"
               aria-invalid={!!errors.minParticipants}
-              className={`h-11 w-32 rounded-lg border px-3.5 text-sm focus:outline-none focus:ring-1 ${
+              className={`h-11 w-full max-w-[200px] sm:max-w-none sm:w-32 rounded-lg border px-3.5 text-sm focus:outline-none focus:ring-1 ${
                 errors.minParticipants
                   ? 'border-red-300 bg-red-50/30 focus:border-red-500 focus:ring-red-500'
                   : 'border-slate-200 focus:border-emerald-500 focus:ring-emerald-500'
               }`}
             />
           </div>
-          {errors.minParticipants && <span className="text-[13px] text-red-600 font-medium mt-1 block ml-[140px]">{errors.minParticipants}</span>}
-          <div className="flex items-center gap-4">
-            <label className="text-sm text-slate-700 min-w-[140px]">Maximum number</label>
+          {errors.minParticipants && <span className="text-[13px] text-red-600 font-medium mt-1 block sm:ml-[140px]">{errors.minParticipants}</span>}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+            <label className="text-sm text-slate-700 sm:min-w-[140px]">Maximum number</label>
             <input
               type="number"
               value={maxParticipants ?? 1}
@@ -881,14 +901,14 @@ function CapacityStep({ errors = {}, onTouch }) {
               min={1}
               data-field="maxParticipants"
               aria-invalid={!!errors.maxParticipants}
-              className={`h-11 w-32 rounded-lg border px-3.5 text-sm focus:outline-none focus:ring-1 ${
+              className={`h-11 w-full max-w-[200px] sm:max-w-none sm:w-32 rounded-lg border px-3.5 text-sm focus:outline-none focus:ring-1 ${
                 errors.maxParticipants
                   ? 'border-red-300 bg-red-50/30 focus:border-red-500 focus:ring-red-500'
                   : 'border-slate-200 focus:border-emerald-500 focus:ring-emerald-500'
               }`}
             />
           </div>
-          {errors.maxParticipants && <span className="text-[13px] text-red-600 font-medium mt-1 block ml-[140px]">{errors.maxParticipants}</span>}
+          {errors.maxParticipants && <span className="text-[13px] text-red-600 font-medium mt-1 block sm:ml-[140px]">{errors.maxParticipants}</span>}
         </div>
       </div>
     </div>
@@ -926,13 +946,10 @@ function PerGroupPriceStep({ errors = {}, onTouch }) {
         {groupSizes.map((gs, i) => {
           const bandPrice = gs.price
           const payout = bandPrice ? (bandPrice * (1 - commission)).toFixed(2) : ''
-          const label = gs.from === gs.to
-            ? `Group of ${gs.from}`
-            : `Group of ${gs.from}-${gs.to}`
 
           return (
             <div key={gs.id || i} className="border border-slate-200 rounded-lg p-4">
-              <div className="flex items-center gap-3 mb-3">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-3">
                 {i === 0 && (
                   <label className="text-sm text-slate-700 shrink-0">People</label>
                 )}
@@ -1021,14 +1038,14 @@ function PerGroupPriceStep({ errors = {}, onTouch }) {
           <span className="text-sm font-bold text-slate-900">Additional Persons</span>
         </label>
         {additionalPersonsEnabled && (
-          <div className="mt-3 flex items-center gap-3">
+          <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
             <label className="text-sm text-slate-700">Price per additional person</label>
             <input
               type="number"
               value={additionalPersonPrice ?? ''}
               onChange={(e) => setField('additionalPersonPrice', e.target.value ? parseFloat(e.target.value) : null)}
               placeholder="USD"
-              className="h-10 w-28 rounded-lg border border-slate-200 px-3 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+              className="h-10 w-full sm:w-28 rounded-lg border border-slate-200 px-3 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
             />
           </div>
         )}
@@ -1096,7 +1113,7 @@ function PerPersonPriceStep({ errors = {}, onTouch }) {
                 Tier 1 is the canonical `1 to N` band: its lower bound is fixed
                 at 1 (GetYourGuide convention) and its upper bound is editable,
                 cascading into the next tier's lower bound on change. */}
-            <div className="grid grid-cols-4 gap-3 items-end mb-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end mb-3">
               <div>
                 <label className="block text-xs text-slate-500 mb-1">Number of people</label>
                 {tier0 ? (
@@ -1164,7 +1181,7 @@ function PerPersonPriceStep({ errors = {}, onTouch }) {
                 <div className="text-xs font-medium text-slate-500 mb-2">
                   Tier {j + 1}: For groups of {tier.from} to {tier.to ?? '?'} total participants
                 </div>
-                <div className="grid grid-cols-[auto_1fr_1fr_auto] gap-3 items-center">
+                <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr_1fr_auto] gap-3 items-center">
                   {/* From/To Column */}
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-slate-500">From</span>

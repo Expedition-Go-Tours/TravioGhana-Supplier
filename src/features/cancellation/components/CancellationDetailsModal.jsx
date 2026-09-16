@@ -64,7 +64,7 @@ export default function CancellationDetailsModal({
         className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-slate-100">
           <div>
             <h2 className="text-lg font-bold text-slate-800">Cancellation Details</h2>
             <p className="text-sm text-slate-500">Last {days} days</p>
@@ -79,8 +79,8 @@ export default function CancellationDetailsModal({
         </div>
 
         {/* Summary Stats */}
-        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-          <div className="grid grid-cols-5 gap-4">
+        <div className="px-4 sm:px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-x-4 gap-y-3">
             <div className="text-center">
               <div className="text-2xl font-bold text-slate-800">{rate}%</div>
               <div className="text-xs text-slate-500">Cancellation Rate</div>
@@ -164,17 +164,17 @@ export default function CancellationDetailsModal({
         {/* Footer */}
         {records.length > 0 && (
           <div className="border-t border-slate-100">
-            <div className="px-6 py-3 bg-slate-50/50 flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Total Lost</span>
-              <span className="text-sm font-bold text-slate-800">{formatCurrency(totalLost)}</span>
-            </div>
+        <div className="px-4 sm:px-6 py-3 bg-slate-50/50 flex items-center justify-between">
+          <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Total Lost</span>
+          <span className="text-sm font-bold text-slate-800">{formatCurrency(totalLost)}</span>
+        </div>
 
-            {pagination && pagination.totalPages > 1 && (
-              <div className="px-6 py-3 flex items-center justify-between">
-                <span className="text-xs text-slate-400">
-                  Page {pagination.currentPage} of {pagination.totalPages} ({pagination.totalCount} records)
-                </span>
-                <div className="flex items-center gap-1">
+        {pagination && pagination.totalPages > 1 && (
+          <div className="px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs text-slate-400">
+              Page {pagination.currentPage} of {pagination.totalPages} ({pagination.totalCount} records)
+            </span>
+            <div className="flex items-center gap-1 ml-auto">
                   <button
                     onClick={() => onPageChange((p) => Math.max(1, p - 1))}
                     disabled={pagination.currentPage <= 1}

@@ -54,7 +54,7 @@ function circleFeature(lat, lng, radiusKm, nPoints = 32) {
  * max distance from centroid to any vertex. Used for backward compatibility
  * with products saved before the radius-based model.
  */
-export function polygonToRadiusKm(polygon) {
+function polygonToRadiusKm(polygon) {
   if (!Array.isArray(polygon) || polygon.length < 3) return 1;
   const centroid = polygon.reduce(
     (acc, [lat, lng]) => [acc[0] + lat / polygon.length, acc[1] + lng / polygon.length],
@@ -108,16 +108,13 @@ export default function PickupAreaModal({
   });
 
   // Re-initialize from props each time the modal opens (keep-alive pattern).
+  // Marker cleanup is handled by the marker effect below, never during render.
   const [prevOpen, setPrevOpen] = useState(open);
   if (open && !prevOpen) {
     setPrevOpen(true);
     setLocation(initialLocation && initialLocation.lat != null ? { ...initialLocation } : null);
     setRadiusKm(initialRadiusKm || 1);
     setRadiusInput(String(initialRadiusKm || 1));
-    if (markerRef.current) {
-      markerRef.current.remove();
-      markerRef.current = null;
-    }
   }
   if (!open && prevOpen) {
     setPrevOpen(false);
@@ -205,7 +202,6 @@ export default function PickupAreaModal({
     } else {
       map.jumpTo({ center: [DEFAULT_CENTER.lng, DEFAULT_CENTER.lat], zoom: 6 });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   // Pause render loop while hidden.
@@ -242,7 +238,20 @@ export default function PickupAreaModal({
       }
       mapReadyRef.current = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const reverseGeocode = useCallback(async (lat, lng) => {
+    try {
+      const res = await fetch(
+        `${config.api.baseURL}/locations/reverse?lat=${lat}&lng=${lng}`
+      );
+      if (!res.ok) return null;
+      const body = await res.json();
+      const result = body?.data?.results?.[0];
+      return result?.formatted || result?.name || null;
+    } catch {
+      return null;
+    }
   }, []);
 
   // Update circle data when location or radius changes (coalesced via rAF).
@@ -318,7 +327,7 @@ export default function PickupAreaModal({
         circleRafRef.current = null;
       }
     };
-  }, [location, radiusKm, mapReady]);
+  }, [location, radiusKm, mapReady, reverseGeocode]);
 
   // Fit map to circle bounds when location or radius changes (coalesced via rAF).
   useEffect(() => {
@@ -363,20 +372,6 @@ export default function PickupAreaModal({
     },
     []
   );
-
-  const reverseGeocode = useCallback(async (lat, lng) => {
-    try {
-      const res = await fetch(
-        `${config.api.baseURL}/locations/reverse?lat=${lat}&lng=${lng}`
-      );
-      if (!res.ok) return null;
-      const body = await res.json();
-      const result = body?.data?.results?.[0];
-      return result?.formatted || result?.name || null;
-    } catch {
-      return null;
-    }
-  }, []);
 
   const handleRadiusInputChange = useCallback((e) => {
     const raw = e.target.value;
@@ -692,6 +687,10 @@ export function PickupGeoshapePreview({ areas = [], height = 260, className = ""
       map.remove();
       mapRef.current = null;
     };
+    // Rebuild the map only when the areas serialization key changes — the
+    // mappableAreas array identity changes every render, so it must stay out
+    // of the dependency list (the key already encodes the same data).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [areasKey]);
 
   useEffect(() => {
