@@ -188,12 +188,12 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
           <div className={`flex flex-col items-center gap-2 ${isCollapsed ? "" : "relative"}`}>
             <div className="relative shrink-0">
               {effectiveLogoUrl ? (
-                <div className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-white/20">
-                  <OptimizedImage src={effectiveLogoUrl} width={40} className="w-full h-full object-cover" />
+                <div className="w-12 h-12 rounded-full overflow-hidden ring-2 ring-white/20">
+                  <OptimizedImage src={effectiveLogoUrl} width={48} className="w-full h-full object-cover" />
                 </div>
               ) : (
-                <div className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center ring-2 ring-white/20">
-                  <span className="text-sm font-bold text-white">
+                <div className="w-12 h-12 rounded-full bg-white/15 flex items-center justify-center ring-2 ring-white/20">
+                  <span className="text-base font-bold text-white">
                     {(businessName || user?.name || "S").charAt(0).toUpperCase()}
                   </span>
                 </div>
@@ -219,19 +219,6 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
               </div>
             )}
           </div>
-          <AnimatePresence>
-            {profileHover && !isCollapsed && (
-              <motion.div
-                initial={{ opacity: 0, x: -6 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -6 }}
-                transition={{ duration: 0.15 }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40"
-              >
-                <ChevronRight size={16} />
-              </motion.div>
-            )}
-          </AnimatePresence>
         </button>
 
         {/* Navigation */}
