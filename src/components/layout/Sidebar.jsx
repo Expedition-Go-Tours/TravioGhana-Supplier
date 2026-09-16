@@ -6,7 +6,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { toast } from "sonner";
 import { loadSupplierProfile } from "@/features/auth/api";
 import api from "@/lib/axios";
-import { LogOut, ChevronLeft, ChevronRight, Menu, LayoutDashboard, Package, Ticket, CalendarDays, Users, DollarSign, Star, Bell, BarChart3, BadgeCheck, Settings, CalendarX2, BadgePercent, MapPinned, ShieldCheck } from "lucide-react";
+import { LogOut, ChevronLeft, ChevronRight, Menu, LayoutDashboard, Package, Ticket, CalendarDays, Users, DollarSign, Star, Bell, BarChart3, BadgeCheck, Settings, CalendarX2, BadgePercent, MapPinned, ShieldCheck, Calendar } from "lucide-react";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { useTeamRole } from "@/hooks/useTeamRole";
 
@@ -212,6 +212,12 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
                   </div>
                 ) : (
                   <span className="text-[11px] text-white/40 block mt-0.5">Administrator</span>
+                )}
+                {user?.createdAt && (
+                  <div className="flex items-center justify-center gap-1 mt-2 text-xs font-normal tracking-tight text-white/50 hover:text-white/65 transition-colors duration-200">
+                    <Calendar size={14} className="opacity-60 shrink-0" />
+                    <span>Joined {new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
+                  </div>
                 )}
               </div>
             )}
