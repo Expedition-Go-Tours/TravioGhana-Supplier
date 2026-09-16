@@ -924,6 +924,11 @@ export default function ReviewsPage() {
                           )}
                           <span>{review.tourName}</span>
                         </button>
+                        {review.storefront === "EXPEDITION" && (
+                          <span className="inline-flex items-center rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200 px-1.5 py-px text-[9px] font-bold uppercase tracking-wide">
+                            Expedition
+                          </span>
+                        )}
                         <span className="text-slate-300">·</span>
                         <span className="text-xs text-slate-400">{formatDate(review.date)}</span>
                       </div>

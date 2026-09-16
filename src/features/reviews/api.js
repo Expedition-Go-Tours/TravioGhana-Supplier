@@ -26,6 +26,7 @@ export function mapReviewRow(review) {
     flagComment: review.flagComment || null,
     flaggedAt: review.flaggedAt || null,
     flagged: review.status?.toUpperCase() === "FLAGGED",
+    storefront: review.storefront || "GHANA",
   };
 }
 

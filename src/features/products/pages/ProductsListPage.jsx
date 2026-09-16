@@ -94,6 +94,20 @@ function DraftStatusBadge({ product }) {
   return null;
 }
 
+function StorefrontBadge({ storefront }) {
+  if (!storefront || storefront === "GHANA") return null;
+  const isBoth = storefront === "BOTH";
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border ${
+      isBoth
+        ? "bg-sky-50 text-sky-700 border-sky-200"
+        : "bg-indigo-50 text-indigo-700 border-indigo-200"
+    }`}>
+      {isBoth ? "Both storefronts" : "Expedition"}
+    </span>
+  );
+}
+
 function ProductCardSkeleton() {
   return (
     <div className="bg-white border border-slate-100 rounded-xl overflow-hidden animate-pulse">
@@ -460,6 +474,11 @@ export default function ProductsListPage() {
                         {category}
                       </span>
                     )}
+                    {product.storefront && product.storefront !== "GHANA" && (
+                      <span className="absolute top-3 left-3 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-600/90 text-white backdrop-blur-sm border border-white/20 shadow-sm">
+                        {product.storefront === "BOTH" ? "Both storefronts" : "Expedition"}
+                      </span>
+                    )}
                   </div>
 
                   {/* Body */}
@@ -503,7 +522,7 @@ export default function ProductsListPage() {
                         )}
                       </div>
                       <div className="flex items-center gap-1 opacity-100 transition-opacity">
-                        {(product.status === "ACTIVE" || product.status === "PAUSED") && (
+                        {(product.status === "ACTIVE" || product.status === "PAUSED") && product.storefront !== "EXPEDITION" && (
                           <button
                             onClick={() => navigate(`/special-offers/build/new/products?productId=${product.id}`)}
                             className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
@@ -520,7 +539,7 @@ export default function ProductsListPage() {
                           <Eye size={14} />
                         </button>
                         <PreviewMenu product={product} />
-                        {usingSupplierEndpoint && (
+                        {usingSupplierEndpoint && product.storefront !== "EXPEDITION" && (
                           <>
                             <button
                               onClick={() => navigate(`/products/build/${product.id}/type`)}
@@ -579,9 +598,12 @@ export default function ProductsListPage() {
                             {(() => { const rawUrl = product.coverPhoto || product.photos?.find(p => p); return rawUrl ? <OptimizedImage src={rawUrl} alt="" width={36} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><Package size={14} className="text-slate-300" /></div>; })()}
                           </div>
                           <div className="min-w-0">
-                            <p className="text-sm font-medium text-slate-800 truncate cursor-pointer hover:text-emerald-700 transition-colors" onClick={() => navigate(`/products/${product.id}`)}>
-                              {product.title}
-                            </p>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <p className="text-sm font-medium text-slate-800 truncate cursor-pointer hover:text-emerald-700 transition-colors" onClick={() => navigate(`/products/${product.id}`)}>
+                                {product.title}
+                              </p>
+                              <StorefrontBadge storefront={product.storefront} />
+                            </div>
                             <p className="text-xs text-slate-500 truncate">{getSupplierLabel(product)}</p>
                           </div>
                         </div>
@@ -609,12 +631,12 @@ export default function ProductsListPage() {
                       <td className="px-4 py-3 text-xs text-slate-500">{formatDate(product.updatedAt)}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
-                          {(product.status === "ACTIVE" || product.status === "PAUSED") && (
+                          {(product.status === "ACTIVE" || product.status === "PAUSED") && product.storefront !== "EXPEDITION" && (
                             <button onClick={() => navigate(`/special-offers/build/new/products?productId=${product.id}`)} className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Create special offer"><Percent size={14} /></button>
                           )}
                           <button onClick={() => navigate(`/products/${product.id}`)} className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="View"><Eye size={14} /></button>
                           <PreviewMenu product={product} />
-                          {usingSupplierEndpoint && (
+                          {usingSupplierEndpoint && product.storefront !== "EXPEDITION" && (
                             <>
                               <button onClick={() => navigate(`/products/build/${product.id}/type`)} className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Edit"><Edit size={14} /></button>
                               <button
