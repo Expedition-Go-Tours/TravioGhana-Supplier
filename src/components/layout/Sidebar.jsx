@@ -177,20 +177,24 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
           </button>
         </div>
 
-        {/* Profile */}
-        <button
+        {/* Profile — Glassmorphism card */}
+        <div
           onClick={() => navigate("/settings?tab=profile")}
-          className={`shrink-0 w-full text-center cursor-pointer hover:bg-white/5 transition-colors border-b border-white/5 ${isCollapsed ? "py-3" : "pb-4 px-5"}`}
+          className={`shrink-0 cursor-pointer transition-all duration-200 ${
+            isCollapsed
+              ? "py-3 px-2"
+              : "bg-white/10 backdrop-blur-[16px] border border-white/[0.18] rounded-[18px] shadow-[0_8px_32px_rgba(0,0,0,0.25)] hover:bg-white/[0.14] p-6 mx-3 mb-3"
+          }`}
         >
-          <div className={`flex flex-col items-center gap-2`}>
+          <div className="flex flex-col items-center gap-2">
             <div className="relative shrink-0">
               {effectiveLogoUrl ? (
-                <div className="w-12 h-12 rounded-full overflow-hidden ring-2 ring-white/20">
-                  <OptimizedImage src={effectiveLogoUrl} width={48} className="w-full h-full object-cover" />
+                <div className="w-20 h-20 rounded-full overflow-hidden ring-[3px] ring-white/20 shadow-[0_4px_16px_rgba(0,0,0,0.2)]">
+                  <OptimizedImage src={effectiveLogoUrl} width={80} className="w-full h-full object-cover" />
                 </div>
               ) : (
-                <div className="w-12 h-12 rounded-full bg-white/15 flex items-center justify-center ring-2 ring-white/20">
-                  <span className="text-base font-bold text-white">
+                <div className="w-20 h-20 rounded-full bg-white/15 flex items-center justify-center ring-[3px] ring-white/20 shadow-[0_4px_16px_rgba(0,0,0,0.2)]">
+                  <span className="text-2xl font-bold text-white">
                     {(businessName || user?.name || "S").charAt(0).toUpperCase()}
                   </span>
                 </div>
@@ -198,11 +202,11 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
             </div>
             {!isCollapsed && (
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-white truncate leading-tight" title={businessName || user?.name}>
+                <p className="text-[15px] font-bold text-white truncate leading-tight" title={businessName || user?.name}>
                   {businessName || user?.name || "Supplier"}
                 </p>
                 {statusStyle ? (
-                  <div className="flex items-center justify-center gap-1 mt-0.5">
+                  <div className="flex items-center justify-center gap-1 mt-1">
                     {statusStyle.label === "Verified" ? (
                       <BadgeCheck size={13} className="text-blue-400 shrink-0" />
                     ) : (
@@ -211,18 +215,18 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
                     <span className={`text-[11px] font-medium ${statusStyle.text}`}>{statusStyle.label}</span>
                   </div>
                 ) : (
-                  <span className="text-[11px] text-white/40 block mt-0.5">Administrator</span>
+                  <span className="text-[11px] text-white/40 block mt-1">Administrator</span>
                 )}
                 {user?.createdAt && (
                   <div className="flex items-center justify-center gap-1 mt-2 text-xs font-normal tracking-tight text-white/50 hover:text-white/65 transition-colors duration-200">
                     <Calendar size={14} className="opacity-60 shrink-0" />
-                    <span>Joined {new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
+                    <span>Member since {new Date(user.createdAt).getFullYear()}</span>
                   </div>
                 )}
               </div>
             )}
           </div>
-        </button>
+        </div>
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3 min-h-0 scrollbar-none">
