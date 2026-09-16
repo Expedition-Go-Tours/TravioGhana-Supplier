@@ -90,7 +90,7 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
         const logo = fresh.logoUrl || null;
         setFetchedLogoUrl(logo);
         setLogoLoaded(true);
-        useAuthStore.getState().updateUser({ logoUrl: logo });
+        useAuthStore.getState().updateUser({ logoUrl: logo, createdAt: fresh.createdAt });
       })
       .catch(() => {});
     return () => { cancelled = true; };
