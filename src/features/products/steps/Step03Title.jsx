@@ -26,7 +26,7 @@ const PLATFORMS = [
     key: 'viator',
     label: 'TripAdvisor / Viator',
     placeholder: 'https://www.viator.com/...',
-    pattern: /viator\.com/i,
+    pattern: /viator\.com|tripadvisor\.com/i,
     color: 'bg-blue-50 border-blue-200 text-blue-800',
     dotColor: 'bg-blue-500',
     logo: (
