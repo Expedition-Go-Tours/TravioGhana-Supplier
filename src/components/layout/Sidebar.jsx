@@ -167,14 +167,8 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
           ${isCollapsed ? "lg:w-[64px] lg:translate-x-0" : "lg:w-[270px] lg:translate-x-0"}
           w-[260px]`}
       >
-        {/* Brand + Collapse */}
-        <div className={`flex items-center h-[80px] shrink-0 border-b border-white/10 ${isCollapsed ? "justify-center px-2" : "justify-between px-5"}`}>
-          {!isCollapsed && (
-            <div className="min-w-0">
-              <span className="text-2xl font-bold text-white tracking-tight block leading-none">Travio Ghana</span>
-              <span className="text-xs font-medium text-white/50 block mt-1">Supplier Dashboard</span>
-            </div>
-          )}
+        {/* Collapse toggle */}
+        <div className={`flex items-center h-[48px] shrink-0 border-b border-white/10 ${isCollapsed ? "justify-center px-2" : "justify-end px-3"}`}>
           <button
             onClick={() => isMobileOpen ? closeMobile() : toggle()}
             className="flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200 p-1.5"

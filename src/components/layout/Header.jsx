@@ -13,6 +13,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import OptimizedImage from "@/components/shared/OptimizedImage";
+import logoSrc from "@/assets/TravioG.png";
 
 export default function Header() {
   const navigate = useNavigate();
@@ -33,15 +34,30 @@ export default function Header() {
 
   return (
     <header
-      className={`fixed top-0 right-0 h-16 bg-white border-b border-[#eaeaea] flex items-center justify-between px-4 lg:px-6 z-40 transition-all duration-300 ${
+      className={`fixed top-0 right-0 h-16 bg-white border-b border-[#eaeaea] flex items-center px-4 lg:px-6 z-40 transition-all duration-300 ${
         isCollapsed ? "lg:left-[64px]" : "lg:left-[270px]"
       } left-0`}
     >
-      <div className="flex items-center ml-12 lg:ml-0">
-        <SearchDropdown />
+      {/* Left: Logo */}
+      <div className="flex items-center shrink-0 mr-3 lg:mr-4">
+        <a
+          href="/"
+          onClick={(e) => { e.preventDefault(); navigate('/') }}
+          className="flex items-center"
+        >
+          <img src={logoSrc} alt="Travio Ghana" className="w-[110px] lg:w-[140px] h-auto" />
+        </a>
       </div>
-      <div className="flex-1 min-w-0" />
-      <div className="flex items-center gap-2 sm:gap-3">
+
+      {/* Center: Search */}
+      <div className="flex-1 flex justify-center min-w-0">
+        <div className="w-full max-w-md">
+          <SearchDropdown />
+        </div>
+      </div>
+
+      {/* Right: Notifications + Profile */}
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-3 lg:ml-4">
         <NotificationBell />
 
         <DropdownMenu>
