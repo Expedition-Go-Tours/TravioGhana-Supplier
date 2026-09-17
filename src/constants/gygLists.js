@@ -6,13 +6,15 @@ export const DIETARY_OPTIONS = [
 
 export const ACTIVITY_CATEGORIES = {
   'Air Activities': ['Hot air balloon ride', 'Helicopter tour', 'Paragliding', 'Skydiving'],
-  'Classes/Lessons/Workshops': ['Cooking class', 'Art class', 'Dance lesson', 'Craft workshop', 'Photography tour'],
+  'Classes/Lessons/Workshops': ['Cooking class', 'Art class', 'Dance lesson', 'Craft workshop', 'Photography tour', 'Bead making / jewelry workshop', 'Weaving / kente cloth workshop', 'Pottery / ceramics class', 'Wood carving workshop', 'Chocolate / cocoa making', 'Soap making workshop'],
   'Dining Experience': ['Food tasting tour', 'Wine tasting / winery tour', 'Beer / brewery tour', 'Coffee / tea tasting', 'Street food tour', 'Dinner cruise'],
-  'Fun & Games': ['Pub crawl / bar tour', 'Ghost / vampire tour', 'Street art / graffiti tour', 'Concert / live show', 'Cultural performance'],
-  'Land & Outdoor Activities': ['Walking tour', 'Hiking / trekking', 'Bike tour', 'Segway tour', 'Horseback riding', 'ATV / 4WD tour', 'Zip-lining / canopy tour', 'Canyoning / rappelling', 'Safari / wildlife viewing'],
+  'Fun & Games': ['Pub crawl / bar tour', 'Ghost / vampire tour', 'Street art / graffiti tour', 'Concert / live show', 'Cultural performance', 'Amusement park / adventure park', 'Karaoke', 'Escape room', 'Night market tour', 'Beach party'],
+  'Heritage & Culture': ['Castle / fort tour', 'Slave heritage / roots tour', 'Village visit', 'Traditional festival', 'Craft village tour', 'Drumming / dancing workshop', 'Historical walking tour', 'Cultural immersion day'],
+  'Land & Outdoor Activities': ['Walking tour', 'Hiking / trekking', 'Bike tour', 'Segway tour', 'Horseback riding', 'ATV / 4WD tour', 'Zip-lining / canopy tour', 'Canyoning / rappelling', 'Safari / wildlife viewing', 'Quad biking', 'Canopy walkway', 'Abseiling / rappelling', 'Rock climbing', 'Mountain biking', 'Camping / glamping', 'Caving / spelunking', 'Nature / bird watching'],
   'Snow Activities': ['Skiing', 'Snowboarding', 'Snowmobile tour', 'Sled tour'],
   'Spas': ['Spa / thermal baths', 'Wellness retreat'],
-  'Water Activities': ['Boat cruise', 'Sailing trip', 'Scuba diving', 'Snorkeling', 'Kayaking / canoeing', 'White water rafting', 'Surfing / paddleboarding', 'Dolphin / whale watching', 'Jet skiing', 'Fishing charter', 'Glass bottom boat tour', 'Sunset cruise', 'Dinner cruise'],
+  'Sports & Fitness': ['Golf', 'Football / soccer match', 'Tennis', 'Basketball', 'Volleyball', 'Gym / fitness', 'Archery', 'Paintball', 'Go-karting', 'Skating / rollerblading', 'Snooker / pool', 'Cricket', 'Rugby'],
+  'Water Activities': ['Boat cruise', 'Sailing trip', 'Scuba diving', 'Snorkeling', 'Kayaking / canoeing', 'White water rafting', 'Surfing / paddleboarding', 'Dolphin / whale watching', 'Jet skiing', 'Fishing charter', 'Glass bottom boat tour', 'Sunset cruise', 'Dinner cruise', 'River tubing', 'Waterfall swimming / visit', 'Stand-up paddleboarding', 'Canoe tour'],
 }
 
 export const TOUR_TRANSPORT_CATEGORIES = {
