@@ -3,13 +3,13 @@
  *
  * - Travio Ghana  (travioghana.com): the Ghana catalog. Every ACTIVE Ghana tour is
  *   automatically live here.
- * - ExpeditionGo   (expeditiongotours.vercel.app): live whenever the tour is
+ * - ExpeditionGo   (expeditiongotours.com): live whenever the tour is
  *   published on Expedition Go (`expeditionTour.isActive === true`), regardless
  *   of its booking flow (DIRECT or EXTERNAL).
  *
  * URL shapes:
  *   - https://travioghana.com/tour/{slug}          (matches the Travio Ghana router — singular)
- *   - https://expeditiongotours.vercel.app/tour/{slug} (matches the ExpeditionGo router)
+ *   - https://expeditiongotours.com/tour/{slug} (matches the ExpeditionGo router)
  */
 import { Compass, Plane } from "lucide-react";
 import { config } from "@/config";
@@ -17,7 +17,7 @@ import { config } from "@/config";
 // Env-backed with hard production fallbacks: a stale config module or a missing
 // env value must never disable the preview link for a live tour.
 const TRAVIO_AFRICA_URL = config.VITE_TRAVIO_AFRICA_URL || "https://travioghana.com";
-const EXPEDITION_GO_URL = config.VITE_EXPEDITION_GO_URL || "https://expeditiongotours.vercel.app";
+const EXPEDITION_GO_URL = config.VITE_EXPEDITION_GO_URL || "https://expeditiongotours.com";
 
 export const TOUR_PLATFORMS = [
   {
@@ -32,7 +32,7 @@ export const TOUR_PLATFORMS = [
   {
     key: "expedition_go",
     name: "ExpeditionGo",
-    domain: "expeditiongotours.vercel.app",
+    domain: "expeditiongotours.com",
     baseUrl: EXPEDITION_GO_URL,
     icon: Plane,
     accent: "sky",

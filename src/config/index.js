@@ -105,7 +105,7 @@ const env = {
 
   // Public platforms (live product preview URLs)
   VITE_TRAVIO_AFRICA_URL: envString(import.meta.env.VITE_TRAVIO_AFRICA_URL, 'https://travioghana.com'),
-  VITE_EXPEDITION_GO_URL: envString(import.meta.env.VITE_EXPEDITION_GO_URL, 'https://expeditiongotours.vercel.app'),
+  VITE_EXPEDITION_GO_URL: envString(import.meta.env.VITE_EXPEDITION_GO_URL, 'https://expeditiongotours.com'),
 
   // Support
   VITE_ADMIN_SUPPORT_ID: envString(import.meta.env.VITE_ADMIN_SUPPORT_ID, ''),
