@@ -95,7 +95,7 @@ function TagList({ items, onAdd, onRemove, placeholder, suggestions = [] }) {
         </span>
       </div>
       {showSuggestions && filteredSuggestions.length > 0 && (
-        <div className="absolute z-10 w-full max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg mt-1">
+        <div className="absolute z-10 w-full max-h-80 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg mt-1">
           {filteredSuggestions.map((suggestion) => (
             <button
               key={suggestion}
