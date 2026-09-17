@@ -69,12 +69,12 @@ export default function BookingsPage() {
 
   const apiStatus = activeTab !== "ALL" ? activeTab : undefined;
 
-  const loadBookings = useCallback(async () => {
+  const loadBookings = useCallback(async ({ silent = false } = {}) => {
     if (!getAuthToken()) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const result = await fetchSupplierBookings({
@@ -87,14 +87,17 @@ export default function BookingsPage() {
       setBookingSummary(result.summary);
     } catch (err) {
       if (err.code === "AUTH_REQUIRED") return;
-      setError(
-        err.response?.data?.message || err.message || "Failed to load bookings"
-      );
+      if (!silent) {
+        setError(
+          err.response?.data?.message || err.message || "Failed to load bookings"
+        );
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [page, pageSize, apiStatus]);
 
+  // Initial load
   useEffect(() => {
     let cancelled = false;
     Promise.resolve().then(() => {
@@ -103,6 +106,12 @@ export default function BookingsPage() {
     return () => {
       cancelled = true;
     };
+  }, [loadBookings]);
+
+  // Auto-refresh every 30 seconds (silent, no loading spinner)
+  useEffect(() => {
+    const id = setInterval(() => loadBookings({ silent: true }), 30_000);
+    return () => clearInterval(id);
   }, [loadBookings]);
 
   useEffect(() => {
