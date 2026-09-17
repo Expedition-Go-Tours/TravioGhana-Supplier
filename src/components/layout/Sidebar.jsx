@@ -170,10 +170,11 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
         <div className={`flex shrink-0 ${isCollapsed ? "justify-center px-2 pt-2 pb-1" : "justify-end px-3 pt-2 pb-1"}`}>
           <button
             onClick={() => isMobileOpen ? closeMobile() : toggle()}
-            className="flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200 p-1.5"
+            className="flex items-center gap-1.5 text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200 p-1.5"
             title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            <ChevronLeft size={15} />
+            <ChevronLeft size={15} className={`transition-transform duration-200 ${isCollapsed ? "rotate-180" : ""}`} />
+            {!isCollapsed && <span className="text-xs whitespace-nowrap">Collapse sidebar</span>}
           </button>
         </div>
 
