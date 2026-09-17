@@ -96,7 +96,7 @@ function TagList({ items, onAdd, onRemove, placeholder, suggestions = [] }) {
       </div>
       {showSuggestions && filteredSuggestions.length > 0 && (
         <div className="absolute z-10 w-full max-h-48 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg mt-1">
-          {filteredSuggestions.slice(0, 20).map((suggestion) => (
+          {filteredSuggestions.map((suggestion) => (
             <button
               key={suggestion}
               type="button"
@@ -152,7 +152,7 @@ export default function Step09ExtraInfo() {
           items={notSuitableFor}
           onAdd={addNotSuitable}
           onRemove={removeNotSuitable}
-          placeholder="e.g. Pregnant women, People with back problems"
+          placeholder="Click to select from the list or type your own"
           suggestions={GYG_NOT_SUITABLE_FOR}
         />
         {errors.notSuitableFor && <span className="text-[13px] text-red-600 font-medium mt-1">{errors.notSuitableFor[0]}</span>}
@@ -166,7 +166,7 @@ export default function Step09ExtraInfo() {
           items={notAllowed}
           onAdd={addNotAllowed}
           onRemove={removeNotAllowed}
-          placeholder="e.g. Pets, Smoking, Large bags"
+          placeholder="Click to select from the list or type your own"
           suggestions={GYG_NOT_ALLOWED}
         />
         {errors.notAllowed && <span className="text-[13px] text-red-600 font-medium mt-1">{errors.notAllowed[0]}</span>}
@@ -241,7 +241,7 @@ export default function Step09ExtraInfo() {
           items={mandatoryItems}
           onAdd={addMandatoryItem}
           onRemove={removeMandatoryItem}
-          placeholder="e.g. Passport, Comfortable shoes, Swimsuit"
+          placeholder="Click to select from the list or type your own"
           suggestions={GYG_MANDATORY_ITEMS}
         />
         {errors.mandatoryItems && <span className="text-[13px] text-red-600 font-medium mt-1">{errors.mandatoryItems[0]}</span>}
