@@ -6,7 +6,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { toast } from "sonner";
 import { loadSupplierProfile } from "@/features/auth/api";
 import api from "@/lib/axios";
-import { LogOut, ChevronLeft, ChevronRight, Menu, LayoutDashboard, Package, Ticket, CalendarDays, Users, DollarSign, Star, Bell, BarChart3, BadgeCheck, Settings, CalendarX2, BadgePercent, MapPinned, ShieldCheck, Calendar } from "lucide-react";
+import { LogOut, ChevronLeft, ChevronRight, LayoutDashboard, Package, Ticket, CalendarDays, Users, DollarSign, Star, Bell, BarChart3, BadgeCheck, Settings, CalendarX2, BadgePercent, MapPinned, ShieldCheck, Calendar } from "lucide-react";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { useTeamRole } from "@/hooks/useTeamRole";
 
@@ -152,14 +152,6 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
 
   return (
     <>
-      <button
-        onClick={() => useSidebarStore.getState().toggleMobile()}
-        className={`fixed top-3 left-3 z-[60] p-1.5 rounded-lg bg-transparent text-[#065f46] hover:bg-[#065f46]/10 transition-colors ${isMobileOpen ? "hidden" : "lg:hidden"}`}
-        aria-label="Toggle menu"
-      >
-        <Menu size={16} />
-      </button>
-
       <aside
         className={`fixed left-0 top-0 h-screen bg-[#065f46] border-r border-white/10 transition-all duration-300 z-50 flex flex-col
           ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}

@@ -1,4 +1,4 @@
-import { ChevronDown, LogOut, User, Mail, Loader2 } from "lucide-react";
+import { ChevronDown, LogOut, User, Mail, Loader2, Menu } from "lucide-react";
 import NotificationBell from "@/features/notifications/components/NotificationBell";
 import SearchDropdown from "@/components/layout/SearchDropdown";
 import { useSidebarStore } from "@/stores/sidebarStore";
@@ -17,7 +17,7 @@ import logoSrc from "@/assets/TravioG.png";
 
 export default function Header() {
   const navigate = useNavigate();
-  const { isCollapsed } = useSidebarStore();
+  const { isCollapsed, isMobileOpen, toggleMobile } = useSidebarStore();
   const user = useAuthStore((state) => state.user);
   const [logoutLoading, setLogoutLoading] = useState(false);
 
@@ -38,6 +38,17 @@ export default function Header() {
         isCollapsed ? "lg:left-[64px]" : "lg:left-[270px]"
       } left-0`}
     >
+      {/* Mobile: Menu toggle */}
+      {!isMobileOpen && (
+        <button
+          onClick={toggleMobile}
+          className="lg:hidden p-1.5 rounded-lg text-[#065f46] hover:bg-[#065f46]/10 transition-colors mr-1 sm:mr-2 shrink-0"
+          aria-label="Toggle menu"
+        >
+          <Menu size={16} />
+        </button>
+      )}
+
       {/* Left: Logo */}
       <div className="flex items-center shrink-0 mr-2 lg:mr-4">
         <a
