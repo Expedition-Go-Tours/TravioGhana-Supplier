@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { ChevronDown, Flag, FileText, Image, Settings, CheckCircle2 } from 'lucide-react'
+import { ChevronDown, Flag, FileText, Image, Settings, CheckCircle2, Eye } from 'lucide-react'
 import { GYG_SECTIONS, GYG_STEPS } from './gygSteps'
 import { useProductBuilderStore } from './productBuilderStore'
 import { isStepComplete } from './stepValidation'
@@ -9,6 +9,7 @@ const SECTION_ICONS = {
   'product-content': FileText,
   media: Image,
   'option-setup': Settings,
+  'review-submit': Eye,
 }
 
 export default function WizardSidebar({ currentStep, onSelectStep }) {

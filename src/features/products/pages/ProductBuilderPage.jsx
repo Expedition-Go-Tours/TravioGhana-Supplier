@@ -29,6 +29,9 @@ import Step14PricingAvailability from '@/features/products/steps/Step14PricingAv
 import Step15Cutoff from '@/features/products/steps/Step15Cutoff'
 import Step17CancellationPolicy from '@/features/products/steps/Step17CancellationPolicy'
 import Step05ItineraryPreview from '@/features/products/steps/Step05ItineraryPreview'
+import Step17ProductPreview from '@/features/products/steps/Step17ProductPreview'
+import SupplierAgreementModal from '@/features/products/SupplierAgreementModal'
+import SubmitSuccessOverlay from '@/features/products/SubmitSuccessOverlay'
 import { safeId } from '@/lib/utils'
 
 const STEP_COMPONENTS = {
@@ -48,6 +51,7 @@ const STEP_COMPONENTS = {
   14: Step05ItineraryPreview,
   15: Step14PricingAvailability,
   16: Step15Cutoff,
+  17: Step17ProductPreview,
 }
 
 const STEP_LABELS = {
@@ -67,6 +71,7 @@ const STEP_LABELS = {
   14: 'Itinerary Preview',
   15: 'Pricing & Availability',
   16: 'Cut-off',
+  17: 'Product Preview',
 }
 
 function getGygStepIndex(sectionId, stepId) {
@@ -310,6 +315,9 @@ export default function ProductBuilderPage() {
   const [saving, setSaving] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [mobileStepsOpen, setMobileStepsOpen] = useState(false)
+  const [showAgreement, setShowAgreement] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const [submittedProductName, setSubmittedProductName] = useState('')
   const queryClient = useQueryClient()
   const savedProductId = useProductBuilderStore((s) => s.savedProductId)
   const setStoreSavedProductId = useProductBuilderStore((s) => s.setSavedProductId)
@@ -586,7 +594,8 @@ export default function ProductBuilderPage() {
       // are now referenced by the submitted draft on the server.
       storeAfter.clearUploadedUrls()
       await queryClient.invalidateQueries({ queryKey: ['products', 'list'] })
-      navigate('/products')
+      setSubmittedProductName(state.title || '')
+      setSubmitted(true)
     } finally {
       setSubmitting(false)
     }
@@ -841,6 +850,7 @@ export default function ProductBuilderPage() {
                 onNext={handleNext}
                 onSave={handleSave}
                 onSubmitForReview={handleSubmitForReview}
+                onOpenAgreement={() => setShowAgreement(true)}
                 saving={saving}
                 submitting={submitting}
                 isEditing={id && id !== 'new'}
@@ -875,6 +885,23 @@ export default function ProductBuilderPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Supplier Agreement — opened from "Submit Product" on the preview step */}
+        <SupplierAgreementModal
+          isOpen={showAgreement}
+          productName={submittedProductName || store.title || ''}
+          onConfirm={() => { handleSubmitForReview().catch(() => {}) }}
+          onClose={() => setShowAgreement(false)}
+          isLoading={submitting}
+        />
+
+        {/* Post-submission success screen */}
+        {submitted && (
+          <SubmitSuccessOverlay
+            productName={submittedProductName}
+            onBackToProducts={() => navigate('/products')}
+          />
         )}
       </motion.div>
   )

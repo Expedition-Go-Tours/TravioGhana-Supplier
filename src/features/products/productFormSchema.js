@@ -288,4 +288,5 @@ export const stepSchemas = {
     perSlotCutoff: z.boolean().optional(),
     perSlotCutoffs: z.record(z.string(), z.number().min(0).max(600)).optional(),
   }),
+  17: z.object({}),
 }

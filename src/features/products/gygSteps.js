@@ -12,6 +12,7 @@ export const GYG_SECTIONS = [
   },
   { id: 'media', label: 'Media' },
   { id: 'option-setup', label: 'Option Setup' },
+  { id: 'review-submit', label: 'Review & Submit' },
 ]
 
 export const GYG_STEPS = [
@@ -31,6 +32,7 @@ export const GYG_STEPS = [
   { id: 14, label: 'Itinerary Preview', sectionId: 'option-setup', stepId: 'itinerary-preview' },
   { id: 15, label: 'Pricing & Availability', sectionId: 'option-setup', stepId: 'pricing' },
   { id: 16, label: 'Cut-off', sectionId: 'option-setup', stepId: 'cutoff' },
+  { id: 17, label: 'Product Preview', sectionId: 'review-submit', stepId: 'preview' },
 ]
 
 
