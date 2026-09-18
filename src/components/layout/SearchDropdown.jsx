@@ -336,7 +336,7 @@ export default function SearchDropdown() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.97 }}
             transition={{ duration: 0.15, ease: [0.32, 0.72, 0, 1] }}
-            className="absolute left-0 top-full mt-2 w-full min-w-[280px] sm:min-w-[380px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-[#eaeaea] bg-white shadow-lg z-50"
+            className="fixed sm:absolute top-16 sm:top-full sm:mt-2 left-4 sm:left-0 right-4 sm:right-auto sm:w-full min-w-0 sm:min-w-[280px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-[#eaeaea] bg-white shadow-lg z-50"
             role="dialog"
             aria-modal="true"
             aria-label="Search pages and products"

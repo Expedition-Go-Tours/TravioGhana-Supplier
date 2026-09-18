@@ -34,18 +34,18 @@ export default function Header() {
 
   return (
     <header
-      className={`fixed top-0 right-0 h-16 bg-white border-b border-[#eaeaea] flex items-center px-4 lg:px-6 z-40 transition-all duration-300 ${
+      className={`fixed top-0 right-0 h-16 bg-white border-b border-[#eaeaea] flex items-center px-2 sm:px-4 lg:px-6 z-40 transition-all duration-300 ${
         isCollapsed ? "lg:left-[64px]" : "lg:left-[270px]"
       } left-0`}
     >
       {/* Left: Logo */}
-      <div className="flex items-center shrink-0 mr-3 lg:mr-4">
+      <div className="flex items-center shrink-0 mr-2 lg:mr-4">
         <a
           href="/"
           onClick={(e) => { e.preventDefault(); navigate('/') }}
           className="flex items-center"
         >
-          <img src={logoSrc} alt="Travio Ghana" className="w-[140px] lg:w-[180px] h-auto" />
+          <img src={logoSrc} alt="Travio Ghana" className="w-[100px] sm:w-[140px] lg:w-[180px] h-auto" />
         </a>
       </div>
 
@@ -57,17 +57,17 @@ export default function Header() {
       </div>
 
       {/* Right: Notifications + Profile */}
-      <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-3 lg:ml-4">
+      <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 ml-2 lg:ml-4">
         <NotificationBell />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3 border-l border-[#eaeaea] hover:bg-[#f5f5f5] rounded-lg py-1 pr-2 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[#065f46]/30">
+            <button className="flex items-center gap-2 sm:gap-3 pl-1.5 sm:pl-3 border-l border-[#eaeaea] hover:bg-[#f5f5f5] rounded-lg py-1 pr-1.5 sm:pr-2 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[#065f46]/30">
               <div className="text-right hidden sm:block">
                 <p className="text-xs font-medium text-slate-700">{displayName}</p>
                 <p className="text-[10px] text-slate-400 capitalize">{displayRole}</p>
               </div>
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden bg-[#044b3b] shrink-0 ring-2 ring-[#044b3b]/10">
+              <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full overflow-hidden bg-[#044b3b] shrink-0 ring-2 ring-[#044b3b]/10">
                 {(user?.avatar || user?.photoURL) ? (
                   <OptimizedImage src={user.avatar || user.photoURL} width={32} className="w-full h-full object-cover" />
                 ) : (

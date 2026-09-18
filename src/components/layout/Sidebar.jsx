@@ -154,10 +154,10 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
     <>
       <button
         onClick={() => useSidebarStore.getState().toggleMobile()}
-        className={`fixed top-3 left-3 z-[60] p-2.5 rounded-xl bg-[#065f46] text-white shadow-lg hover:bg-[#047857] transition-colors ${isMobileOpen ? "hidden" : "lg:hidden"}`}
+        className={`fixed top-3 left-3 z-[60] p-1.5 rounded-lg bg-transparent text-[#065f46] hover:bg-[#065f46]/10 transition-colors ${isMobileOpen ? "hidden" : "lg:hidden"}`}
         aria-label="Toggle menu"
       >
-        <Menu size={18} />
+        <Menu size={16} />
       </button>
 
       <aside
