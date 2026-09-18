@@ -87,7 +87,7 @@ export default function DashboardPage() {
     Promise.all([
       fetchSupplierDashboard(),
       fetchSupplierBookings({ page: 1, limit: 4 }).then(r => r.bookings).catch(() => []),
-      fetchCancellationSummary().catch(() => null),
+      fetchCancellationSummary(undefined, 30).catch(() => null),
       fetchMonthlyRevenue(12).catch(() => []),
     ])
       .then(([data, bookings, cancellationData, monthly]) => {
