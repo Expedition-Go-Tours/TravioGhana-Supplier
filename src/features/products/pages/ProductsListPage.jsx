@@ -217,7 +217,7 @@ export default function ProductsListPage() {
   const hasFilters = search || categoryFilter !== "all" || statusFilter !== "all";
 
   return (
-    <div className="p-5 md:p-6 max-w-7xl mx-auto space-y-5">
+    <div className="px-3 py-5 md:p-6 max-w-7xl mx-auto space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -409,7 +409,7 @@ export default function ProductsListPage() {
       {/* Loading */}
       {isLoading && (
         viewMode === "table" ? <TableSkeleton /> : (
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-4">
             {Array.from({ length: 8 }).map((_, i) => <ProductCardSkeleton key={i} />)}
           </div>
         )
@@ -424,7 +424,7 @@ export default function ProductsListPage() {
             initial="hidden"
             animate="show"
             exit={{ opacity: 0 }}
-            className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+            className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-4"
           >
             {filteredProducts.map((product) => {
               const src = product.coverPhoto || product.photos?.find(p => p);
