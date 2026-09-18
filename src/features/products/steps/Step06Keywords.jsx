@@ -1,7 +1,6 @@
 import { useState, useMemo, useRef } from 'react'
 import { useProductBuilderStore } from '@/features/products/productBuilderStore'
 import { useStepErrors } from '@/features/products/useStepErrors'
-import { requestKeyword as requestKeywordApi } from '@/features/products/api'
 import { SUGGESTED_KEYWORDS } from '@/constants/keywords'
 import { KEYWORD_CATEGORIES, CATEGORY_NAMES } from '@/constants/keywordCategories'
 
@@ -34,7 +33,6 @@ export default function Step06Keywords() {
   const errors = useStepErrors(6)
   const [query, setQuery] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
-  const [requesting, setRequesting] = useState(false)
   const inputRef = useRef(null)
 
   const [advancedMode, setAdvancedMode] = useState(false)
@@ -81,22 +79,12 @@ export default function Step06Keywords() {
 
   function handleRequest() {
     const kw = trimmedQuery
-    if (!kw || keywords.includes(kw) || keywords.length >= 15 || requesting) return
+    if (!kw || keywords.includes(kw) || keywords.length >= 15) return
 
-    setRequesting(true)
-    requestKeywordApi(kw)
-      .then(() => {
-        addKeyword(kw)
-        setQuery('')
-        setShowSuggestions(false)
-        if (!advancedMode) inputRef.current?.focus()
-      })
-      .catch(() => {
-        // Failed to request keyword — no toast in the builder
-      })
-      .finally(() => {
-        setRequesting(false)
-      })
+    addKeyword(kw)
+    setQuery('')
+    setShowSuggestions(false)
+    if (!advancedMode) inputRef.current?.focus()
   }
 
   function handleKeyDown(e) {
@@ -105,14 +93,8 @@ export default function Step06Keywords() {
       const val = e.currentTarget.value.trim()
       if (!val || keywords.includes(val) || keywords.length >= 15) return
 
-      const isPreApproved = SUGGESTED_KEYWORDS.some((kw) => kw.toLowerCase() === val.toLowerCase())
-      if (isPreApproved) {
-        selectKeyword(val)
-        setTimeout(() => inputRef.current?.focus(), 0)
-      } else {
-        handleRequest()
-        setTimeout(() => inputRef.current?.focus(), 0)
-      }
+      selectKeyword(val)
+      setTimeout(() => inputRef.current?.focus(), 0)
     }
     if (e.key === 'Escape') {
       setShowSuggestions(false)
@@ -138,7 +120,7 @@ export default function Step06Keywords() {
     <div className="max-w-[720px]">
       <p className="text-[13px] text-slate-500 mb-4 leading-relaxed">
         <span className={`font-medium ${keywords.length >= 15 ? 'text-red-600' : 'text-slate-400'}`}>({keywords.length}/15)</span>{' '}
-        Search suggested keywords or request a new one to help customers find your product.
+        Search suggested keywords or add your own to help customers find your product.
         Think about theme, timing, who it&apos;s for, and what makes it unique.
       </p>
 
@@ -181,7 +163,7 @@ export default function Step06Keywords() {
             ref={inputRef}
             className="w-full min-h-[46px] rounded-xl border border-slate-200 bg-white pl-9 pr-3.5 py-2.5 text-sm transition-all focus-ring"
             type="text"
-            placeholder={keywords.length >= 15 ? 'Max 15 keywords reached' : 'Search or type a keyword...'}
+            placeholder={keywords.length >= 15 ? 'Max 15 keywords reached' : 'Choose from the list or type to add your own'}
             value={query}
             onChange={(e) => {
               setQuery(e.target.value)
@@ -236,22 +218,15 @@ export default function Step06Keywords() {
                 <button
                   type="button"
                   onClick={handleRequest}
-                  disabled={requesting}
-                  className="w-full flex items-center gap-2 px-3.5 py-2.5 text-sm text-left hover:bg-amber-50 transition-colors border-0 bg-transparent cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-slate-600"
+                  className="w-full flex items-center gap-2 px-3.5 py-2.5 text-sm text-left hover:bg-emerald-50 transition-colors border-0 bg-transparent cursor-pointer text-slate-700"
                   onMouseDown={(e) => e.preventDefault()}
                 >
-                  <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-700 inline-flex items-center justify-center text-xs font-bold shrink-0">
+                  <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 inline-flex items-center justify-center text-xs font-bold shrink-0">
                     +
                   </span>
                   <span>
-                    Request <strong className="text-slate-800">&quot;{trimmedQuery}&quot;</strong> as a keyword
+                    Add <strong className="text-slate-800">&quot;{trimmedQuery}&quot;</strong> as a keyword
                   </span>
-                  {requesting && (
-                    <svg className="animate-spin h-4 w-4 text-slate-400 ml-auto" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                  )}
                 </button>
               </>
             )}
