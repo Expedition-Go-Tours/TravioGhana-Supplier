@@ -318,6 +318,7 @@ export default function ProductBuilderPage() {
   const [showAgreement, setShowAgreement] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [submittedProductName, setSubmittedProductName] = useState('')
+  const [productStatus, setProductStatus] = useState(null)
   const queryClient = useQueryClient()
   const savedProductId = useProductBuilderStore((s) => s.savedProductId)
   const setStoreSavedProductId = useProductBuilderStore((s) => s.setSavedProductId)
@@ -402,6 +403,7 @@ export default function ProductBuilderPage() {
   useEffect(() => {
     if (id !== 'new' || !hasHydrated) return
     reset()
+    queueMicrotask(() => setProductStatus(null))
   }, [id, hasHydrated, navigate, reset])
 
   useEffect(() => {
@@ -464,6 +466,7 @@ export default function ProductBuilderPage() {
           setProductError('Product not found')
           return
         }
+        setProductStatus(tour.status || null)
         const usedDraft = await hydrateFromDraft(tour)
         if (cancelled || usedDraft) return
         // No pending draft — a NEW tour awaiting approval has status
@@ -900,6 +903,7 @@ export default function ProductBuilderPage() {
         {submitted && (
           <SubmitSuccessOverlay
             productName={submittedProductName}
+            isUpdate={productStatus === 'ACTIVE'}
             onBackToProducts={() => navigate('/products')}
           />
         )}

@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { motion } from 'framer-motion'
 import confetti from 'canvas-confetti'
-import { PartyPopper, Mail, Clock, ArrowRight } from 'lucide-react'
+import { PartyPopper, RefreshCw, Mail, Clock, ArrowRight } from 'lucide-react'
 
 const CONFETTI_COLORS = ['#10b981', '#34d399', '#6ee7b7', '#f59e0b', '#3b82f6', '#ec4899']
 
@@ -23,8 +23,12 @@ const item = {
   },
 }
 
-export default function SubmitSuccessOverlay({ productName, onBackToProducts }) {
+export default function SubmitSuccessOverlay({ productName, isUpdate = false, onBackToProducts }) {
   useEffect(() => {
+    // Celebrate a brand-new listing; an update is a routine acknowledgement and
+    // only gets the entrance animation.
+    if (isUpdate) return
+
     confetti({
       particleCount: 90,
       spread: 75,
@@ -63,7 +67,10 @@ export default function SubmitSuccessOverlay({ productName, onBackToProducts }) 
       clearTimeout(timer)
       confetti.reset()
     }
-  }, [])
+  }, [isUpdate])
+
+  const Icon = isUpdate ? RefreshCw : PartyPopper
+  const name = productName ? <strong className="text-slate-800">&ldquo;{productName}&rdquo;</strong> : null
 
   return (
     <motion.div
@@ -90,16 +97,19 @@ export default function SubmitSuccessOverlay({ productName, onBackToProducts }) 
           }}
           className="mx-auto w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center mb-5"
         >
-          <PartyPopper size={30} className="text-emerald-600" />
+          <Icon size={30} className="text-emerald-600" />
         </motion.div>
 
         <motion.h1 variants={item} className="text-2xl font-bold text-slate-900">
-          Congratulations! 🎉
+          {isUpdate ? 'Update Submitted Successfully' : 'Congratulations! 🎉'}
         </motion.h1>
 
         <motion.p variants={item} className="text-slate-600 mt-3 leading-relaxed">
-          Your product{productName ? <>, <strong className="text-slate-800">&ldquo;{productName}&rdquo;</strong>,</> : ' '}
-          has been submitted successfully.
+          {isUpdate ? (
+            <>We&rsquo;ve received your changes{name ? <> to {name}</> : ''}.</>
+          ) : (
+            <>Your product{name ? <>, {name},</> : ' '} has been submitted successfully.</>
+          )}
         </motion.p>
 
         <motion.div
@@ -108,18 +118,33 @@ export default function SubmitSuccessOverlay({ productName, onBackToProducts }) 
         >
           <div className="flex gap-3">
             <Clock size={18} className="shrink-0 text-slate-400 mt-0.5" />
-            <p className="text-sm text-slate-600 leading-relaxed">
-              Our team will now review your product before it is published on the platform.
-              Due to the volume of submissions we receive, product reviews may take
-              <strong className="text-slate-800"> 2–3 working days</strong>.
-            </p>
+            {isUpdate ? (
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Our team is currently reviewing the updated information. Once approved,
+                the changes may take <strong className="text-slate-800">24&ndash;48 hours</strong> to
+                reflect on the TravioGhana platform.
+              </p>
+            ) : (
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Our team will now review your product before it is published on the platform.
+                Due to the volume of submissions we receive, product reviews may take
+                <strong className="text-slate-800"> 2&ndash;3 working days</strong>.
+              </p>
+            )}
           </div>
           <div className="flex gap-3">
             <Mail size={18} className="shrink-0 text-slate-400 mt-0.5" />
-            <p className="text-sm text-slate-600 leading-relaxed">
-              In the meantime, please keep an eye on your email. If we need any additional
-              information or changes from you, we&rsquo;ll contact you.
-            </p>
+            {isUpdate ? (
+              <p className="text-sm text-slate-600 leading-relaxed">
+                We&rsquo;ll notify you if we need any additional information or changes from you.
+                Thank you for your patience.
+              </p>
+            ) : (
+              <p className="text-sm text-slate-600 leading-relaxed">
+                In the meantime, please keep an eye on your email. If we need any additional
+                information or changes from you, we&rsquo;ll contact you.
+              </p>
+            )}
           </div>
         </motion.div>
 
