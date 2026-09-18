@@ -311,10 +311,11 @@ export default function SearchDropdown() {
           setOpen(!open);
         }}
         className={cn(
-          "flex h-9 w-full items-center gap-2 rounded-xl border bg-white px-3 text-sm transition-all duration-200",
+          "flex h-9 items-center gap-2 rounded-xl text-sm transition-all duration-200",
+          "border-0 bg-transparent px-1.5 sm:border sm:bg-white sm:px-3 sm:w-full",
           open
-            ? "border-[#044b3b]/40 ring-2 ring-[#044b3b]/10 text-[#1e293b] shadow"
-            : "border-[#eaeaea] text-[#64748b] hover:border-[#044b3b]/30 hover:text-[#1e293b]",
+            ? "text-[#044b3b] sm:border-[#044b3b]/40 sm:ring-2 sm:ring-[#044b3b]/10 sm:text-[#1e293b] sm:shadow"
+            : "text-[#64748b] sm:border-[#eaeaea] sm:hover:border-[#044b3b]/30 sm:hover:text-[#1e293b]",
         )}
         aria-label="Search pages and products"
         aria-expanded={open}
