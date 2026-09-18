@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
 import { motion } from 'framer-motion'
 import confetti from 'canvas-confetti'
-import { PartyPopper, RefreshCw, Mail, Clock, ArrowRight } from 'lucide-react'
+import { PartyPopper, Mail, Clock, ArrowRight } from 'lucide-react'
+import completedAnimation from '@/assets/completed-successfully.svg'
 
 const CONFETTI_COLORS = ['#10b981', '#34d399', '#6ee7b7', '#f59e0b', '#3b82f6', '#ec4899']
 
@@ -69,7 +70,6 @@ export default function SubmitSuccessOverlay({ productName, isUpdate = false, on
     }
   }, [isUpdate])
 
-  const Icon = isUpdate ? RefreshCw : PartyPopper
   const name = productName ? <strong className="text-slate-800">&ldquo;{productName}&rdquo;</strong> : null
 
   return (
@@ -85,20 +85,41 @@ export default function SubmitSuccessOverlay({ productName, isUpdate = false, on
         animate="show"
         className="max-w-lg w-full text-center"
       >
-        <motion.div
-          variants={{
-            hidden: { opacity: 0, scale: 0.4, rotate: -25 },
-            show: {
-              opacity: 1,
-              scale: 1,
-              rotate: 0,
-              transition: { type: 'spring', stiffness: 320, damping: 14 },
-            },
-          }}
-          className="mx-auto w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center mb-5"
-        >
-          <Icon size={30} className="text-emerald-600" />
-        </motion.div>
+        {isUpdate ? (
+          <motion.div
+            variants={{
+              hidden: { opacity: 0, scale: 0.6 },
+              show: {
+                opacity: 1,
+                scale: 1,
+                transition: { type: 'spring', stiffness: 220, damping: 20 },
+              },
+            }}
+            className="mx-auto w-44 h-44 -mb-4"
+          >
+            <img
+              src={completedAnimation}
+              alt=""
+              aria-hidden="true"
+              className="w-full h-full"
+            />
+          </motion.div>
+        ) : (
+          <motion.div
+            variants={{
+              hidden: { opacity: 0, scale: 0.4, rotate: -25 },
+              show: {
+                opacity: 1,
+                scale: 1,
+                rotate: 0,
+                transition: { type: 'spring', stiffness: 320, damping: 14 },
+              },
+            }}
+            className="mx-auto w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center mb-5"
+          >
+            <PartyPopper size={30} className="text-emerald-600" />
+          </motion.div>
+        )}
 
         <motion.h1 variants={item} className="text-2xl font-bold text-slate-900">
           {isUpdate ? 'Update Submitted Successfully' : 'Congratulations! 🎉'}

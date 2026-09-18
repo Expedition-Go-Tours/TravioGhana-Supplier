@@ -6,7 +6,7 @@ import { builderSignature } from './useAutoSave'
 import { scrollToField, getFieldLabel } from './fieldLabels'
 import { GYG_STEPS } from './gygSteps'
 
-export default function WizardNavFooter({ currentStep, totalSteps, onBack, onNext, onSave, onSubmitForReview, onOpenAgreement, saving, submitting, isEditing }) {
+export default function WizardNavFooter({ currentStep, totalSteps, onBack, onNext, onSave, onSubmitForReview, onOpenAgreement, isUpdate, saving, submitting, isEditing }) {
   const formData = useProductBuilderStore()
   const setStepErrors = useProductBuilderStore((s) => s.setStepErrors)
   const clearStepErrors = useProductBuilderStore((s) => s.clearStepErrors)
@@ -203,7 +203,9 @@ export default function WizardNavFooter({ currentStep, totalSteps, onBack, onNex
                 : isPendingReview
                   ? 'Locked'
                   : onSubmitForReview
-                    ? (onOpenAgreement ? 'Submit Product' : 'Submit for Review')
+                    ? (onOpenAgreement
+                        ? (isUpdate ? 'Submit Update' : 'Submit Product')
+                        : 'Submit for Review')
                     : isEditing
                       ? 'Update'
                       : 'Save'}

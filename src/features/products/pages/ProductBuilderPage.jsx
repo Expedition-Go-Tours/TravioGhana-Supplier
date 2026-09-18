@@ -854,6 +854,7 @@ export default function ProductBuilderPage() {
                 onSave={handleSave}
                 onSubmitForReview={handleSubmitForReview}
                 onOpenAgreement={() => setShowAgreement(true)}
+                isUpdate={productStatus === 'ACTIVE'}
                 saving={saving}
                 submitting={submitting}
                 isEditing={id && id !== 'new'}
@@ -894,6 +895,7 @@ export default function ProductBuilderPage() {
         <SupplierAgreementModal
           isOpen={showAgreement}
           productName={submittedProductName || store.title || ''}
+          isUpdate={productStatus === 'ACTIVE'}
           onConfirm={() => { handleSubmitForReview().catch(() => {}) }}
           onClose={() => setShowAgreement(false)}
           isLoading={submitting}
