@@ -9,6 +9,7 @@ const AGREEMENT_TERMS = [
   'I confirm that all images, resources, and other materials submitted with this product belong to me or that I have obtained the necessary rights and permissions to use and reproduce them.',
   'I understand that TravioGhana will not be held liable for any copyright infringement or other intellectual property violations arising from materials submitted by me.',
   'I understand that the information I collected will be used for booking coordination, service delivery, and other purposes directly related to operating the platform.',
+  'I acknowledge that any breach of the above terms may result in the suspension or termination of my supplier account, the removal of my listed products, and a claim for any losses, damages, or costs incurred by TravioGhana, including reasonable legal and administrative costs. TravioGhana reserves the right to pursue legal action where applicable.',
 ]
 
 export default function SupplierAgreementModal({
