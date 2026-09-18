@@ -72,23 +72,23 @@ function validityLabel(option) {
    ====================================================================== */
 
 const SECTION_EDIT_MAP = {
-  "Description": { section: "basics", step: "language-and-title" },
-  "What Makes This Unique": { section: "product-content", step: "unique-selling-points" },
-  "Highlights": { section: "product-content", step: "tour-details" },
-  "What's Included": { section: "product-content", step: "inclusions-exclusions" },
-  "What to Bring": { section: "product-content", step: "info-travelers-need" },
-  "What to Know": { section: "product-content", step: "info-travelers-need" },
-  "Accessibility & Health": { section: "product-content", step: "info-travelers-need" },
-  "Pricing": { section: "schedules-and-pricing", step: "pricing-schedules" },
-  "Details": { section: "basics", step: "categorization" },
-  "Traveler Info Required": { section: "booking-and-tickets", step: "traveler-required-info" },
+  "Description": { section: "product-content", step: "descriptions" },
+  "What Makes This Unique": { section: "product-content", step: "descriptions" },
+  "Highlights": { section: "product-content", step: "descriptions" },
+  "What's Included": { section: "product-content", step: "inclusions" },
+  "What to Bring": { section: "product-content", step: "extra-info" },
+  "What to Know": { section: "product-content", step: "extra-info" },
+  "Accessibility & Health": { section: "product-content", step: "extra-info" },
+  "Pricing": { section: "option-setup", step: "pricing" },
+  "Details": { section: "getting-started", step: "category" },
+  "Traveler Info Required": { section: "product-content", step: "extra-info" },
   "Location": { section: "product-content", step: "locations" },
-  "Schedule": { section: "schedules-and-pricing", step: "pricing-schedules" },
+  "Schedule": { section: "option-setup", step: "pricing" },
   "Booking Options": { section: "option-setup", step: "options" },
-  "Booking Rules": { section: "booking-and-tickets", step: "booking-process" },
-  "Meeting & Pickup": { section: "booking-and-tickets", step: "meeting-point-pickup" },
-  "Languages": { section: "product-content", step: "languages-offered" },
-  "Tags": { section: "basics", step: "theme" },
+  "Booking Rules": { section: "product-content", step: "cancellation-policy" },
+  "Meeting & Pickup": { section: "option-setup", step: "meeting-point" },
+  "Languages": { section: "getting-started", step: "language" },
+  "Tags": { section: "product-content", step: "keywords" },
 };
 
 function SectionCard({ title, children, className, onEdit }) {

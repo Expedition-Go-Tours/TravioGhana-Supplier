@@ -4,14 +4,14 @@ import { TeamRoleProvider } from "@/contexts/TeamRoleProvider";
 import { Toaster } from "sonner";
 
 const LEGACY_STEP_MAP = {
-  type: { section: "basics", step: "categorization" },
-  basics: { section: "basics", step: "language-and-title" },
-  content: { section: "product-content", step: "meeting-and-pickup" },
-  photos: { section: "basics", step: "photos" },
-  pricing: { section: "schedules-and-pricing", step: "pricing-schedules" },
-  schedule: { section: "schedules-and-pricing", step: "pricing-schedules" },
-  booking: { section: "booking-and-tickets", step: "booking-process" },
-  review: { section: "finish", step: "submit-for-review" },
+  type: { section: "getting-started", step: "category" },
+  basics: { section: "getting-started", step: "language" },
+  content: { section: "product-content", step: "descriptions" },
+  photos: { section: "media", step: "photos" },
+  pricing: { section: "option-setup", step: "pricing" },
+  schedule: { section: "option-setup", step: "pricing" },
+  booking: { section: "option-setup", step: "options" },
+  review: { section: "option-setup", step: "cutoff" },
 };
 
 export function ProductBuilderRedirect() {
@@ -22,8 +22,8 @@ export function ProductBuilderRedirect() {
     params.set("section", mapping.section);
     params.set("step", mapping.step);
   } else {
-    params.set("section", "basics");
-    params.set("step", "language-and-title");
+    params.set("section", "getting-started");
+    params.set("step", "language");
   }
   const target = `/products/build/${id || "new"}?${params.toString()}`;
   return <Navigate to={target} replace />;
