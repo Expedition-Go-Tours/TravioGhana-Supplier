@@ -120,7 +120,8 @@ export default function LoginPage() {
     setGoogleLoading(true);
     try {
       const baseUrl = config.api.baseURL;
-      window.location.href = `${baseUrl}/auth/google`;
+      const state = encodeURIComponent(window.location.origin);
+      window.location.href = `${baseUrl}/auth/google?state=${state}`;
     } catch {
       setGoogleLoading(false);
     }
