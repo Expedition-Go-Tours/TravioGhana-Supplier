@@ -166,12 +166,12 @@ export default function WizardNavFooter({ currentStep, totalSteps, onBack, onNex
         )}
         {isPendingReview && (
           <span className="text-xs text-amber-700 font-semibold max-w-[420px] text-center">
-            This product is locked while pending review �?" withdraw it above to make changes.
+            This product is locked while pending review — withdraw it above to make changes.
           </span>
         )}
         {!isPendingReview && noChangesToSubmit && (
           <span className="text-xs text-slate-500 font-semibold max-w-[420px] text-center">
-            No changes to submit �?" the current content was already submitted for review.
+            No changes to submit — the current content was already submitted for review.
           </span>
         )}
         {!saving && !hasDisplayErrors && !autosaveError && savedText && (
