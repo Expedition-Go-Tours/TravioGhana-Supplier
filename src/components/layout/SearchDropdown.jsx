@@ -301,7 +301,7 @@ export default function SearchDropdown() {
   };
 
   return (
-    <div className="relative w-full" ref={containerRef}>
+    <div className="relative w-auto sm:w-full" ref={containerRef}>
       <button
         onClick={() => {
           if (!open) {
