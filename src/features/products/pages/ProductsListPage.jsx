@@ -521,7 +521,7 @@ export default function ProductsListPage() {
                           </span>
                         )}
                         {product.reviewCount > 0 && (
-                          <span className="font-medium">({product.reviewCount} reviews)</span>
+                          <span className="hidden sm:inline font-medium">({product.reviewCount} reviews)</span>
                         )}
                       </div>
                       <div className="flex items-center gap-1 opacity-100 transition-opacity">
