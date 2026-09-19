@@ -71,7 +71,7 @@ export default function SupplierAgreementModal({
                 <p className="text-sm text-slate-500 mt-0.5">
                   Please review and accept the following before submitting
                   {isUpdate ? ' your update' : ''}
-                  {productName ? <> {isUpdate ? 'to' : ''} <strong className="text-slate-700">&ldquo;{productName}&rdquo;</strong></> : isUpdate ? '' : ' your product'}.
+                  {productName ? <>{isUpdate ? ' ' : ''} <strong className="text-slate-700">&ldquo;{productName}&rdquo;</strong></> : isUpdate ? '' : ' your product'}.
                 </p>
               </div>
             </div>
