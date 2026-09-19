@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useProductBuilderStore } from '@/features/products/productBuilderStore'
 import { useStepErrors } from '@/features/products/useStepErrors'
@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/select'
 import { Pencil, GripVertical, ChevronDown, Bed, UtensilsCrossed, MoonStar, Plus, X, RotateCcw, Ban, Check, Flag } from 'lucide-react'
 import LocationAutocomplete from '@/components/shared/LocationAutocomplete'
+import { useMajorCities } from '@/hooks/useMajorCities'
 import {
   sumStopMinutes,
   productDurationMinutes,
@@ -905,13 +906,32 @@ function LocationRow({ loc, position, globalIdx, onEdit, onRemove, dragRef, onDr
   )
 }
 
+/** "Greater Accra Region" and "Greater Accra" compare equal. */
+function bareRegion(value) {
+  return String(value || '').replace(/\s+region$/i, '').trim().toLowerCase()
+}
+
 function LocationModal({ index, loc, locations, duration, durationUnit, dayCount, onClose, onUpdate }) {
   const [errors, setErrors] = useState({})
+  const { data: majorCities = [] } = useMajorCities()
 
   const totalStopMinutes = sumStopMinutes(locations)
   const productMinutes = productDurationMinutes(duration, durationUnit)
   const exceedsProductDuration = stopDurationsExceedProduct(locations, duration, durationUnit)
   const isMultiDay = dayCount > 1
+
+  // The curated city for this stop: the geocoder's city when it is already one
+  // of the 16, otherwise the curated city in the same region. So the common
+  // case is a single confirmation and the select never keeps a district/village.
+  const cityNames = useMemo(() => majorCities.map((c) => c.name), [majorCities])
+  const curatedCity = useMemo(() => {
+    if (!cityNames.length) return loc.city || ''
+    if (cityNames.includes(loc.city)) return loc.city
+    const sameRegion = majorCities.find(
+      (c) => c.region && loc.region && bareRegion(c.region) === bareRegion(loc.region)
+    )
+    return sameRegion ? sameRegion.name : ''
+  }, [cityNames, majorCities, loc.city, loc.region])
 
   function update(field, value) {
     onUpdate(index, { [field]: value })
@@ -925,6 +945,10 @@ function LocationModal({ index, loc, locations, duration, durationUnit, dayCount
     if (!loc.name || !loc.name.trim()) next.name = 'Name is required'
     if (!loc.description || !loc.description.trim()) next.description = 'Description is required'
     if (loc.timeSpent == null || Number(loc.timeSpent) <= 0) next.timeSpent = 'Estimated time spent is required'
+    // Only enforce when the picklist loaded — a fetch failure must not block.
+    if (cityNames.length > 0 && !cityNames.includes(curatedCity)) {
+      next.city = 'Choose a city from the list'
+    }
     if (exceedsProductDuration && productMinutes != null) {
       next.duration = `Total stop time (${formatMinutes(totalStopMinutes)}) exceeds the product duration (${formatMinutes(productMinutes)})`
     }
@@ -933,7 +957,11 @@ function LocationModal({ index, loc, locations, duration, durationUnit, dayCount
   }
 
   function handleDone() {
-    if (validate()) onClose()
+    if (!validate()) return
+    // Persist the curated city the select resolved (e.g. the region default)
+    // even when the supplier never touched the field.
+    if (curatedCity && curatedCity !== loc.city) update('city', curatedCity)
+    onClose()
   }
 
   return (
@@ -1005,6 +1033,26 @@ function LocationModal({ index, loc, locations, duration, durationUnit, dayCount
               placeholder="e.g. Komfo Anokye Teaching Hospital"
             />
             {errors.name && <span className="block text-[13px] text-red-600 font-medium mt-1">{errors.name}</span>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              City <span className="text-red-500">*</span>
+            </label>
+            <p className="text-[12px] text-slate-400 mb-1.5">
+              The major city this stop is in. Travelers find your tour by destination, so pick the closest city on the list.
+            </p>
+            <Select value={curatedCity} onValueChange={(v) => update('city', v)}>
+              <SelectTrigger className={`h-11 border-slate-300 px-3 text-sm w-full ${errors.city ? 'border-red-400' : ''}`}>
+                <SelectValue placeholder="Select a city" />
+              </SelectTrigger>
+              <SelectContent>
+                {majorCities.map((c) => (
+                  <SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors.city && <span className="block text-[13px] text-red-600 font-medium mt-1">{errors.city}</span>}
           </div>
 
           <div>
