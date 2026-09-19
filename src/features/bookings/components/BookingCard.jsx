@@ -194,13 +194,113 @@ export default function BookingCard({
           : "border-slate-200 hover:border-slate-300 hover:shadow-md"
       )}
     >
-      {/* ===== COLLAPSED HEADER — GetYourGuide style ===== */}
+      {/* ===== COLLAPSED HEADER — mobile (stacked) ===== */}
       <div
         role="button"
         tabIndex={0}
         onClick={toggleExpand}
         onKeyDown={handleKeyDown}
-        className="flex items-center gap-4 px-4 sm:px-5 py-3.5 cursor-pointer select-none"
+        className="block sm:hidden px-4 py-3.5 cursor-pointer select-none"
+        aria-expanded={isExpanded}
+      >
+        {/* Row 1: thumbnail + title/party + status */}
+        <div className="flex items-start gap-3">
+          <div className="w-14 h-14 rounded-xl overflow-hidden shrink-0 bg-slate-100">
+            {booking.tourPhoto ? (
+              <OptimizedImage
+                src={booking.tourPhoto}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-xl text-slate-300">
+                🏰
+              </div>
+            )}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="flex-1 min-w-0 text-[15px] font-semibold text-slate-900 leading-snug line-clamp-2">
+                {booking.tourName}
+              </h3>
+              <div className="shrink-0">
+                <StatusBadge
+                  status={booking.status}
+                  label={BOOKING_STATUSES[booking.status]?.label || booking.status}
+                  size="sm"
+                />
+              </div>
+            </div>
+            {partySummary && (
+              <p className="mt-0.5 text-[13px] text-slate-500 truncate">
+                {partySummary}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Row 2: key facts — date·time · travelers · ref */}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2.5 text-xs text-slate-500">
+          <span className="flex items-center gap-1 min-w-0">
+            <CalendarDays size={12} className="shrink-0 text-slate-400" />
+            <span className="truncate">
+              {formatDate(booking.travelDate)}
+              {booking.selectedTime && ` · ${formatTime(booking.selectedTime)}`}
+            </span>
+          </span>
+          <span className="text-slate-300">·</span>
+          <span className="flex items-center gap-1 whitespace-nowrap">
+            <Users size={12} className="shrink-0 text-slate-400" />
+            {guestCount} traveler{guestCount !== 1 ? "s" : ""}
+          </span>
+          <span className="text-slate-300">·</span>
+          <span className="font-mono text-[11px] text-slate-500 whitespace-nowrap">
+            {booking.bookingNumber}
+          </span>
+        </div>
+
+        {/* Row 3: price + chips + chevron */}
+        <div className="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-slate-100">
+          <p className="text-base font-bold text-slate-900 whitespace-nowrap shrink-0">
+            {formatCurrency(booking.total, booking.currency)}
+          </p>
+          <div className="flex flex-1 min-w-0 flex-wrap items-center gap-1.5">
+            {booking.paymentStatus === 'FAILED' ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 border border-red-200/60 text-[10px] font-semibold text-red-700 whitespace-nowrap">
+                <Ban size={10} className="shrink-0" /> Payment failed
+              </span>
+            ) : payLaterUnpaid ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200/60 text-[10px] font-semibold text-amber-700 whitespace-nowrap">
+                <Clock size={10} className="shrink-0" /> Pay later
+              </span>
+            ) : null}
+            {booking.discount > 0 && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 border border-red-200/60 text-[10px] font-semibold text-red-700 whitespace-nowrap">
+                <Tag size={10} className="shrink-0" />
+                <span className="truncate max-w-[100px]">
+                  {booking.offerName || 'Discount'}
+                </span>
+              </span>
+            )}
+            <SourceBadge source={booking.source} />
+          </div>
+          <ChevronDown
+            size={20}
+            className={cn(
+              "text-slate-400 transition-transform duration-200 shrink-0",
+              isExpanded && "rotate-180"
+            )}
+          />
+        </div>
+      </div>
+
+      {/* ===== COLLAPSED HEADER — desktop (horizontal) ===== */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={toggleExpand}
+        onKeyDown={handleKeyDown}
+        className="hidden sm:flex items-center gap-4 px-4 sm:px-5 py-3.5 cursor-pointer select-none"
         aria-expanded={isExpanded}
       >
         {/* Tour cover photo */}
