@@ -204,7 +204,7 @@ export default function ProductsListPage() {
     const rejected = products.filter((p) => p.status === "REJECTED").length;
     const draft = products.filter((p) => p.status === "DRAFT").length;
     const pendingEdits = products.filter((p) => p.status === "ACTIVE" && p.draftStatus === "PENDING_APPROVAL").length;
-    const totalBookings = products.reduce((sum, p) => sum + (p._count?.bookings || 0), 0);
+    const totalBookings = products.reduce((sum, p) => sum + (p.bookings || 0), 0);
     return { total, active, pending, rejected, draft, pendingEdits, totalBookings };
   }, [products]);
 
@@ -513,15 +513,15 @@ export default function ProductsListPage() {
                     {/* Footer */}
                     <div className="flex flex-wrap items-center justify-between gap-2 mt-3 pt-3 border-t border-slate-100">
                       <div className="flex items-center gap-3 text-xs text-slate-500">
-                        <span className="font-medium">{product._count?.bookings ?? 0} bookings</span>
+                        <span className="font-medium">{product.bookings ?? 0} bookings</span>
                         {product.averageRating > 0 && (
                           <span className="flex items-center gap-1 font-medium text-emerald-600">
                             <Star size={12} className="fill-emerald-400 text-emerald-400" />
                             {product.averageRating}
                           </span>
                         )}
-                        {product._count?.reviews > 0 && (
-                          <span className="font-medium">({product._count.reviews} reviews)</span>
+                        {product.reviewCount > 0 && (
+                          <span className="font-medium">({product.reviewCount} reviews)</span>
                         )}
                       </div>
                       <div className="flex items-center gap-1 opacity-100 transition-opacity">
@@ -625,7 +625,7 @@ export default function ProductsListPage() {
                           ? <span className="text-sm font-semibold text-slate-800">{formatCurrency(extractPrice(product), extractCurrency(product))}</span>
                           : <span className="text-xs text-slate-400">—</span>}
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-700">{product._count?.bookings ?? 0}</td>
+                      <td className="px-4 py-3 text-sm text-slate-700">{product.bookings ?? 0}</td>
                       <td className="px-4 py-3">
                         {product.averageRating > 0
                           ? <span className="flex items-center gap-1 text-sm text-amber-600 font-medium"><Star size={12} className="fill-amber-400 text-amber-400" />{product.averageRating}</span>
