@@ -131,7 +131,7 @@ export default function Step17ProductPreview() {
 
       {/* Hero */}
       <section className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-        <div className="h-56 bg-slate-100">
+        <div className="h-72 bg-slate-100">
           {cover ? (
             <img src={cover} alt={s.title || 'Product cover'} className="w-full h-full object-cover" />
           ) : (

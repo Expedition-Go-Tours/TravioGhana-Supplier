@@ -6,17 +6,20 @@ const TYPE_LABELS = { city: 'City', town: 'Town', attraction: 'Attraction' }
 
 /**
  * PlaceAutocomplete — searchable combobox over the curated places catalog
- * (cities, towns, attractions). Replaces the static city dropdown in the
- * product builder's location modal.
+ * (cities, towns, attractions) with an optional "add custom" fallback.
  *
  * Props:
  *  - value:      current field value (string), kept in sync externally
- *  - onSelect:   (place) => void — place = { name, type, region, lat, lng }
+ *  - onSelect:   (place) => void — place = { name, type, city, region, lat, lng }
+ *  - onChange:   (value) => void — fired on every keystroke (free-text sync)
+ *  - onAddCustom:(value) => void — fired when the user picks the "+ Add" option
  *  - placeholder, hasError (red border), disabled
  */
 export default function PlaceAutocomplete({
   value = '',
   onSelect,
+  onChange,
+  onAddCustom,
   placeholder = 'Search for a city or place…',
   hasError = false,
   disabled = false,
@@ -32,12 +35,12 @@ export default function PlaceAutocomplete({
 
   const { data: places = [], isFetching } = usePlaces(debounced)
 
-  // Sync an external value change (modal open, canonical city resolution,
-  // parent reset) into the field — render-phase adjustment, no effect needed.
+  // Sync an external value change (modal open, parent reset, selection) into
+  // the field — render-phase adjustment. `debounced` intentionally follows via
+  // the debounce effect so typing still debounces.
   if (value !== prevValue) {
     setPrevValue(value)
     setInput(value)
-    setDebounced(value)
   }
 
   // Debounce keystrokes so we don't hit the API on every character.
@@ -75,6 +78,19 @@ export default function PlaceAutocomplete({
     },
     [onSelect],
   )
+
+  const trimmed = input.trim()
+  const exactMatch = places.some(
+    (p) => String(p.name || '').toLowerCase() === trimmed.toLowerCase(),
+  )
+  const showCustom = !!onAddCustom && trimmed.length >= 2 && !exactMatch
+
+  const handleAddCustom = useCallback(() => {
+    onAddCustom?.(trimmed)
+    setInput(trimmed)
+    setOpen(false)
+    setHighlighted(-1)
+  }, [onAddCustom, trimmed])
 
   const handleKeyDown = (e) => {
     if (!open) {
@@ -121,6 +137,7 @@ export default function PlaceAutocomplete({
           placeholder={placeholder}
           onChange={(e) => {
             setInput(e.target.value)
+            onChange?.(e.target.value)
             setOpen(true)
             setHighlighted(-1)
           }}
@@ -144,6 +161,7 @@ export default function PlaceAutocomplete({
             type="button"
             onClick={() => {
               setInput('')
+              onChange?.('')
               setDebounced('')
               setOpen(true)
               setHighlighted(-1)
@@ -163,15 +181,25 @@ export default function PlaceAutocomplete({
           role="listbox"
           className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-64 overflow-y-auto"
         >
-          {isFetching && places.length === 0 ? (
+          {isFetching && places.length === 0 && (
             <div className="flex items-center gap-2 px-4 py-3 text-sm text-slate-400">
               <Loader2 size={14} className="animate-spin" />
               Searching…
             </div>
-          ) : places.length === 0 ? (
+          )}
+
+          {!isFetching && places.length === 0 && !showCustom && (
             <div className="px-4 py-3 text-sm text-slate-500">No matching places.</div>
-          ) : (
-            places.map((place, i) => (
+          )}
+
+          {places.map((place, i) => {
+            const subtitle = [TYPE_LABELS[place.type] || place.type]
+            if (place.city && place.city.toLowerCase() !== String(place.name || '').toLowerCase()) {
+              subtitle.push(place.city)
+            }
+            if (place.region) subtitle.push(place.region)
+
+            return (
               <div
                 key={`${place.name}-${i}`}
                 id={`place-option-${i}`}
@@ -188,11 +216,30 @@ export default function PlaceAutocomplete({
                 <div className="min-w-0 flex-1">
                   <div className="font-medium truncate">{place.name}</div>
                   <div className="text-xs text-slate-400 truncate mt-0.5">
-                    {[TYPE_LABELS[place.type] || place.type, place.region].filter(Boolean).join(' · ')}
+                    {subtitle.filter(Boolean).join(' · ')}
                   </div>
                 </div>
               </div>
-            ))
+            )
+          })}
+
+          {showCustom && (
+            <>
+              {places.length > 0 && <div className="border-t border-slate-100" />}
+              <button
+                type="button"
+                onClick={handleAddCustom}
+                onMouseDown={(e) => e.preventDefault()}
+                className="w-full flex items-center gap-2 px-3.5 py-2.5 text-sm text-left hover:bg-emerald-50 transition-colors border-0 bg-transparent cursor-pointer text-slate-700"
+              >
+                <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 inline-flex items-center justify-center text-xs font-bold shrink-0">
+                  +
+                </span>
+                <span>
+                  Add <strong className="text-slate-800">&quot;{trimmed}&quot;</strong>
+                </span>
+              </button>
+            </>
           )}
         </div>
       )}

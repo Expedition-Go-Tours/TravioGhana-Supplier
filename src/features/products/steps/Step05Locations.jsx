@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useProductBuilderStore } from '@/features/products/productBuilderStore'
 import { useStepErrors } from '@/features/products/useStepErrors'
@@ -12,7 +12,6 @@ import {
 import { Pencil, GripVertical, ChevronDown, Bed, UtensilsCrossed, MoonStar, Plus, X, RotateCcw, Ban, Check, Flag } from 'lucide-react'
 import LocationAutocomplete from '@/components/shared/LocationAutocomplete'
 import PlaceAutocomplete from '@/components/shared/PlaceAutocomplete'
-import { useMajorCities } from '@/hooks/useMajorCities'
 import {
   sumStopMinutes,
   productDurationMinutes,
@@ -907,35 +906,13 @@ function LocationRow({ loc, position, globalIdx, onEdit, onRemove, dragRef, onDr
   )
 }
 
-/** "Greater Accra Region" and "Greater Accra" compare equal. */
-function bareRegion(value) {
-  return String(value || '').replace(/\s+region$/i, '').trim().toLowerCase()
-}
-
 function LocationModal({ index, loc, locations, duration, durationUnit, dayCount, onClose, onUpdate }) {
   const [errors, setErrors] = useState({})
-  const { data: majorCities = [] } = useMajorCities()
-  // The place the supplier explicitly picked from the search — this wins over
-  // the canonical region-capital suggestion when persisting on Done.
-  const [pickedCity, setPickedCity] = useState(null)
 
   const totalStopMinutes = sumStopMinutes(locations)
   const productMinutes = productDurationMinutes(duration, durationUnit)
   const exceedsProductDuration = stopDurationsExceedProduct(locations, duration, durationUnit)
   const isMultiDay = dayCount > 1
-
-  // The curated city for this stop: the geocoder's city when it is already one
-  // of the 16, otherwise the curated city in the same region. So the common
-  // case is a single confirmation and the select never keeps a district/village.
-  const cityNames = useMemo(() => majorCities.map((c) => c.name), [majorCities])
-  const curatedCity = useMemo(() => {
-    if (!cityNames.length) return loc.city || ''
-    if (cityNames.includes(loc.city)) return loc.city
-    const sameRegion = majorCities.find(
-      (c) => c.region && loc.region && bareRegion(c.region) === bareRegion(loc.region)
-    )
-    return sameRegion ? sameRegion.name : ''
-  }, [cityNames, majorCities, loc.city, loc.region])
 
   function update(field, value) {
     onUpdate(index, { [field]: value })
@@ -949,8 +926,6 @@ function LocationModal({ index, loc, locations, duration, durationUnit, dayCount
     if (!loc.name || !loc.name.trim()) next.name = 'Name is required'
     if (!loc.description || !loc.description.trim()) next.description = 'Description is required'
     if (loc.timeSpent == null || Number(loc.timeSpent) <= 0) next.timeSpent = 'Estimated time spent is required'
-    const resolvedCity = pickedCity || curatedCity || ''
-    if (!resolvedCity.trim()) next.city = 'Choose a city or place'
     if (exceedsProductDuration && productMinutes != null) {
       next.duration = `Total stop time (${formatMinutes(totalStopMinutes)}) exceeds the product duration (${formatMinutes(productMinutes)})`
     }
@@ -960,10 +935,6 @@ function LocationModal({ index, loc, locations, duration, durationUnit, dayCount
 
   function handleDone() {
     if (!validate()) return
-    // Persist the canonical city when the supplier didn't explicitly pick one
-    // (e.g. the geocoder's district snaps to its region capital). An explicit
-    // search selection already wrote `loc.city` via the autocomplete onSelect.
-    if (!pickedCity && curatedCity && curatedCity !== loc.city) update('city', curatedCity)
     onClose()
   }
 
@@ -1024,38 +995,21 @@ function LocationModal({ index, loc, locations, duration, durationUnit, dayCount
               Name <span className="text-red-500">*</span>
             </label>
             <p className="text-[12px] text-slate-400 mb-1.5">
-              Use a clear, recognizable name so travelers can identify this stop at a glance.
-            </p>
-            <input
-              className={`w-full h-11 border bg-white px-3 text-sm outline-none focus:border-emerald-500 transition-colors ${
-                errors.name ? 'border-red-400' : 'border-slate-300'
-              }`}
-              type="text"
-              value={loc.name}
-              onChange={(e) => update('name', e.target.value)}
-              placeholder="e.g. Komfo Anokye Teaching Hospital"
-            />
-            {errors.name && <span className="block text-[13px] text-red-600 font-medium mt-1">{errors.name}</span>}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              City <span className="text-red-500">*</span>
-            </label>
-            <p className="text-[12px] text-slate-400 mb-1.5">
-              The city or place this stop is in. Travelers find your tour by destination, so search and pick the closest match.
+              Search for an attraction, city or town, or type a custom name. Picking a result fills the city and region automatically.
             </p>
             <PlaceAutocomplete
-              value={pickedCity || curatedCity || ''}
+              value={loc.name || ''}
               onSelect={(place) => {
-                setPickedCity(place.name)
-                update('city', place.name)
+                update('name', place.name)
+                if (place.city) update('city', place.city)
                 if (place.region) update('region', place.region)
               }}
-              placeholder="Search for a city or place…"
-              hasError={!!errors.city}
+              onChange={(v) => update('name', v)}
+              onAddCustom={(v) => update('name', v)}
+              placeholder="Search for a place or type a name…"
+              hasError={!!errors.name}
             />
-            {errors.city && <span className="block text-[13px] text-red-600 font-medium mt-1">{errors.city}</span>}
+            {errors.name && <span className="block text-[13px] text-red-600 font-medium mt-1">{errors.name}</span>}
           </div>
 
           <div>
