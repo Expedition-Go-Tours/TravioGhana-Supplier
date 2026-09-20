@@ -9,23 +9,26 @@ const apiBase = config.api.baseURL
  *
  * `query` is the debounced text; empty/`<2` chars returns the default list
  * (major cities + most-booked places) so the picker is usable without typing.
- * Each place is `{ name, type: 'city'|'town'|'attraction', region, lat, lng }`.
+ * `types` optionally restricts results to a subset of `city`/`town`/`attraction`
+ * (server-side filter). Each place is `{ name, type, city, region, lat, lng }`.
  */
-async function fetchPlaces(q) {
+async function fetchPlaces(q, types) {
   const params = new URLSearchParams()
   if (q) params.set('q', q)
   params.set('limit', '25')
+  if (Array.isArray(types) && types.length > 0) params.set('types', types.join(','))
   const res = await fetch(`${apiBase}/places/search?${params.toString()}`)
   if (!res.ok) throw new Error(`Places API HTTP ${res.status}`)
   const body = await res.json()
   return Array.isArray(body?.data?.places) ? body.data.places : []
 }
 
-export function usePlaces(query) {
+export function usePlaces(query, types) {
   const q = (query || '').trim()
+  const typesKey = Array.isArray(types) ? types.slice().sort().join(',') : ''
   return useQuery({
-    queryKey: ['places', 'search', q],
-    queryFn: () => fetchPlaces(q),
+    queryKey: ['places', 'search', q, typesKey],
+    queryFn: () => fetchPlaces(q, types),
     staleTime: 60 * 60 * 1000,
     placeholderData: (prev) => prev,
   })

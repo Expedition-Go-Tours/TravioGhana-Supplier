@@ -13,6 +13,7 @@ const TYPE_LABELS = { city: 'City', town: 'Town', attraction: 'Attraction' }
  *  - onSelect:   (place) => void — place = { name, type, city, region, lat, lng }
  *  - onChange:   (value) => void — fired on every keystroke (free-text sync)
  *  - onAddCustom:(value) => void — fired when the user picks the "+ Add" option
+ *  - types:      string[] — restrict results (e.g. ['city', 'town'])
  *  - placeholder, hasError (red border), disabled
  */
 export default function PlaceAutocomplete({
@@ -23,6 +24,7 @@ export default function PlaceAutocomplete({
   placeholder = 'Search for a city or place…',
   hasError = false,
   disabled = false,
+  types,
 }) {
   const [input, setInput] = useState(value)
   const [debounced, setDebounced] = useState(value)
@@ -33,7 +35,7 @@ export default function PlaceAutocomplete({
   const inputRef = useRef(null)
   const listRef = useRef(null)
 
-  const { data: places = [], isFetching } = usePlaces(debounced)
+  const { data: places = [], isFetching } = usePlaces(debounced, types)
 
   // Sync an external value change (modal open, parent reset, selection) into
   // the field — render-phase adjustment. `debounced` intentionally follows via

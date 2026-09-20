@@ -908,6 +908,10 @@ function LocationRow({ loc, position, globalIdx, onEdit, onRemove, dragRef, onDr
 
 function LocationModal({ index, loc, locations, duration, durationUnit, dayCount, onClose, onUpdate }) {
   const [errors, setErrors] = useState({})
+  // A "custom" location has no city/region from the geocoder or the XLSX, so we
+  // surface a City field for it. Frozen at mount so the field doesn't unmount
+  // mid-typing as `loc.city` becomes non-empty.
+  const [showCityField] = useState(() => !(loc.city || '').trim())
 
   const totalStopMinutes = sumStopMinutes(locations)
   const productMinutes = productDurationMinutes(duration, durationUnit)
@@ -924,6 +928,7 @@ function LocationModal({ index, loc, locations, duration, durationUnit, dayCount
   function validate() {
     const next = {}
     if (!loc.name || !loc.name.trim()) next.name = 'Name is required'
+    if (showCityField && !(loc.city || '').trim()) next.city = 'City is required'
     if (!loc.description || !loc.description.trim()) next.description = 'Description is required'
     if (loc.timeSpent == null || Number(loc.timeSpent) <= 0) next.timeSpent = 'Estimated time spent is required'
     if (exceedsProductDuration && productMinutes != null) {
@@ -1011,6 +1016,29 @@ function LocationModal({ index, loc, locations, duration, durationUnit, dayCount
             />
             {errors.name && <span className="block text-[13px] text-red-600 font-medium mt-1">{errors.name}</span>}
           </div>
+
+          {showCityField && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                City <span className="text-red-500">*</span>
+              </label>
+              <p className="text-[12px] text-slate-400 mb-1.5">
+                This stop doesn&apos;t have a city yet. Search and pick the closest city or town.
+              </p>
+              <PlaceAutocomplete
+                value={loc.city || ''}
+                types={['city', 'town']}
+                onSelect={(place) => {
+                  update('city', place.name)
+                  if (place.region) update('region', place.region)
+                }}
+                onChange={(v) => update('city', v)}
+                placeholder="Search for a city or town…"
+                hasError={!!errors.city}
+              />
+              {errors.city && <span className="block text-[13px] text-red-600 font-medium mt-1">{errors.city}</span>}
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">
