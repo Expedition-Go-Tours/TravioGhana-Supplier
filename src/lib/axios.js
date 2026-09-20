@@ -35,6 +35,7 @@ const GHANA_SUPPLIER_REWRITES = [
   [/^\/suppliers\/settings/, '/travioghana/supplier/settings'],
   [/^\/suppliers\/special-offers/, '/travioghana/supplier/special-offers'],
   [/^\/suppliers\/cancellation/, '/travioghana/supplier/cancellation'],
+  [/^\/suppliers\/products\/list/, '/travioghana/supplier/products/list'],
   [/^\/finance\//, '/travioghana/supplier/finance/'],
   [/^\/payouts\/me/, '/travioghana/supplier/payouts'],
   [/^\/payout-methods\/me/, '/travioghana/supplier/payout-methods'],

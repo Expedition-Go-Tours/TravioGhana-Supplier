@@ -1,6 +1,6 @@
 import api from "@/lib/axios";
 
-export async function fetchCancellationSummary(productId, days = 90) {
+export async function fetchCancellationSummary(productId, days = 30) {
   const params = { days };
   if (productId) params.productId = productId;
   const response = await api.get("/suppliers/cancellation/summary", {

@@ -106,7 +106,7 @@ export default function CancellationRecordsTable({
 
           {/* Footer */}
           <div className="px-5 sm:px-6 py-3.5 border-t border-slate-100 bg-teal-50/30 flex items-center justify-between">
-            <span className="text-xs font-semibold text-teal-700 uppercase tracking-wider">Total</span>
+            <span className="text-xs font-semibold text-teal-700 uppercase tracking-wider">Total value lost</span>
             <span className="text-sm font-bold text-teal-800">{formatCurrency(totalLost)}</span>
           </div>
 
