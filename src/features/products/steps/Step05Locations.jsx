@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/select'
 import { Pencil, GripVertical, ChevronDown, Bed, UtensilsCrossed, MoonStar, Plus, X, RotateCcw, Ban, Check, Flag } from 'lucide-react'
 import LocationAutocomplete from '@/components/shared/LocationAutocomplete'
+import PlaceAutocomplete from '@/components/shared/PlaceAutocomplete'
 import { useMajorCities } from '@/hooks/useMajorCities'
 import {
   sumStopMinutes,
@@ -914,6 +915,9 @@ function bareRegion(value) {
 function LocationModal({ index, loc, locations, duration, durationUnit, dayCount, onClose, onUpdate }) {
   const [errors, setErrors] = useState({})
   const { data: majorCities = [] } = useMajorCities()
+  // The place the supplier explicitly picked from the search — this wins over
+  // the canonical region-capital suggestion when persisting on Done.
+  const [pickedCity, setPickedCity] = useState(null)
 
   const totalStopMinutes = sumStopMinutes(locations)
   const productMinutes = productDurationMinutes(duration, durationUnit)
@@ -945,10 +949,8 @@ function LocationModal({ index, loc, locations, duration, durationUnit, dayCount
     if (!loc.name || !loc.name.trim()) next.name = 'Name is required'
     if (!loc.description || !loc.description.trim()) next.description = 'Description is required'
     if (loc.timeSpent == null || Number(loc.timeSpent) <= 0) next.timeSpent = 'Estimated time spent is required'
-    // Only enforce when the picklist loaded — a fetch failure must not block.
-    if (cityNames.length > 0 && !cityNames.includes(curatedCity)) {
-      next.city = 'Choose a city from the list'
-    }
+    const resolvedCity = pickedCity || curatedCity || ''
+    if (!resolvedCity.trim()) next.city = 'Choose a city or place'
     if (exceedsProductDuration && productMinutes != null) {
       next.duration = `Total stop time (${formatMinutes(totalStopMinutes)}) exceeds the product duration (${formatMinutes(productMinutes)})`
     }
@@ -958,9 +960,10 @@ function LocationModal({ index, loc, locations, duration, durationUnit, dayCount
 
   function handleDone() {
     if (!validate()) return
-    // Persist the curated city the select resolved (e.g. the region default)
-    // even when the supplier never touched the field.
-    if (curatedCity && curatedCity !== loc.city) update('city', curatedCity)
+    // Persist the canonical city when the supplier didn't explicitly pick one
+    // (e.g. the geocoder's district snaps to its region capital). An explicit
+    // search selection already wrote `loc.city` via the autocomplete onSelect.
+    if (!pickedCity && curatedCity && curatedCity !== loc.city) update('city', curatedCity)
     onClose()
   }
 
@@ -1040,18 +1043,18 @@ function LocationModal({ index, loc, locations, duration, durationUnit, dayCount
               City <span className="text-red-500">*</span>
             </label>
             <p className="text-[12px] text-slate-400 mb-1.5">
-              The major city this stop is in. Travelers find your tour by destination, so pick the closest city on the list.
+              The city or place this stop is in. Travelers find your tour by destination, so search and pick the closest match.
             </p>
-            <Select value={curatedCity} onValueChange={(v) => update('city', v)}>
-              <SelectTrigger className={`h-11 border-slate-300 px-3 text-sm w-full ${errors.city ? 'border-red-400' : ''}`}>
-                <SelectValue placeholder="Select a city" />
-              </SelectTrigger>
-              <SelectContent>
-                {majorCities.map((c) => (
-                  <SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <PlaceAutocomplete
+              value={pickedCity || curatedCity || ''}
+              onSelect={(place) => {
+                setPickedCity(place.name)
+                update('city', place.name)
+                if (place.region) update('region', place.region)
+              }}
+              placeholder="Search for a city or place…"
+              hasError={!!errors.city}
+            />
             {errors.city && <span className="block text-[13px] text-red-600 font-medium mt-1">{errors.city}</span>}
           </div>
 
