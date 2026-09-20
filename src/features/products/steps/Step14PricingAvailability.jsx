@@ -455,7 +455,7 @@ function ScheduleStep({ errors = {}, onTouch }) {
                   type="date"
                   value={exception.date}
                   onChange={(e) => updateDateException(i, { date: e.target.value })}
-                  className="h-10 rounded-lg border border-slate-200 px-3 text-sm focus:outline-none focus:border-emerald-500"
+                  className="h-10 rounded-lg border border-slate-200 px-3 text-sm focus:outline-none focus:border-emerald-500 w-full sm:w-auto"
                 />
                 <button
                   type="button"
@@ -466,14 +466,16 @@ function ScheduleStep({ errors = {}, onTouch }) {
                 </button>
               </div>
               {(exception.overrideTimes || []).map((t, j) => (
-                <div key={j} className="flex items-center gap-2 ml-4">
-                  <TimeSelect
-                    value={t.startTime}
-                    onChange={(v) => updateDateException(i, {
-                      overrideTimes: exception.overrideTimes.map((ot, oi) => oi === j ? { ...ot, startTime: v } : ot)
-                    })}
-                  />
-                  <span>-</span>
+                <div key={j} className="flex items-center gap-1.5 flex-wrap ml-4">
+                  <span className="flex items-center gap-1.5">
+                    <TimeSelect
+                      value={t.startTime}
+                      onChange={(v) => updateDateException(i, {
+                        overrideTimes: exception.overrideTimes.map((ot, oi) => oi === j ? { ...ot, startTime: v } : ot)
+                      })}
+                    />
+                    <span className="text-slate-400">-</span>
+                  </span>
                   <TimeSelect
                     value={t.endTime}
                     onChange={(v) => updateDateException(i, {
