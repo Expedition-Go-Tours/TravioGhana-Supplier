@@ -1,9 +1,4 @@
 import { z } from 'zod'
-import {
-  validatePricingCategories,
-  validateGroupSizes,
-  validateCapacity,
-} from './utils/pricingValidation'
 
 export const TITLE_MAX_CHARS = 60
 export const REFERENCE_CODE_MAX_CHARS = 20
@@ -30,8 +25,10 @@ export const locationSchema = z.object({
   city: z.string().max(100).optional(),
   country: z.string().max(100).optional(),
   region: z.string().max(100).optional(),
-  description: z.string().max(500).optional(),
-  timeSpent: z.number().nullable().optional(),
+  description: z.string().min(1, 'Description is required').max(500),
+  timeSpent: z.coerce
+    .number({ invalid_type_error: 'Estimated time spent is required' })
+    .refine((v) => v > 0, 'Estimated time spent must be greater than 0'),
   timeSpentUnit: z.enum(['minutes', 'hours']).optional(),
   admissionIncluded: z.enum(['yes', 'no', 'passby']).optional(),
   isDropoff: z.boolean().optional(),
@@ -41,8 +38,8 @@ export const locationSchema = z.object({
 export const locationPointSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   address: z.string().min(1, 'Address is required'),
-  lat: z.number(),
-  lng: z.number(),
+  lat: z.number().nullable().optional(),
+  lng: z.number().nullable().optional(),
 })
 
 export const productOptionSchema = z.object({
@@ -67,6 +64,17 @@ export const productOptionSchema = z.object({
   validityUnit: z.enum(['hours', 'days', 'weeks', 'months']).nullable(),
   validityStartDate: z.string().optional(),
   validityEndDate: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (data.validityType === 'period') {
+    if (data.validity == null) {
+      ctx.addIssue({ code: 'custom', path: ['validity'], message: 'Enter a validity period' })
+    } else if (data.validity <= 0) {
+      ctx.addIssue({ code: 'custom', path: ['validity'], message: 'Validity period must be greater than 0' })
+    }
+    if (!data.validityUnit) {
+      ctx.addIssue({ code: 'custom', path: ['validityUnit'], message: 'Select a validity unit' })
+    }
+  }
 })
 
 export const attractionSchema = z.object({
@@ -156,11 +164,11 @@ export const stepSchemas = {
       .min(1, 'Add at least one location'),
   }),
    6: z.object({
-    keywords: z.array(z.string()).max(15, 'Maximum 15 keywords'),
+    keywords: z.array(z.string()).min(3, 'Add at least 3 keywords').max(15, 'Maximum 15 keywords'),
     activitiesIncluded: z.array(z.string()).optional(),
   }),
    7: z.object({
-    whatsIncluded: z.array(z.string().max(INCLUSION_ITEM_MAX_CHARS, `Each inclusion must be ${INCLUSION_ITEM_MAX_CHARS} characters or fewer`)).optional(),
+    whatsIncluded: z.array(z.string().min(1, 'Inclusion cannot be empty').max(INCLUSION_ITEM_MAX_CHARS, `Each inclusion must be ${INCLUSION_ITEM_MAX_CHARS} characters or fewer`)).min(3, 'Add at least 3 inclusions'),
     whatsNotIncluded: z.array(z.string().max(INCLUSION_ITEM_MAX_CHARS, `Each exclusion must be ${INCLUSION_ITEM_MAX_CHARS} characters or fewer`)).optional(),
     foodProvided: z.boolean(),
     meals: z.array(z.object({
@@ -178,11 +186,12 @@ export const stepSchemas = {
       infoBooklet: z.boolean(),
     }),
   }),
-  9: z.object({
+   9: z.object({
     notSuitableFor: z.array(z.string().max(EXTRA_INFO_TAG_MAX_CHARS, `Each item must be ${EXTRA_INFO_TAG_MAX_CHARS} characters or fewer`)).optional(),
     notAllowed: z.array(z.string().max(EXTRA_INFO_TAG_MAX_CHARS, `Each item must be ${EXTRA_INFO_TAG_MAX_CHARS} characters or fewer`)).optional(),
     petFriendly: z.boolean().optional(),
     wheelchairAccessible: z.boolean().catch(false),
+    wifiIncluded: z.boolean(),
     mandatoryItems: z.array(z.string().max(EXTRA_INFO_TAG_MAX_CHARS, `Each item must be ${EXTRA_INFO_TAG_MAX_CHARS} characters or fewer`)).optional(),
     knowBeforeYouGo: z.string().max(KNOW_BEFORE_YOU_GO_MAX_CHARS, `Know before you go must be ${KNOW_BEFORE_YOU_GO_MAX_CHARS} characters or fewer`).optional(),
     emergencyPhone: z.string()
@@ -240,48 +249,45 @@ export const stepSchemas = {
     dropoffOption: z.enum(['same_location', 'different_location', 'customer_preferred', 'none', 'service']).optional(),
     dropoffLocation: locationPointSchema.nullable().optional(),
     dropoffDescription: z.string().optional(),
-  }),
-  14: z.object({}),
-  15: z.object({
-    pricingModel: z.enum(['perPerson', 'perGroup'], {
-      errorMap: () => ({ message: 'Select a pricing model' }),
-    }),
-    currency: z.string().min(1, 'Select a currency'),
-    scheduleType: z.enum(['fixedTimeSlot', 'operatingHours']),
-    schedules: z.array(z.any()).min(1, 'Add at least one schedule'),
-    pricingApproach: z.any().optional(),
-    pricingCategories: z.any().optional(),
-    uniformPrice: z.any().nullable().optional(),
-    groupSizes: z.any().optional(),
-    timeSlots: z.array(z.object({ startTime: z.string(), endTime: z.string().optional() })).optional(),
-    minParticipants: z.any().optional(),
-    maxParticipants: z.any().optional(),
-    maxGroupsPerTimeSlot: z.any().optional(),
   }).superRefine((data, ctx) => {
-    const add = (issue) => {
-      ctx.addIssue({ code: 'custom', path: issue.path, message: issue.message })
+    const add = (path, message) => {
+      ctx.addIssue({ code: 'custom', path, message })
     }
 
-    if (data.pricingModel === 'perPerson') {
-      if (data.pricingApproach === 'sameForEveryone') {
-        if (data.uniformPrice == null || data.uniformPrice <= 0) {
-          add({ path: ['uniformPrice'], message: 'Enter a price per person' })
+    if (data.meetingMode === 'meeting_point') {
+      const points = Array.isArray(data.meetingPoints) ? data.meetingPoints : []
+      const legacy = data.meetingPoint && (data.meetingPoint.name || data.meetingPoint.address)
+        ? [data.meetingPoint]
+        : []
+      const all = points.length > 0 ? points : legacy
+      if (all.length === 0) {
+        add(['meetingPoints'], 'Add at least one meeting point')
+      }
+    }
+
+    if (data.meetingMode === 'pickup') {
+      if (!data.referenceStartTime || !String(data.referenceStartTime).trim()) {
+        add(['referenceStartTime'], 'Select when you usually pick up your customers')
+      }
+      if (data.pickupType === 'area') {
+        if (!Array.isArray(data.pickupAreas) || data.pickupAreas.length === 0) {
+          add(['pickupAreas'], 'Add at least one pickup area')
+        }
+      } else if (data.pickupType === 'address') {
+        if (!Array.isArray(data.pickupLocations) || data.pickupLocations.length === 0) {
+          add(['pickupLocations'], 'Add at least one pickup location')
         }
       }
-      if (data.pricingApproach === 'dependsOnAge') {
-        validatePricingCategories(data.pricingCategories).forEach(add)
+    }
+
+    if (data.dropoffOption === 'different_location') {
+      if (!data.dropoffLocation || !data.dropoffLocation.address) {
+        add(['dropoffLocation'], 'Add a drop-off address')
       }
     }
-    if (data.pricingModel === 'perGroup') {
-      validateGroupSizes(data.groupSizes).forEach(add)
-    }
-    if (data.scheduleType === 'fixedTimeSlot') {
-      if (!Array.isArray(data.timeSlots) || data.timeSlots.length === 0) {
-        add({ path: ['timeSlots'], message: 'Add at least one time slot' })
-      }
-    }
-    validateCapacity(data).forEach(add)
   }),
+  14: z.object({}),
+  15: z.object({}),
   16: z.object({
     cutoffMinutes: z.number().min(0, 'Select a cut-off time'),
     lastMinuteBookings: z.boolean().optional(),

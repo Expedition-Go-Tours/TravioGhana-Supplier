@@ -6,6 +6,7 @@ import {
   validateGroupSizes,
   validateCapacity,
   validateScheduleBasics,
+  validateScheduleObject,
   hasScheduleData,
   hasPricingData,
 } from '../utils/pricingValidation'
@@ -179,5 +180,87 @@ describe('hasPricingData', () => {
 
   it('treats saved schedules as pricing data to protect', () => {
     expect(hasPricingData({ pricingModel: 'perPerson', schedules: [{ name: 'Summer' }], pricingCategories: [] })).toBe(true)
+  })
+})
+
+describe('validateScheduleObject', () => {
+  const validSchedule = (over = {}) => ({
+    name: 'Summer',
+    type: 'operatingHours',
+    startDate: '2026-06-01',
+    hasEndDate: false,
+    endDate: '',
+    weeklySchedule: { Monday: [{ startTime: '09:00', endTime: '17:00' }] },
+    timeSlots: [],
+    pricingModel: 'perPerson',
+    pricingApproach: 'dependsOnAge',
+    pricingCategories: [cat({ name: 'Adult', minAge: 18, maxAge: 99, price: 100 })],
+    uniformPrice: null,
+    groupSizes: [],
+    minParticipants: 1,
+    maxParticipants: 10,
+    maxGroupsPerTimeSlot: 1,
+    additionalPersonsEnabled: false,
+    additionalPersonPrice: null,
+    ...over,
+  })
+
+  it('accepts a complete operating-hours schedule', () => {
+    expect(validateScheduleObject(validSchedule())).toHaveLength(0)
+  })
+
+  it('accepts a complete fixed-time-slot schedule', () => {
+    expect(validateScheduleObject(validSchedule({
+      type: 'fixedTimeSlot',
+      weeklySchedule: {},
+      timeSlots: [{ startTime: '09:00' }],
+    }))).toHaveLength(0)
+  })
+
+  it('flags a missing schedule name and start date', () => {
+    const issues = validateScheduleObject(validSchedule({ name: '', startDate: '' }))
+    expect(issues.some((i) => i.path.join('.') === 'scheduleName')).toBe(true)
+    expect(issues.some((i) => i.path.join('.') === 'scheduleStartDate')).toBe(true)
+  })
+
+  it('flags an end date when hasEndDate is set without one', () => {
+    const issues = validateScheduleObject(validSchedule({ hasEndDate: true, endDate: '' }))
+    expect(issues.some((i) => i.path.join('.') === 'scheduleEndDate')).toBe(true)
+  })
+
+  it('flags fixed time slots without any slots', () => {
+    const issues = validateScheduleObject(validSchedule({ type: 'fixedTimeSlot', weeklySchedule: {}, timeSlots: [] }))
+    expect(issues.some((i) => i.path.join('.') === 'timeSlots')).toBe(true)
+  })
+
+  it('flags operating hours without any opening hours', () => {
+    const issues = validateScheduleObject(validSchedule({ weeklySchedule: {} }))
+    expect(issues.some((i) => i.path.join('.') === 'weeklySchedule')).toBe(true)
+  })
+
+  it('flags a missing uniform price for sameForEveryone', () => {
+    const issues = validateScheduleObject(validSchedule({ pricingApproach: 'sameForEveryone', uniformPrice: null }))
+    expect(issues.some((i) => i.path.join('.') === 'uniformPrice')).toBe(true)
+  })
+
+  it('flags missing per-category prices for dependsOnAge', () => {
+    const issues = validateScheduleObject(validSchedule({ pricingCategories: [cat({ price: null })] }))
+    expect(issues.some((i) => i.message.includes('price'))).toBe(true)
+  })
+
+  it('flags empty group sizes for perGroup', () => {
+    const issues = validateScheduleObject(validSchedule({ pricingModel: 'perGroup', groupSizes: [] }))
+    expect(issues.some((i) => i.path.join('.') === 'groupSizes')).toBe(true)
+  })
+
+  it('flags a missing additional-person price when enabled', () => {
+    const issues = validateScheduleObject(validSchedule({ additionalPersonsEnabled: true, additionalPersonPrice: null }))
+    expect(issues.some((i) => i.path.join('.') === 'additionalPersonPrice')).toBe(true)
+  })
+
+  it('falls back to option-level pricing when the schedule omits it', () => {
+    const schedule = validSchedule({ pricingModel: undefined, pricingCategories: undefined, uniformPrice: undefined })
+    const fallback = { pricingModel: 'perPerson', pricingApproach: 'dependsOnAge', pricingCategories: [cat({ name: 'Adult', minAge: 18, maxAge: 99, price: 80 })], minParticipants: 1, maxParticipants: 8 }
+    expect(validateScheduleObject(schedule, fallback)).toHaveLength(0)
   })
 })

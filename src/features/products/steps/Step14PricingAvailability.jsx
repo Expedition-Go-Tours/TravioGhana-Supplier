@@ -1280,7 +1280,7 @@ function PriceStep({ errors = {}, onTouch }) {
 
 
 function ScheduleWizard({ onBack }) {
-  const { currentScheduleStep, setField, saveSchedule, resetScheduleForm, clearStepErrors } = useProductBuilderStore()
+  const { currentScheduleStep, setField, saveSchedule, clearStepErrors } = useProductBuilderStore()
   const [direction, setDirection] = useState(1)
   const { wizardErrors, setWizardErrors, touch, touchAll } = useLiveWizardErrors(currentScheduleStep)
 
@@ -1341,7 +1341,7 @@ function ScheduleWizard({ onBack }) {
       }
       setField('currentScheduleStep', prevStep)
     } else {
-      resetScheduleForm()
+      useProductBuilderStore.getState().reloadSelectedOptionBuffers()
       onBack()
     }
   }
@@ -1583,6 +1583,7 @@ export default function Step14PricingAvailability() {
   }
 
   const handleWizardBack = () => {
+    useProductBuilderStore.getState().reloadSelectedOptionBuffers()
     setShowWizard(false)
     setEditingIndex(null)
   }

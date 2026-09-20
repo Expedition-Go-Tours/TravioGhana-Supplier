@@ -300,21 +300,60 @@ export function validateScheduleBasics(state) {
 }
 
 /**
- * Runs the price-related rules for the whole step (used to derive the wizard
- * sub-step and the top-level schema). Kept as a convenience wrapper.
+ * Validates a single committed schedule object against the option-level
+ * pricing/availability fallback.
+ *
+ * A saved schedule is self-contained (name, dates, weekly schedule / time
+ * slots, pricing, capacity and additional-persons settings). Fields that are
+ * absent on the schedule fall back to the option's pricing data, mirroring how
+ * `buildSchedulesAndPricing` resolves them at submit time.
+ *
+ * @param {object} schedule
+ * @param {object} [fallback] option-level pricing/availability state
+ * @returns {Array<{path:(string|number)[],message:string}>}
  */
-export function validateStep16Pricing(state) {
-  const { pricingModel, pricingApproach } = state || {}
+export function validateScheduleObject(schedule, fallback = {}) {
+  const s = schedule || {}
+  const f = fallback || {}
   const issues = []
 
-  if (pricingModel === 'perPerson' && pricingApproach === 'sameForEveryone') {
-    if (state.uniformPrice == null || state.uniformPrice <= 0) {
+  issues.push(...validateScheduleBasics({
+    scheduleName: s.name,
+    scheduleStartDate: s.startDate,
+    scheduleHasEndDate: !!s.hasEndDate,
+    scheduleEndDate: s.endDate,
+    scheduleType: s.type || f.scheduleType || 'operatingHours',
+    timeSlots: s.timeSlots,
+    weeklySchedule: s.weeklySchedule,
+  }))
+
+  const pricingModel = s.pricingModel ?? f.pricingModel ?? 'perPerson'
+  const pricingApproach = s.pricingApproach ?? f.pricingApproach ?? 'dependsOnAge'
+
+  if (pricingModel === 'perGroup') {
+    issues.push(...validateGroupSizes(s.groupSizes ?? f.groupSizes))
+  } else if (pricingApproach === 'sameForEveryone') {
+    const uniformPrice = s.uniformPrice ?? f.uniformPrice
+    if (uniformPrice == null || uniformPrice <= 0) {
       issues.push({ path: ['uniformPrice'], message: 'Enter a price per person' })
     }
-  } else if (pricingModel === 'perGroup') {
-    issues.push(...validateGroupSizes(state.groupSizes))
-  } else if (pricingModel === 'perPerson' && pricingApproach === 'dependsOnAge') {
-    issues.push(...validatePricingCategories(state.pricingCategories))
+  } else {
+    issues.push(...validatePricingCategories(s.pricingCategories ?? f.pricingCategories))
+  }
+
+  issues.push(...validateCapacity({
+    minParticipants: s.minParticipants ?? f.minParticipants,
+    maxParticipants: s.maxParticipants ?? f.maxParticipants,
+    maxGroupsPerTimeSlot: s.maxGroupsPerTimeSlot ?? f.maxGroupsPerTimeSlot,
+    pricingModel,
+  }))
+
+  const additionalEnabled = s.additionalPersonsEnabled ?? f.additionalPersonsEnabled
+  if (additionalEnabled) {
+    const additionalPrice = s.additionalPersonPrice ?? f.additionalPersonPrice
+    if (additionalPrice == null || additionalPrice <= 0) {
+      issues.push({ path: ['additionalPersonPrice'], message: 'Enter a price for additional persons' })
+    }
   }
 
   return issues

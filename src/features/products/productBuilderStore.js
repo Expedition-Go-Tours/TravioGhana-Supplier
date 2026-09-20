@@ -579,6 +579,24 @@ export const useProductBuilderStore = create(
           }),
         })),
 
+      // Reload the editor buffers from the selected option's committed data
+      // WITHOUT flushing the current (possibly reset) buffers into the option.
+      // Used when the schedule wizard is cancelled/backed out of, so a
+      // subsequent syncSelectedOption (on navigation) cannot overwrite the
+      // option's committed pricing/availability with a half-built scratchpad.
+      reloadSelectedOptionBuffers: () =>
+        set((s) => {
+          if (!s.selectedOptionId) return s
+          const target = s.options.find((o) => o.id === s.selectedOptionId)
+          if (!target) return s
+          const data = {
+            pricing: target.pricing || s.pricingTemplate || pricingFromBuffers(s),
+            availability: target.availability || s.availabilityTemplate || availabilityFromBuffers(s),
+            cutoff: target.cutoff || s.cutoffTemplate || cutoffFromBuffers(s),
+          }
+          return { ...buffersFromData(s, data) }
+        }),
+
       addPricingCategory: (template) =>
         set((s) => ({
           pricingCategories: [...s.pricingCategories, template || { name: '', price: null, minAge: 0, maxAge: 99, notAllowed: false, ticketNotRequired: false, needsAdult: false, idRequired: false, idType: '', tiers: [] }],
