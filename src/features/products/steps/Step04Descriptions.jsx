@@ -95,7 +95,7 @@ export default function Step04Descriptions() {
 
       <div className="mb-5">
         <div className="flex items-center gap-2 mb-2">
-          <h3 className="text-base font-semibold text-slate-900">Highlights</h3>
+          <h3 className="text-base font-semibold text-slate-900">Highlights <span className="text-red-500">*</span></h3>
           <HelpCircle className="w-4 h-4 text-slate-400" />
         </div>
         <p className="text-sm text-slate-500 mb-4">
@@ -120,7 +120,7 @@ export default function Step04Descriptions() {
                     aria-invalid={atLimit}
                     placeholder="Describe a highlight of your activity..."
                   />
-                  {highlights.length > 1 && (
+                  {i > 2 && (
                     <button
                       type="button"
                       onClick={() => removeHighlight(i)}
