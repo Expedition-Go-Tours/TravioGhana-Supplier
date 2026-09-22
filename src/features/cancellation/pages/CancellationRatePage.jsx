@@ -19,7 +19,7 @@ export default function CancellationRatePage() {
   const [sortDir, setSortDir] = useState("asc");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState(null);
-  const [days, setDays] = useState(30);
+  const [days, setDays] = useState(90);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   const loadData = (productId, pageNum, dayCount) => {

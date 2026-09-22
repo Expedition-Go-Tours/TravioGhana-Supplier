@@ -112,6 +112,32 @@ export function cancelPayoutRequest(id) {
   return api.patch(`/finance/payouts/requests/${id}/cancel`, {}, { skipGlobalErrorHandler: true });
 }
 
+// ── Cancellation fees ledger (open fees are netted off the next payout) ──
+
+export async function getFinanceCharges() {
+  const response = await api.get("/finance/charges", { skipGlobalErrorHandler: true });
+  const payload = response.data?.data || {};
+  const charges = (payload.charges || []).map((c) => ({
+    id: c.id,
+    amount: Number(c.amount) || 0,
+    currency: c.currency || "USD",
+    reason: c.reason || "",
+    status: c.status,
+    notes: c.notes || "",
+    createdAt: c.createdAt,
+    settledAt: c.settledAt,
+    bookingId: c.bookingId,
+    bookingNumber: c.bookingNumber || "—",
+    payoutRequestId: c.payoutRequestId,
+    payoutRequestNumber: c.payoutRequestNumber || null,
+  }));
+  const openTotals = Object.entries(payload.openTotals || {}).map(([currency, amount]) => ({
+    currency,
+    amount: Number(amount) || 0,
+  }));
+  return { charges, openTotals };
+}
+
 // ── Refund requests (supplier-initiated; stored as disputes) ──
 
 export async function fetchFinanceDisputes(params = {}) {

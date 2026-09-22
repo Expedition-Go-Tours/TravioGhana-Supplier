@@ -1,3 +1,7 @@
+// Arc gauge for the cancellation-rate card. Scale matches the GetYourGuide
+// Performance Quality Standards vocabulary used everywhere else:
+//   0–1% Excellent · 1–2% Good · 2–5% Needs attention · >5% High
+// (rating is waived below 10 eligible bookings — see CancellationCard).
 export default function CancellationGauge({ value, label, className = "" }) {
   // Configurable gauge geometry
   const CX = 130;
@@ -7,15 +11,18 @@ export default function CancellationGauge({ value, label, className = "" }) {
   const clamped = Math.min(Math.max(value, 0), 6);
   const pct = clamped === 0 ? "0" : clamped >= 6 ? "6+" : String(Math.round(clamped));
 
-  // Symmetrical multi-zone tracking logic for the indicator dot
+  // Symmetrical multi-zone tracking logic for the indicator dot.
+  // Junctions sit at the new 1% / 2% / 5% thresholds.
   let finalAngle;
-  if (clamped <= 2) {
-    finalAngle = 180 - (clamped / 2) * 45;
+  if (clamped <= 1) {
+    finalAngle = 180 - clamped * 30;
+  } else if (clamped <= 2) {
+    finalAngle = 150 - (clamped - 1) * 30;
   } else if (clamped <= 5) {
-    finalAngle = 135 - ((clamped - 2) / 3) * 90;
+    finalAngle = 120 - (clamped - 2) * 30;
   } else {
     const extra = Math.min(clamped - 5, 1);
-    finalAngle = 45 - extra * 45;
+    finalAngle = 30 - extra * 30;
   }
 
   // Helper functions to calculate exact points along the arc radius
@@ -25,17 +32,20 @@ export default function CancellationGauge({ value, label, className = "" }) {
   // Compute precise track junctions dynamically
   const x180 = getX(180); // Left base (0%)
   const y180 = getY(180);
-  const x135 = getX(135); // 2% Junction
-  const y135 = getY(135);
-  const x45  = getX(45);  // 5% Junction
-  const y45  = getY(45);
+  const x150 = getX(150); // 1% junction — Excellent → Good
+  const y150 = getY(150);
+  const x120 = getX(120); // 2% junction — Good → Needs attention
+  const y120 = getY(120);
+  const x30  = getX(30);  // 5% junction — Needs attention → High
+  const y30  = getY(30);
   const x0   = getX(0);   // Right base (5+%)
   const y0   = getY(0);
 
   // Indicator dot coordinates and color
   const nx = getX(finalAngle);
   const ny = getY(finalAngle);
-  const dotColor = clamped <= 2 ? '#115E59' : clamped <= 5 ? '#0D9488' : '#F43F5E';
+  const dotColor =
+    clamped <= 1 ? "#15803D" : clamped <= 2 ? "#86EFAC" : clamped <= 5 ? "#FBBF24" : "#EF4444";
 
   return (
     <svg viewBox="0 0 260 200" className={"w-full " + className} role="img" aria-label={`Cancellation rate: ${pct}%, status: ${label}`}>
@@ -50,16 +60,20 @@ export default function CancellationGauge({ value, label, className = "" }) {
 
       {/* Gauge Tracks - Calculated Dynamically */}
       <path 
-        d={`M ${x180} ${y180} A ${R} ${R} 0 0 1 ${x135} ${y135}`} 
-        fill="none" stroke="#115E59" strokeWidth="10" strokeLinecap="round" 
+        d={`M ${x180} ${y180} A ${R} ${R} 0 0 1 ${x150} ${y150}`} 
+        fill="none" stroke="#15803D" strokeWidth="10" strokeLinecap="round" 
       />
       <path 
-        d={`M ${x135} ${y135} A ${R} ${R} 0 0 1 ${x45} ${y45}`} 
-        fill="none" stroke="#CCFBF1" strokeWidth="10" strokeLinecap="round" 
+        d={`M ${x150} ${y150} A ${R} ${R} 0 0 1 ${x120} ${y120}`} 
+        fill="none" stroke="#86EFAC" strokeWidth="10" strokeLinecap="round" 
       />
       <path 
-        d={`M ${x45} ${y45} A ${R} ${R} 0 0 1 ${x0} ${y0}`} 
-        fill="none" stroke="#F43F5E" strokeWidth="10" strokeLinecap="round" 
+        d={`M ${x120} ${y120} A ${R} ${R} 0 0 1 ${x30} ${y30}`} 
+        fill="none" stroke="#FBBF24" strokeWidth="10" strokeLinecap="round" 
+      />
+      <path 
+        d={`M ${x30} ${y30} A ${R} ${R} 0 0 1 ${x0} ${y0}`} 
+        fill="none" stroke="#EF4444" strokeWidth="10" strokeLinecap="round" 
       />
       
       {/* Indicator Dot */}
@@ -75,8 +89,9 @@ export default function CancellationGauge({ value, label, className = "" }) {
       
       {/* Perimeter Indicator Labels aligned to junctions */}
       <text x={x180} y={y180 + 18} textAnchor="middle" fontSize="11" fontWeight="500" fill="#64748B" fontFamily="DM Sans, sans-serif">0%</text>
-      <text x={x135 + 6} y={y135 + 16} textAnchor="middle" fontSize="11" fontWeight="500" fill="#64748B" fontFamily="DM Sans, sans-serif">2%</text>
-      <text x={x45 - 6} y={y45 + 16} textAnchor="middle" fontSize="11" fontWeight="500" fill="#64748B" fontFamily="DM Sans, sans-serif">5%</text>
+      <text x={x150 + 6} y={y150 + 16} textAnchor="middle" fontSize="11" fontWeight="500" fill="#64748B" fontFamily="DM Sans, sans-serif">1%</text>
+      <text x={x120 + 4} y={y120 + 16} textAnchor="middle" fontSize="11" fontWeight="500" fill="#64748B" fontFamily="DM Sans, sans-serif">2%</text>
+      <text x={x30 - 4} y={y30 + 16} textAnchor="middle" fontSize="11" fontWeight="500" fill="#64748B" fontFamily="DM Sans, sans-serif">5%</text>
       <text x={x0} y={y0 + 18} textAnchor="middle" fontSize="11" fontWeight="500" fill="#64748B" fontFamily="DM Sans, sans-serif">5+%</text>
     </svg>
   );

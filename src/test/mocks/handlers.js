@@ -48,6 +48,44 @@ const mockUsers = [
   },
 ];
 
+// code → category lookup used by the structured-cancellation handlers
+// (mirrors Expedition-Go-Backend-v2/src/core/services/cancellationReasons.js).
+const REASON_CATEGORIES = {
+  GUIDE_UNAVAILABLE: 'OPERATIONAL',
+  VEHICLE_BREAKDOWN: 'OPERATIONAL',
+  OVERBOOKED: 'OPERATIONAL',
+  NOT_ENOUGH_TRAVELERS: 'OPERATIONAL',
+  VENUE_CLOSED: 'OPERATIONAL',
+  SCHEDULING_CONFLICT: 'OPERATIONAL',
+  OPERATIONAL_OTHER: 'OPERATIONAL',
+  WEATHER: 'FORCE_MAJEURE',
+  NATURAL_DISASTER: 'FORCE_MAJEURE',
+  GOVERNMENT_ACTION: 'FORCE_MAJEURE',
+  STRIKE: 'FORCE_MAJEURE',
+  SAFETY_INCIDENT: 'FORCE_MAJEURE',
+  PUBLIC_HEALTH: 'FORCE_MAJEURE',
+  FORCE_MAJEURE_OTHER: 'FORCE_MAJEURE',
+  CUSTOMER_REQUESTED_CANCEL: 'CUSTOMER_REQUESTED',
+};
+
+const REASON_LABELS = {
+  GUIDE_UNAVAILABLE: 'Guide or staff unavailable',
+  VEHICLE_BREAKDOWN: 'Vehicle or equipment breakdown',
+  OVERBOOKED: 'Overbooked / capacity issue',
+  NOT_ENOUGH_TRAVELERS: 'Not enough travellers',
+  VENUE_CLOSED: 'Venue or facility closed',
+  SCHEDULING_CONFLICT: 'Scheduling conflict',
+  OPERATIONAL_OTHER: 'Other operational reason',
+  WEATHER: 'Adverse weather conditions',
+  NATURAL_DISASTER: 'Natural disaster',
+  GOVERNMENT_ACTION: 'Government action or travel advisory',
+  STRIKE: 'Strike or civil unrest',
+  SAFETY_INCIDENT: 'Safety or security incident',
+  PUBLIC_HEALTH: 'Public health restriction',
+  FORCE_MAJEURE_OTHER: 'Other force majeure event',
+  CUSTOMER_REQUESTED_CANCEL: 'Customer asked to cancel this booking',
+};
+
 // Supplier's own tours catalogue (paginated, mirrors GET /tours/supplier/my-tours).
 // NOTE: the axios interceptor (src/lib/axios.js) rewrites /tours/supplier/my-tours
 // to /travioghana/supplier/tours, so the handler must match the rewritten path.
@@ -164,6 +202,37 @@ export const handlers = [
     });
   }),
 
+  // Taxonomy must be registered BEFORE GET /bookings/:id — otherwise the
+  // single-segment :id route swallows /bookings/cancellation-reasons.
+  http.get(`${API_BASE_URL}/bookings/cancellation-reasons`, () => {
+    // Mirrors bookingController.getCancellationReasons (taxonomy owner: backend).
+    const reasons = Object.entries(REASON_CATEGORIES).map(([code, category]) => ({
+      code,
+      category,
+      label: REASON_LABELS[code],
+    }));
+    const byCategory = {
+      OPERATIONAL: reasons.filter((r) => r.category === 'OPERATIONAL'),
+      FORCE_MAJEURE: reasons.filter((r) => r.category === 'FORCE_MAJEURE'),
+      CUSTOMER_REQUESTED: reasons.filter((r) => r.category === 'CUSTOMER_REQUESTED'),
+    };
+    return HttpResponse.json({
+      status: 'success',
+      data: {
+        categories: ['OPERATIONAL', 'FORCE_MAJEURE', 'CUSTOMER_REQUESTED'],
+        reasons,
+        byCategory,
+        systemCodes: {
+          PAYMENT_NOT_COMPLETED: 'Payment not completed',
+          ACTIVITY_DATE_PASSED: 'Activity date passed without supplier confirmation',
+          PAYMENT_NOT_COLLECTED: 'Payment could not be collected before the activity',
+        },
+        feePct: 25,
+        choiceWindowHours: 48,
+      },
+    });
+  }),
+
   http.get(`${API_BASE_URL}/bookings/:id`, ({ params }) => {
     const booking = mockBookings.find(b => b.id === params.id);
     
@@ -187,10 +256,68 @@ export const handlers = [
         { status: 404 }
       );
     }
-    
-    return HttpResponse.json({
+
+    const updatedBooking = {
       ...booking,
       status: body.status,
+      supplierNotes: body.supplierNotes ?? booking.supplierNotes,
+    };
+
+    // Structured supplier cancellation → { booking, cancellation } summary
+    // (mirrors bookingController.updateBookingStatus when status === CANCELLED).
+    if (body.status === 'CANCELLED') {
+      const code = typeof body.cancellationCode === 'string' ? body.cancellationCode.trim() : '';
+      if (!code || body.agreedToTerms !== true) {
+        return HttpResponse.json(
+          { message: 'cancellationCode and agreedToTerms are required to cancel a booking.' },
+          { status: 400 }
+        );
+      }
+
+      const reason = REASON_CATEGORIES[code] ? { code, category: REASON_CATEGORIES[code] } : null;
+      const category = reason?.category || null;
+      const countsTowardRate = category ? category === 'OPERATIONAL' : true;
+      const feeApplies = category ? category === 'OPERATIONAL' : false;
+      const gross = Number(updatedBooking.total) || 0;
+      const fee = feeApplies ? Math.round(gross * 0.25 * 100) / 100 : 0;
+
+      return HttpResponse.json({
+        status: 'success',
+        data: {
+          booking: updatedBooking,
+          cancellation: {
+            refundStatus: 'PENDING',
+            refundAmount: gross, // supplier-caused cancels refund the customer in full
+            refundExecuted: false,
+            fee,
+            countsTowardRate,
+            choiceDeadline: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+          },
+        },
+      });
+    }
+
+    return HttpResponse.json({
+      status: 'success',
+      data: { booking: updatedBooking },
+    });
+  }),
+
+  http.post(`${API_BASE_URL}/bookings/supplier/cancel-batch`, () => {
+    // Mirrors cancelBatchBySupplier: `matched` is the processed batch (max 100
+    // per run), `overflow` reports how many matched but were not processed.
+    return HttpResponse.json({
+      status: 'success',
+      data: {
+        matched: 0,
+        cancelled: 0,
+        failed: 0,
+        totalRefunded: 0,
+        totalFees: 0,
+        results: [],
+        overflow: false,
+        blockedDates: [],
+      },
     });
   }),
 

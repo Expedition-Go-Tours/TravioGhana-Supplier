@@ -14,8 +14,10 @@ export default function AboutCancellationCard({ mostCommonReason }) {
           majeure, or customer-requested cancellations.
         </p>
         <p>
-          Keep your rate below 2% to maintain Excellent status. Rates between 2% and 3% are Good,
-          3% to 5% need attention, and anything above 5% is considered High and may require action.
+          Your rating is waived until you have at least 10 eligible bookings. After that: Excellent
+          at 1% or below, Good at 2% or below, Needs attention up to 5%, and High above 5%. A High
+          rating means we may reach out to help — it never implies automatic removal of your
+          products.
         </p>
         {mostCommonReason && (
           <p>

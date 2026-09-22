@@ -5,6 +5,7 @@ import {
   X,
   RefreshCw,
   Calendar,
+  CalendarX2,
   Loader2,
   ShoppingCart,
   Clock,
@@ -20,10 +21,15 @@ import {
 } from "@/lib/constants";
 import { formatCurrency } from "@/lib/utils";
 import DatePicker from "@/components/forms/DatePicker";
-import { fetchSupplierBookings, updateBookingStatus } from "../api";
+import {
+  fetchSupplierBookings,
+  updateBookingStatus,
+  cancelBookingStructured,
+} from "../api";
 import { getAuthToken } from "@/stores/authStore";
 import BookingCard from "../components/BookingCard";
 import CancelBookingModal from "../components/CancelBookingModal";
+import BulkCancelWizard from "../components/BulkCancelWizard";
 
 const QUICK_FILTERS = [
   { key: "ALL", label: "All bookings" },
@@ -44,6 +50,7 @@ export default function BookingsPage() {
   const [updatingId, setUpdatingId] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [cancelBooking, setCancelBooking] = useState(null);
+  const [showBulkCancel, setShowBulkCancel] = useState(false);
   const [highlightedBookingId, setHighlightedBookingId] = useState(
     searchParams.get("bookingId") || null
   );
@@ -187,22 +194,27 @@ export default function BookingsPage() {
     [bookings, loadBookings]
   );
 
+  /**
+   * Structured cancellation (GYG-style wizard). Resolves to
+   * { booking, cancellation } on success so the modal can render its summary,
+   * or null on failure (the server's 400 { message } is surfaced as a toast).
+   */
   const handleConfirmCancel = useCallback(
-    async (reason) => {
-      if (!cancelBooking) return;
+    async (payload) => {
+      if (!cancelBooking) return null;
       setUpdatingId(cancelBooking.id);
       try {
-        await updateBookingStatus(cancelBooking.id, {
-          status: "CANCELLED",
-          reason,
-        });
+        const response = await cancelBookingStructured(cancelBooking.id, payload);
         toast.success("Booking cancelled");
-        setCancelBooking(null);
-        await loadBookings();
+        await loadBookings({ silent: true });
+        return response.data?.data || null;
       } catch (err) {
-        toast.error(
-          err.response?.data?.message || "Failed to cancel booking"
-        );
+        if (err.code !== "AUTH_REQUIRED") {
+          toast.error(
+            err.response?.data?.message || "Failed to cancel booking"
+          );
+        }
+        return null;
       } finally {
         setUpdatingId(null);
       }
@@ -427,6 +439,13 @@ export default function BookingsPage() {
               <X size={12} /> Clear
             </button>
           )}
+
+          <button
+            onClick={() => setShowBulkCancel(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-red-200/70 bg-white text-xs font-medium text-red-600 hover:bg-red-50 hover:border-red-300 transition-all ml-auto"
+          >
+            <CalendarX2 size={13} /> Cancel multiple bookings
+          </button>
         </div>
 
         {/* Expandable date filters */}
@@ -614,6 +633,11 @@ export default function BookingsPage() {
         onConfirm={handleConfirmCancel}
         booking={cancelBooking}
         isLoading={!!updatingId}
+      />
+      <BulkCancelWizard
+        isOpen={showBulkCancel}
+        onClose={() => setShowBulkCancel(false)}
+        onCompleted={() => loadBookings({ silent: true })}
       />
     </div>
   );

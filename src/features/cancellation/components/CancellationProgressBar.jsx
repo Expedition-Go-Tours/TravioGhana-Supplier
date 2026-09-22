@@ -1,7 +1,16 @@
+// Cancellation-rate gauge with GetYourGuide thresholds on a 0–6% scale:
+// Excellent ≤1% · Good ≤2% · Needs attention ≤5% · High >5%
 export default function CancellationProgressBar({ rate }) {
   const clampedRate = Math.min(Math.max(rate, 0), 6);
   const position = (clampedRate / 6) * 100;
-  const pinColor = clampedRate < 2 ? "#166534" : clampedRate < 3 ? "#22c55e" : clampedRate < 5 ? "#f59e0b" : "#ef4444";
+  const pinColor =
+    clampedRate < 1
+      ? "#166534"
+      : clampedRate < 2
+        ? "#22c55e"
+        : clampedRate <= 5
+          ? "#f59e0b"
+          : "#ef4444";
 
   return (
     <div className="space-y-1">
@@ -15,12 +24,12 @@ export default function CancellationProgressBar({ rate }) {
 
       {/* Progress bar container */}
       <div className="relative h-8 flex items-center">
-        {/* Gradient bar */}
+        {/* Gradient bar — 0–1 / 1–2 / 2–5 / 5–6 zones */}
         <div
           className="h-3 w-full rounded-full"
           style={{
             background:
-              "linear-gradient(to right, #166534 0%, #166534 33.33%, #86efac 33.33%, #86efac 50%, #f59e0b 50%, #f59e0b 75%, #ef4444 75%, #ef4444 100%)",
+              "linear-gradient(to right, #166534 0%, #166534 16.67%, #86efac 16.67%, #86efac 33.33%, #f59e0b 33.33%, #f59e0b 83.33%, #ef4444 83.33%, #ef4444 100%)",
           }}
         />
 
@@ -49,8 +58,8 @@ export default function CancellationProgressBar({ rate }) {
       {/* Scale labels */}
       <div className="flex justify-between text-xs text-slate-500 pt-1">
         <span>0%</span>
+        <span>1%</span>
         <span>2%</span>
-        <span>3%</span>
         <span>5%+</span>
       </div>
     </div>

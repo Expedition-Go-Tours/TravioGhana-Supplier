@@ -78,6 +78,52 @@ export function updateBookingStatus(id, { status, supplierNotes, reason }) {
   );
 }
 
+// ── Structured supplier cancellation (GYG-style wizard) ──
+
+/**
+ * GET /bookings/cancellation-reasons — the taxonomy that drives the wizard.
+ * Cached module-wide so the single-cancel modal and the bulk-cancel wizard
+ * fetch it once per session.
+ */
+let cancellationTaxonomyPromise = null;
+
+export function getCancellationTaxonomy() {
+  if (!cancellationTaxonomyPromise) {
+    cancellationTaxonomyPromise = api
+      .get("/bookings/cancellation-reasons", { skipGlobalErrorHandler: true })
+      .then((response) => response.data?.data || null)
+      .catch((err) => {
+        cancellationTaxonomyPromise = null; // allow a retry on the next attempt
+        throw err;
+      });
+  }
+  return cancellationTaxonomyPromise;
+}
+
+/**
+ * PATCH /bookings/:id/status with status=CANCELLED — requires the structured
+ * payload (cancellationCode + agreedToTerms + category-conditional fields).
+ * Resolves to { booking, cancellation } inside response.data.data.
+ */
+export function cancelBookingStructured(id, payload) {
+  return api.patch(
+    `/bookings/${id}/status`,
+    { status: "CANCELLED", ...payload },
+    { skipGlobalErrorHandler: true }
+  );
+}
+
+/**
+ * POST /bookings/supplier/cancel-batch — one tour, one date range, one
+ * structured reason. Resolves to { matched, cancelled, failed, totalRefunded,
+ * totalFees, blockedDates, overflow, results } inside response.data.data.
+ */
+export function cancelBookingsBatch(payload) {
+  return api.post("/bookings/supplier/cancel-batch", payload, {
+    skipGlobalErrorHandler: true,
+  });
+}
+
 export async function fetchCustomerBookings(customerId) {
   const response = await api.get("/bookings/supplier/bookings", {
     params: { customerId },

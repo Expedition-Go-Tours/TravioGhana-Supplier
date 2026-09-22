@@ -1,29 +1,50 @@
 import { CalendarX2 } from "lucide-react";
 import CancellationProgressBar from "./CancellationProgressBar";
 
+// GetYourGuide Performance Quality Standards vocabulary (matches
+// backend getStatus()):
+//   < 10 eligible bookings → Building performance record (rating waived)
+//   ≤ 1% → Excellent · ≤ 2% → Good · ≤ 5% → Needs attention · > 5% → High
 const STATUS_CONFIG = {
-  Excellent: { color: "bg-green-100 text-green-800 border-green-200", icon: "★", label: "Excellent performance" },
-  Good: { color: "bg-green-50 text-green-700 border-green-100", icon: "✓", label: "Good performance" },
+  Excellent: { color: "bg-green-100 text-green-800 border-green-200", icon: "★", label: "Excellent" },
+  Good: { color: "bg-green-50 text-green-700 border-green-100", icon: "✓", label: "Good" },
   "Needs attention": { color: "bg-amber-100 text-amber-800 border-amber-200", icon: "⚠", label: "Needs attention" },
-  High: { color: "bg-red-100 text-red-800 border-red-200", icon: "✗", label: "High cancellation rate" },
+  High: { color: "bg-red-100 text-red-800 border-red-200", icon: "✗", label: "High" },
   "Building performance record": { color: "bg-blue-100 text-blue-800 border-blue-200", icon: "📊", label: "Building performance record" },
 };
 
+const KNOWN_STATUSES = Object.keys(STATUS_CONFIG);
+
 const PERIOD_OPTIONS = [
-  { value: 7, label: "7 days" },
   { value: 30, label: "30 days" },
   { value: 60, label: "60 days" },
   { value: 90, label: "90 days" },
 ];
 
-export default function CancellationCard({ summary, days = 30, onDaysChange, onViewDetails }) {
+// Local fallback when the server status is missing/unknown — mirrors the
+// backend thresholds so the card never shows stale vocabulary.
+function deriveStatus(rate, eligible) {
+  if (eligible < 10) return "Building performance record";
+  if (rate <= 1) return "Excellent";
+  if (rate <= 2) return "Good";
+  if (rate <= 5) return "Needs attention";
+  return "High";
+}
+
+export default function CancellationCard({ summary, days = 90, onDaysChange, onViewDetails }) {
   const rate = summary?.cancellationRate ?? 0;
-  const status = summary?.status ?? "Building performance record";
   const confirmed = summary?.confirmed ?? 0;
   const cancelled = summary?.cancelled ?? 0;
   const completed = summary?.completed ?? 0;
   const eligible = summary?.eligibleBookings ?? 0;
-  const statusConfig = STATUS_CONFIG[status] || STATUS_CONFIG["Building performance record"];
+  const noShowRate = summary?.noShowRate ?? 0;
+
+  const status = summary
+    ? KNOWN_STATUSES.includes(summary.status)
+      ? summary.status
+      : deriveStatus(rate, eligible)
+    : "Building performance record";
+  const statusConfig = STATUS_CONFIG[status];
 
   return (
     <div className="bg-white border border-slate-200 rounded-[20px] shadow-none p-5 sm:p-6">
@@ -35,16 +56,17 @@ export default function CancellationCard({ summary, days = 30, onDaysChange, onV
           </div>
           <div>
             <h2 className="text-lg sm:text-xl font-bold text-slate-800">Cancellation rate</h2>
-            <p className="text-sm text-slate-500">Your booking performance this month</p>
+            <p className="text-sm text-slate-500">Your booking performance over time</p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {onDaysChange && (
-            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
+            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5" role="group" aria-label="Reporting period">
               {PERIOD_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
                   onClick={() => onDaysChange(opt.value)}
+                  aria-pressed={days === opt.value}
                   className={`px-2 sm:px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                     days === opt.value
                       ? "bg-white text-slate-800 shadow-sm"
@@ -76,7 +98,7 @@ export default function CancellationCard({ summary, days = 30, onDaysChange, onV
           </div>
           <div className="text-sm text-slate-500">
             {eligible < 10 ? (
-              <span>Complete at least 10 bookings to receive a cancellation performance rating.</span>
+              <span>Your rating is waived below 10 bookings — we’re still building your performance record.</span>
             ) : (
               <span>
                 {cancelled} of {eligible} bookings cancelled
@@ -101,35 +123,40 @@ export default function CancellationCard({ summary, days = 30, onDaysChange, onV
               <div className="text-xs text-slate-500 mt-1">Completed</div>
             </div>
           </div>
+          <div className="border-t border-slate-100 mt-1 pt-2.5 text-center text-xs text-slate-500">
+            No-show rate <span className="font-semibold text-slate-700">{noShowRate}%</span>
+            <span className="text-slate-400"> · target ≤0.2%</span>
+          </div>
         </div>
       </div>
 
       {/* Progress Bar */}
       <CancellationProgressBar rate={rate} />
 
-      {/* Legend + Period Selector */}
-      <div className="flex flex-wrap items-center justify-center gap-6 mt-6 text-xs text-slate-500">
+      {/* Legend + Thresholds */}
+      <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 mt-6 text-xs text-slate-500">
         <div className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-full bg-green-700" />
-          Excellent
+          Excellent ≤1%
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-full bg-green-300" />
-          Good
+          Good ≤2%
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-full bg-amber-400" />
-          Needs attention
+          Needs attention ≤5%
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-full bg-red-500" />
-          High
+          High &gt;5%
         </div>
       </div>
 
       {/* Performance Tip */}
       <div className="mt-4 text-xs text-slate-500 text-center">
-        Keep your cancellation rate below 2% to maintain excellent performance.
+        Ratings are waived below 10 bookings. A High rating means we may reach
+        out to help — your products are never removed automatically.
       </div>
     </div>
   );

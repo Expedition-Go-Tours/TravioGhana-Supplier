@@ -15,6 +15,7 @@ import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import {
   cancelPayoutRequest, createPayoutMethod, createPayoutRequest, createRefundRequest, deletePayoutMethod,
   fetchFinanceDisputes, fetchFinanceEarnings, fetchFinanceSummary, fetchPayoutMethods, fetchPayoutRequests,
+  getFinanceCharges,
   withdrawRefundRequest,
 } from "../api";
 import { getAuthToken } from "@/stores/authStore";
@@ -261,6 +262,7 @@ export default function FinancePage() {
   const [earningsPagination, setEarningsPagination] = useState(null);
   const [payoutsPagination, setPayoutsPagination] = useState(null);
   const [disputesPagination, setDisputesPagination] = useState(null);
+  const [charges, setCharges] = useState({ rows: [], openTotals: [], loading: true, error: null });
 
   const loadData = useCallback(async () => {
     if (!getAuthToken()) { setLoading(false); return; }
@@ -315,6 +317,26 @@ export default function FinancePage() {
     });
     return () => { cancelled = true; };
   }, [loadData]);
+
+  // Cancellation-fee ledger (shown on the payouts tab)
+  const loadCharges = useCallback(async () => {
+    setCharges((s) => ({ ...s, loading: true, error: null }));
+    try {
+      const result = await getFinanceCharges();
+      setCharges({ rows: result.charges, openTotals: result.openTotals, loading: false, error: null });
+    } catch (err) {
+      if (err.code === "AUTH_REQUIRED") return;
+      setCharges((s) => ({
+        ...s,
+        loading: false,
+        error: err.response?.data?.message || "Could not load cancellation fees.",
+      }));
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCharges();
+  }, [loadCharges]);
 
   const handleAddMethod = async (e) => {
     e.preventDefault(); setSavingMethod(true);
@@ -465,7 +487,7 @@ export default function FinancePage() {
             <p className="text-sm text-gray-500 mt-0.5">Track earnings, payout cycles, and payment methods</p>
           </div>
         </div>
-        <button onClick={loadData} disabled={loading}
+        <button onClick={() => { loadData(); loadCharges(); }} disabled={loading}
           className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all disabled:opacity-40"
         >
           {loading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
@@ -929,7 +951,107 @@ export default function FinancePage() {
 
         {/* PAYOUTS TAB — withdrawal requests */}
         {activeTab === "payouts" && (
-          <motion.div key="payouts" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
+          <motion.div key="payouts" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }} className="space-y-4">
+            {/* Cancellation fees */}
+            <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
+                  <XCircle size={20} className="text-red-500" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900">Cancellation fees</h3>
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    25% cancellation fees are deducted automatically from your next payout request.
+                  </p>
+                </div>
+              </div>
+
+              {charges.error && (
+                <div className="flex items-center justify-between gap-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                  <span>{charges.error}</span>
+                  <button onClick={loadCharges} className="ml-auto underline hover:no-underline shrink-0">Retry</button>
+                </div>
+              )}
+
+              {!charges.loading && !charges.error && charges.openTotals.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {charges.openTotals.map((total) => (
+                    <span
+                      key={total.currency}
+                      className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200"
+                    >
+                      {total.currency} {formatCurrency(total.amount, total.currency)} open
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {charges.loading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-center gap-4 animate-pulse">
+                      <div className="h-3 w-24 bg-gray-100 rounded" />
+                      <div className="h-3 w-32 bg-gray-100 rounded" />
+                      <div className="h-3 w-16 bg-gray-100 rounded ml-auto" />
+                    </div>
+                  ))}
+                </div>
+              ) : charges.error ? null : charges.rows.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center mb-3">
+                    <CheckCircle2 size={22} className="text-emerald-400" />
+                  </div>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-1">No cancellation fees yet</h4>
+                  <p className="text-sm text-gray-400 max-w-[380px]">
+                    When you cancel a booking, the 25% fee is recorded here and settled automatically from your next payout request.
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-gray-200 bg-gray-50">
+                          <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                          <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Booking number</th>
+                          <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
+                          <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Reason</th>
+                          <th className="py-3 px-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                          <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Settled against payout</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {charges.rows.map((charge) => (
+                          <tr key={charge.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
+                            <td className="py-3 px-4 text-sm text-gray-500 whitespace-nowrap">{formatDate(charge.createdAt)}</td>
+                            <td className="py-3 px-4">
+                              <span className="font-mono text-xs font-medium text-emerald-600">{charge.bookingNumber}</span>
+                            </td>
+                            <td className="py-3 px-4 text-right text-sm font-semibold text-red-600 tabular-nums whitespace-nowrap">
+                              -{formatCurrency(charge.amount, charge.currency)}
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-700 max-w-[240px]">
+                              <span className="block truncate" title={charge.reason}>{charge.reason || "—"}</span>
+                            </td>
+                            <td className="py-3 px-4 text-center"><ChargeStatusBadge status={charge.status} /></td>
+                            <td className="py-3 px-4 text-sm text-gray-500">
+                              {charge.payoutRequestNumber ? (
+                                <span className="font-mono text-xs">{charge.payoutRequestNumber}</span>
+                              ) : charge.status === "WAIVED" ? (
+                                "Waived"
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {loading ? (
               <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                 <div className="p-5 space-y-4">
@@ -1486,6 +1608,23 @@ function EarningStatusBadge({ status }) {
 
   return (
     <span className={cn("inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium", style.bg, style.text)}>
+      {style.label}
+    </span>
+  );
+}
+
+// Badge for the cancellation-fee ledger (25%, netted off the next payout)
+function ChargeStatusBadge({ status }) {
+  const styles = {
+    "OPEN": { bg: "bg-amber-50", text: "text-amber-700", label: "Open" },
+    "SETTLED": { bg: "bg-emerald-50", text: "text-emerald-700", label: "Settled" },
+    "WAIVED": { bg: "bg-gray-100", text: "text-gray-500", label: "Waived" },
+  };
+
+  const style = styles[status] || styles["OPEN"];
+
+  return (
+    <span className={cn("inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium whitespace-nowrap", style.bg, style.text)}>
       {style.label}
     </span>
   );
