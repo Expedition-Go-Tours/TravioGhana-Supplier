@@ -950,7 +950,28 @@ export const useProductBuilderStore = create(
           } else {
             newSchedules.push(schedule)
           }
+          // The wizard edits the option's live editor buffers (pricing /
+          // availability / cutoff). Commit them onto the selected option now so
+          // the wizard-close path — which calls reloadSelectedOptionBuffers() —
+          // reloads the just-saved data instead of the stale pre-edit snapshot.
+          // Without this, "Save and continue" silently discarded every pricing
+          // edit (the buffers reverted to the option's old committed values),
+          // which is why changed prices never reached the preview, the autosave
+          // payload, or the submit-for-review diff.
+          const options = s.selectedOptionId
+            ? s.options.map((o) =>
+                o.id === s.selectedOptionId
+                  ? {
+                      ...o,
+                      pricing: pricingFromBuffers(s),
+                      availability: availabilityFromBuffers({ ...s, schedules: newSchedules }),
+                      cutoff: cutoffFromBuffers(s),
+                    }
+                  : o
+              )
+            : s.options
           return {
+            options,
             schedules: newSchedules,
             editingScheduleIndex: null,
             currentScheduleStep: 1,
