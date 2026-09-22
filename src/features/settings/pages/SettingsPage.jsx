@@ -658,7 +658,6 @@ function NotificationEmailsCard() {
   const [adding, setAdding] = useState(false);
   const [busyId, setBusyId] = useState(null);
   const [newTypes, setNewTypes] = useState({ bookings: true, reviews: true, payments: true, systemAlerts: true });
-  const [searchParams, setSearchParams] = useSearchParams();
 
   const enabledCount = (recipient) =>
     NOTIFICATION_EMAIL_TYPES.filter((t) => recipient.preferences?.[t.key] !== false).length;
@@ -669,17 +668,6 @@ function NotificationEmailsCard() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
-
-  useEffect(() => {
-    const result = searchParams.get("recipient");
-    if (!result) return;
-    if (result === "verified") toast.success("Email confirmed — it will now receive the notifications you selected");
-    else if (result === "expired") toast.error("That confirmation link has expired. Resend it to try again.");
-    else if (result === "invalid") toast.error("That confirmation link is not valid");
-    const next = new URLSearchParams(searchParams);
-    next.delete("recipient");
-    setSearchParams(next, { replace: true });
-  }, [searchParams, setSearchParams]);
 
   const handleAdd = async (e) => {
     e.preventDefault();
