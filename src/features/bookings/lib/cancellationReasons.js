@@ -148,6 +148,36 @@ export function cancellationPayload(form = {}) {
   return payload;
 }
 
+/**
+ * Statuses a supplier cancellation request can be in (admin approval flow).
+ * Ordered for use as filter tabs; ALL is a UI-only pseudo-status.
+ */
+export const CANCELLATION_REQUEST_STATUSES = [
+  "PENDING_APPROVAL",
+  "APPROVED",
+  "REJECTED",
+  "WITHDRAWN",
+  "SUPERSEDED",
+];
+
+const CANCELLATION_REQUEST_STATUS_LABELS = {
+  PENDING_APPROVAL: "Pending approval",
+  APPROVING: "Under review",
+  APPROVED: "Approved",
+  REJECTED: "Rejected",
+  WITHDRAWN: "Withdrawn",
+  SUPERSEDED: "Superseded",
+};
+
+/** Human copy for a cancellation request status. */
+export function cancellationRequestStatusLabel(status) {
+  const key = String(status || "").toUpperCase();
+  return (
+    CANCELLATION_REQUEST_STATUS_LABELS[key] ||
+    (key ? key.replace(/_/g, " ").toLowerCase() : "—")
+  );
+}
+
 /** Human copy for a refund status returned by the cancel endpoints. */
 export function refundStatusLabel(status) {
   switch (status) {

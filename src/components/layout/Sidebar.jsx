@@ -1,12 +1,11 @@
 import { useState, useEffect } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
 import { useSidebarStore } from "@/stores/sidebarStore";
 import { useAuthStore } from "@/stores/authStore";
 import { toast } from "sonner";
 import { loadSupplierProfile } from "@/features/auth/api";
 import api from "@/lib/axios";
-import { LogOut, ChevronLeft, ChevronRight, LayoutDashboard, Package, Ticket, CalendarDays, Users, DollarSign, Star, Bell, BarChart3, BadgeCheck, Settings, CalendarX2, BadgePercent, MapPinned, ShieldCheck, Calendar } from "lucide-react";
+import { LogOut, ChevronLeft, LayoutDashboard, Package, Ticket, CalendarDays, Users, DollarSign, Star, Bell, BarChart3, BadgeCheck, Settings, CalendarX2, BadgePercent, MapPinned, ShieldCheck, Calendar } from "lucide-react";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { useTeamRole } from "@/hooks/useTeamRole";
 

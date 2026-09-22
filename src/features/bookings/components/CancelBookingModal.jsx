@@ -5,6 +5,7 @@ import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { getCancellationTaxonomy } from "../api";
 import {
   cancellationPayload,
+  cancellationRequestStatusLabel,
   refundStatusLabel,
   reasonLabel,
   validateCancellationForm,
@@ -127,7 +128,9 @@ export default function CancelBookingModal({
   const tourTitle = booking?.tour?.title || booking?.tourName || "this booking";
   const currency = booking?.currency || "USD";
   const cancellation = result?.cancellation || null;
-  const fee = Number(cancellation?.fee) || 0;
+  // Flag ON: the backend parks the cancel as a request instead of executing it.
+  const request = result?.request || null;
+  const isRequest = Boolean(request);
   const feePct = taxonomy?.feePct ?? 25;
   const choiceWindowHours = taxonomy?.choiceWindowHours ?? 48;
 
@@ -167,7 +170,11 @@ export default function CancelBookingModal({
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-lg font-bold text-slate-900">
-                    {view === "success" ? "Booking cancelled" : "Cancel booking"}
+                    {view !== "success"
+                      ? "Cancel booking"
+                      : isRequest
+                        ? "Cancellation requested"
+                        : "Booking cancelled"}
                   </h3>
                   <p className="text-sm text-slate-500 mt-0.5 truncate">
                     {view === "success"
@@ -277,66 +284,16 @@ export default function CancelBookingModal({
               </div>
             )}
 
-            {/* ── Success summary ── */}
+            {/* ── Success summary (executed vs parked request) ── */}
             {view === "success" && (
               <div>
-                <div className="rounded-xl border border-emerald-200/70 bg-emerald-50 p-4 space-y-2.5 text-sm text-emerald-900">
-                  {cancellation ? (
-                    <>
-                      <p className="flex items-start justify-between gap-3">
-                        <span className="text-emerald-800">
-                          Customer refund
-                        </span>
-                        <span className="font-semibold text-right">
-                          {refundStatusLabel(cancellation.refundStatus)}
-                          {Number(cancellation.refundAmount) > 0 &&
-                            ` · ${formatCurrency(
-                              Number(cancellation.refundAmount),
-                              currency
-                            )}`}
-                        </span>
-                      </p>
-                      <p className="flex items-start justify-between gap-3">
-                        <span className="text-emerald-800">
-                          Cancellation fee
-                        </span>
-                        <span className="font-semibold text-right">
-                          {fee > 0
-                            ? `${formatCurrency(fee, currency)} — deducted from your future payouts`
-                            : "No fee applies"}
-                        </span>
-                      </p>
-                      <p className="flex items-start justify-between gap-3">
-                        <span className="text-emerald-800">
-                          Cancellation rate
-                        </span>
-                        <span className="font-semibold text-right">
-                          {cancellation.countsTowardRate
-                            ? "Counts toward your rate"
-                            : "Not counted toward your rate"}
-                        </span>
-                      </p>
-                    </>
-                  ) : (
-                    <p>
-                      The booking has been cancelled and the customer has been
-                      notified.
-                    </p>
-                  )}
-                  <p className="pt-1 border-t border-emerald-200/70 leading-relaxed">
-                    The customer has {choiceWindowHours} hours to pick a new
-                    date or a refund
-                    {cancellation?.choiceDeadline
-                      ? ` (until ${formatDateTime(cancellation.choiceDeadline)})`
-                      : ""}
-                    .
-                  </p>
-                </div>
-
-                <p className="mt-3 text-xs text-slate-500 leading-relaxed">
-                  {feePct}% cancellation fees are deducted automatically from
-                  your next payout request.
-                </p>
+                <CancelSuccessSummary
+                  cancellation={cancellation}
+                  request={request}
+                  currency={currency}
+                  feePct={feePct}
+                  choiceWindowHours={choiceWindowHours}
+                />
 
                 <div className="flex justify-end mt-5">
                   <button
@@ -353,5 +310,102 @@ export default function CancelBookingModal({
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+/**
+ * Success screen for the single-cancel modal. Branches on the payload:
+ *  - `request` present  → the cancel was parked for admin approval (flag ON);
+ *    emphatically nothing has changed yet and the customer has not been told.
+ *  - `cancellation` present → executed immediately (flag OFF): refund, fee and
+ *    rate impact, plus the customer's choice window.
+ * Exported for focused tests of both branches.
+ */
+export function CancelSuccessSummary({
+  cancellation = null,
+  request = null,
+  currency = "USD",
+  feePct = 25,
+  choiceWindowHours = 48,
+}) {
+  if (request) {
+    return (
+      <div className="rounded-xl border border-amber-200/70 bg-amber-50 p-4 space-y-2.5 text-sm text-amber-900">
+        <p className="font-semibold">
+          Cancellation request submitted for review.
+        </p>
+        <p className="leading-relaxed">
+          Nothing has been cancelled yet; the customer has not been told. Our
+          team will review it.
+        </p>
+        <p className="flex items-start justify-between gap-3">
+          <span className="text-amber-800">Request status</span>
+          <span className="font-semibold text-right">
+            {cancellationRequestStatusLabel(request.status)}
+          </span>
+        </p>
+        <p className="pt-1 border-t border-amber-200/70 leading-relaxed">
+          You can withdraw this request from the booking or the Cancellation
+          requests page while it is still pending.
+        </p>
+      </div>
+    );
+  }
+
+  const fee = Number(cancellation?.fee) || 0;
+
+  return (
+    <>
+      <div className="rounded-xl border border-emerald-200/70 bg-emerald-50 p-4 space-y-2.5 text-sm text-emerald-900">
+        {cancellation ? (
+          <>
+            <p className="flex items-start justify-between gap-3">
+              <span className="text-emerald-800">Customer refund</span>
+              <span className="font-semibold text-right">
+                {refundStatusLabel(cancellation.refundStatus)}
+                {Number(cancellation.refundAmount) > 0 &&
+                  ` · ${formatCurrency(
+                    Number(cancellation.refundAmount),
+                    currency
+                  )}`}
+              </span>
+            </p>
+            <p className="flex items-start justify-between gap-3">
+              <span className="text-emerald-800">Cancellation fee</span>
+              <span className="font-semibold text-right">
+                {fee > 0
+                  ? `${formatCurrency(fee, currency)} — deducted from your future payouts`
+                  : "No fee applies"}
+              </span>
+            </p>
+            <p className="flex items-start justify-between gap-3">
+              <span className="text-emerald-800">Cancellation rate</span>
+              <span className="font-semibold text-right">
+                {cancellation.countsTowardRate
+                  ? "Counts toward your rate"
+                  : "Not counted toward your rate"}
+              </span>
+            </p>
+          </>
+        ) : (
+          <p>
+            The booking has been cancelled and the customer has been notified.
+          </p>
+        )}
+        <p className="pt-1 border-t border-emerald-200/70 leading-relaxed">
+          The customer has {choiceWindowHours} hours to pick a new date or a
+          refund
+          {cancellation?.choiceDeadline
+            ? ` (until ${formatDateTime(cancellation.choiceDeadline)})`
+            : ""}
+          .
+        </p>
+      </div>
+
+      <p className="mt-3 text-xs text-slate-500 leading-relaxed">
+        {feePct}% cancellation fees are deducted automatically from your next
+        payout request.
+      </p>
+    </>
   );
 }

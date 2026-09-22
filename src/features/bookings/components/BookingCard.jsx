@@ -24,6 +24,10 @@ import {
   formatTravelerDetails,
   getTravelerDetails,
 } from "../lib/formatTravelers";
+import {
+  PendingCancellationBadge,
+  WithdrawCancellationButton,
+} from "./PendingCancellationBadge";
 
 const STATUS_ACTIONS = {
   PENDING: [
@@ -143,6 +147,7 @@ export default function BookingCard({
   isUpdating,
   isHighlighted,
   onMessageCustomer,
+  onWithdrawRequest,
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const isPayLater = booking.paymentTiming === 'later';
@@ -391,6 +396,19 @@ export default function BookingCard({
           )}
         />
       </div>
+
+      {/* ===== PENDING APPROVAL BANNER ===== */}
+      {booking.pendingCancellation && (
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-5 py-2.5 bg-amber-50 border-t border-amber-200/60">
+          <PendingCancellationBadge
+            pendingCancellation={booking.pendingCancellation}
+          />
+          <WithdrawCancellationButton
+            requestId={booking.pendingCancellation.id}
+            onWithdraw={onWithdrawRequest}
+          />
+        </div>
+      )}
 
       {/* ===== EXPANDED DETAILS ===== */}
       <AnimatePresence initial={false}>

@@ -32,9 +32,25 @@ const BACKEND_TYPE_TO_UI = {
   DOCUMENT_REJECTED: "alert",
   DOCUMENT_EXPIRY_REMINDER: "alert",
   DOCUMENT_EXPIRED: "alert",
+  // Supplier cancellation approval flow (admin decided on a parked request).
+  CANCELLATION_REQUEST_APPROVED: "cancellation_approved",
+  CANCELLATION_REQUEST_REJECTED: "cancellation_rejected",
 };
 
+const CANCELLATION_DECISION_TYPES = [
+  "CANCELLATION_REQUEST_APPROVED",
+  "CANCELLATION_REQUEST_REJECTED",
+];
+
 function getNotificationRoute(type, data = {}) {
+  if (CANCELLATION_DECISION_TYPES.includes(type)) {
+    if (data.bookingId) {
+      return { path: `/bookings?bookingId=${data.bookingId}`, label: "View booking" };
+    }
+    if (data.bookingUrl) {
+      return { path: data.bookingUrl, label: "View booking" };
+    }
+  }
   if (type === "REFUND_CLAIM" && data.claimId) {
     return { path: `/finance?tab=claims&claimId=${data.claimId}`, label: "View Refund Request" };
   }
@@ -112,20 +128,40 @@ function getNotificationRoute(type, data = {}) {
   }
 }
 
+function cancellationDecisionCopy(type, data = {}) {
+  const approved = type === "CANCELLATION_REQUEST_APPROVED";
+  const bookingNumber = data.bookingNumber ? ` for booking ${data.bookingNumber}` : "";
+  const tourTitle = data.tourTitle ? ` (${data.tourTitle})` : "";
+  const note = data.note ? ` Note: ${data.note}` : "";
+  return {
+    title: approved ? "Cancellation approved" : "Cancellation rejected",
+    message: approved
+      ? `Your cancellation request${bookingNumber}${tourTitle} was approved. The booking is now cancelled and the customer has been notified.`
+      : `Your cancellation request${bookingNumber}${tourTitle} was rejected. The booking stays as it is.${note}`,
+  };
+}
+
 export function mapBackendNotification(notification) {
-  const route = getNotificationRoute(notification.type, notification.data || {});
+  const data = notification.data || {};
+  const route = getNotificationRoute(notification.type, data);
+  const isCancellationDecision = CANCELLATION_DECISION_TYPES.includes(
+    notification.type
+  );
+  const fallback = isCancellationDecision
+    ? cancellationDecisionCopy(notification.type, data)
+    : null;
 
   return {
     id: notification.id,
     type: BACKEND_TYPE_TO_UI[notification.type] || "system",
-    title: notification.title,
-    message: notification.message,
+    title: notification.title || fallback?.title || "",
+    message: notification.message || fallback?.message || "",
     date: notification.createdAt,
     read: Boolean(notification.read),
     action: route.path,
     actionLabel: route.label,
     backendType: notification.type,
-    data: notification.data || {},
+    data,
   };
 }
 

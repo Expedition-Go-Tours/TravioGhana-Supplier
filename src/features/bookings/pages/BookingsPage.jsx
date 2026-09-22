@@ -13,6 +13,7 @@ import {
   BadgeCheck,
   AlertTriangle,
   TrendingUp,
+  ClipboardList,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -25,11 +26,13 @@ import {
   fetchSupplierBookings,
   updateBookingStatus,
   cancelBookingStructured,
+  withdrawCancellationRequest,
 } from "../api";
 import { getAuthToken } from "@/stores/authStore";
 import BookingCard from "../components/BookingCard";
 import CancelBookingModal from "../components/CancelBookingModal";
 import BulkCancelWizard from "../components/BulkCancelWizard";
+import CancellationRequestsPanel from "../components/CancellationRequestsPanel";
 
 const QUICK_FILTERS = [
   { key: "ALL", label: "All bookings" },
@@ -51,6 +54,7 @@ export default function BookingsPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [cancelBooking, setCancelBooking] = useState(null);
   const [showBulkCancel, setShowBulkCancel] = useState(false);
+  const [view, setView] = useState("bookings"); // bookings | requests
   const [highlightedBookingId, setHighlightedBookingId] = useState(
     searchParams.get("bookingId") || null
   );
@@ -205,9 +209,14 @@ export default function BookingsPage() {
       setUpdatingId(cancelBooking.id);
       try {
         const response = await cancelBookingStructured(cancelBooking.id, payload);
-        toast.success("Booking cancelled");
+        const data = response.data?.data || null;
+        if (data?.request) {
+          toast.success("Cancellation request submitted for review");
+        } else {
+          toast.success("Booking cancelled");
+        }
         await loadBookings({ silent: true });
-        return response.data?.data || null;
+        return data;
       } catch (err) {
         if (err.code !== "AUTH_REQUIRED") {
           toast.error(
@@ -220,6 +229,38 @@ export default function BookingsPage() {
       }
     },
     [cancelBooking, loadBookings]
+  );
+
+  /**
+   * Withdraw a pending cancellation request straight from a booking row. 404
+   * means an admin already decided it, so just refresh and explain.
+   */
+  const handleWithdrawRequest = useCallback(
+    async (requestId) => {
+      try {
+        const response = await withdrawCancellationRequest(requestId);
+        const reverted = response.data?.data?.revertedDates;
+        toast.success(
+          reverted
+            ? `Request withdrawn — ${reverted} date${reverted === 1 ? "" : "s"} re-opened`
+            : "Cancellation request withdrawn"
+        );
+        await loadBookings({ silent: true });
+      } catch (err) {
+        if (err.response?.status === 404) {
+          toast.error(
+            "This request was already decided and can no longer be withdrawn."
+          );
+          await loadBookings({ silent: true });
+          return;
+        }
+        toast.error(
+          err.response?.data?.message || "Failed to withdraw the request"
+        );
+        throw err;
+      }
+    },
+    [loadBookings]
   );
 
   const handleMessageCustomer = useCallback(
@@ -297,27 +338,61 @@ export default function BookingsPage() {
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-5">
       {/* ====== HEADER ====== */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-900">Bookings</h1>
           <p className="text-sm text-slate-500 mt-0.5">
             Manage and track all customer reservations
           </p>
         </div>
-        <button
-          onClick={loadBookings}
-          disabled={loading}
-          className="flex items-center gap-1.5 px-4 py-2 bg-white border border-emerald-100/60 rounded-xl text-sm font-medium text-slate-600 hover:bg-emerald-50/40 hover:text-slate-800 transition-all disabled:opacity-50 shadow-sm"
-        >
-          {loading ? (
-            <Loader2 size={14} className="animate-spin" />
-          ) : (
-            <RefreshCw size={14} />
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 p-1 bg-white border border-emerald-100/60 rounded-xl shadow-sm">
+            <button
+              type="button"
+              onClick={() => setView("bookings")}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                view === "bookings"
+                  ? "bg-[#044b3b] text-white shadow-sm"
+                  : "text-slate-500 hover:text-slate-700 hover:bg-emerald-50/40"
+              }`}
+            >
+              <ShoppingCart size={13} /> Bookings
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("requests")}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                view === "requests"
+                  ? "bg-[#044b3b] text-white shadow-sm"
+                  : "text-slate-500 hover:text-slate-700 hover:bg-emerald-50/40"
+              }`}
+            >
+              <ClipboardList size={13} /> Cancellation requests
+            </button>
+          </div>
+          {view === "bookings" && (
+            <button
+              onClick={loadBookings}
+              disabled={loading}
+              className="flex items-center gap-1.5 px-4 py-2 bg-white border border-emerald-100/60 rounded-xl text-sm font-medium text-slate-600 hover:bg-emerald-50/40 hover:text-slate-800 transition-all disabled:opacity-50 shadow-sm"
+            >
+              {loading ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <RefreshCw size={14} />
+              )}
+              Refresh
+            </button>
           )}
-          Refresh
-        </button>
+        </div>
       </div>
 
+      {view === "requests" ? (
+        <CancellationRequestsPanel
+          onWithdrawn={() => loadBookings({ silent: true })}
+        />
+      ) : (
+        <>
       {/* ====== STATS ====== */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
         {[
@@ -565,6 +640,7 @@ export default function BookingsPage() {
                 isUpdating={updatingId === booking.id}
                 isHighlighted={highlightedBookingId === booking.id}
                 onMessageCustomer={handleMessageCustomer}
+                onWithdrawRequest={handleWithdrawRequest}
               />
             ))}
           </div>
@@ -626,6 +702,8 @@ export default function BookingsPage() {
             </button>
           </div>
         </div>
+      )}
+        </>
       )}
       <CancelBookingModal
         isOpen={!!cancelBooking}

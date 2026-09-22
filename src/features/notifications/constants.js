@@ -6,6 +6,8 @@
   Info,
   DollarSign,
   MessageSquare,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 
 export const NOTIFICATION_TYPES = {
@@ -16,6 +18,8 @@ export const NOTIFICATION_TYPES = {
   alert: { icon: AlertTriangle, color: "bg-[#ffebeb] text-[#b91c1c]", label: "Alert" },
   system: { icon: Info, color: "bg-[#f0fdf4] text-[#047857]", label: "System" },
   message: { icon: MessageSquare, color: "bg-[#ebfcf5] text-[#044b3b]", label: "Message" },
+  cancellation_approved: { icon: CheckCircle2, color: "bg-[#ebfcf5] text-[#047857]", label: "Cancellation approved" },
+  cancellation_rejected: { icon: XCircle, color: "bg-[#ffebeb] text-[#b91c1c]", label: "Cancellation rejected" },
 };
 
 export const NOTIFICATIONS_QUERY_KEY = "notifications";

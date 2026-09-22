@@ -54,6 +54,10 @@ export function mapBookingRow(booking) {
     offerDiscountType: booking.offerDiscountType || booking.appliedOffer?.discountType || null,
     offerDiscountPct: booking.offerDiscountPct ?? booking.appliedOffer?.discountPercentage ?? null,
     offerDiscountFix: booking.offerDiscountFix ?? booking.appliedOffer?.fixedDiscountValue ?? null,
+    // Set when SUPPLIER_CANCEL_REQUIRES_APPROVAL is on and this booking has a
+    // parked cancellation request awaiting an admin decision. Shape:
+    // { id, status:'PENDING_APPROVAL', createdAt, payload, preview, stopSellingApplied } | null
+    pendingCancellation: booking.pendingCancellation || null,
   };
 }
 
@@ -122,6 +126,44 @@ export function cancelBookingsBatch(payload) {
   return api.post("/bookings/supplier/cancel-batch", payload, {
     skipGlobalErrorHandler: true,
   });
+}
+
+// ── Admin-approval cancellation requests (flag ON) ──
+
+/**
+ * GET /bookings/supplier/cancellation-requests — the supplier's parked
+ * cancellation requests, newest first. `status` is one of PENDING_APPROVAL |
+ * APPROVED | REJECTED | WITHDRAWN | SUPERSEDED | ALL. Resolves to
+ * { requests, pagination } inside response.data.data.
+ */
+export async function fetchCancellationRequests({ status, page = 1, limit = 25 } = {}) {
+  const params = { page, limit };
+  if (status && status !== "ALL") params.status = status;
+  const response = await api.get("/bookings/supplier/cancellation-requests", {
+    params,
+    skipGlobalErrorHandler: true,
+  });
+  const payload = response.data?.data || {};
+  return {
+    requests: payload.requests || [],
+    pagination: payload.pagination || null,
+    pendingCount: payload.pendingCount ?? null,
+  };
+}
+
+/**
+ * POST /bookings/supplier/cancellation-requests/:id/withdraw — pulls back a
+ * PENDING_APPROVAL request. Nothing was ever changed, so withdrawing only
+ * re-opens any dates the batch request had blocked. 404 means the request was
+ * already decided (or belongs to another supplier).
+ * Resolves to { request, revertedDates } inside response.data.data.
+ */
+export function withdrawCancellationRequest(id) {
+  return api.post(
+    `/bookings/supplier/cancellation-requests/${id}/withdraw`,
+    null,
+    { skipGlobalErrorHandler: true }
+  );
 }
 
 export async function fetchCustomerBookings(customerId) {

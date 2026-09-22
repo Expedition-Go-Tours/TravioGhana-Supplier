@@ -141,7 +141,10 @@ export function buildPayload(state) {
     const cleanedAvailability = availability && availability.schedules
       ? {
           ...availability,
-          schedules: availability.schedules.map(({ pricingCategories, ...rest }) => rest),
+          schedules: availability.schedules.map(
+            // eslint-disable-next-line no-unused-vars -- intentionally omitted, see above
+            ({ pricingCategories, ...rest }) => rest
+          ),
         }
       : availability
     return { ...o, pricing, availability: cleanedAvailability, cutoff, wheelchairAccessible: false }

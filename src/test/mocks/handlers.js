@@ -86,6 +86,79 @@ const REASON_LABELS = {
   CUSTOMER_REQUESTED_CANCEL: 'Customer asked to cancel this booking',
 };
 
+// ── Admin-approval cancellation requests (SUPPLIER_CANCEL_REQUIRES_APPROVAL) ──
+// Flag defaults OFF so all existing handlers keep returning executed shapes.
+let cancellationApprovalMode = false;
+
+/** Toggle the backend approval flag for tests. Returns the previous value. */
+export function setCancellationApprovalMode(enabled) {
+  const previous = cancellationApprovalMode;
+  cancellationApprovalMode = Boolean(enabled);
+  return previous;
+}
+
+const mockCancellationRequests = [
+  {
+    id: 'req-001',
+    status: 'PENDING_APPROVAL',
+    bookingId: 'BK-2026-0001',
+    booking: {
+      id: 'BK-2026-0001',
+      bookingNumber: 'TGA-78234',
+      status: 'CONFIRMED',
+      paymentStatus: 'SUCCEEDED',
+      currency: 'USD',
+      travelDate: '2026-06-15',
+      selectedTime: '09:00',
+      grossAmount: 2400,
+      cancellationCode: 'GUIDE_UNAVAILABLE',
+      cancellationCategory: 'OPERATIONAL',
+      customer: { id: 'cust-1', name: 'John Smith', email: 'john@example.com' },
+    },
+    tour: {
+      id: 'tour-1',
+      title: 'Serengeti Safari Adventure',
+      supplier: { id: 'sp-001', name: 'Test Supplier' },
+    },
+    supplier: 'sp-001',
+    payload: {
+      cancellationCode: 'GUIDE_UNAVAILABLE',
+      cancellationCategory: 'OPERATIONAL',
+      explanation: 'Our guide fell ill and no replacement was available.',
+      agreedToTerms: true,
+    },
+    preview: {
+      refund: { amount: 2400, note: 'Full refund to the customer' },
+      fee: 600,
+      countsTowardRate: true,
+    },
+    stopSellingApplied: false,
+    batchId: null,
+    decidedBy: null,
+    decidedAt: null,
+    decisionNote: null,
+    reminderCount: 0,
+    createdAt: '2026-05-20T10:00:00.000Z',
+    updatedAt: '2026-05-20T10:00:00.000Z',
+  },
+];
+
+function pendingCancellationFor(bookingId) {
+  if (!cancellationApprovalMode) return null;
+  const request = mockCancellationRequests.find(
+    (r) => r.bookingId === bookingId && r.status === 'PENDING_APPROVAL'
+  );
+  if (!request) return null;
+  return {
+    id: request.id,
+    status: request.status,
+    createdAt: request.createdAt,
+    payload: request.payload,
+    preview: request.preview,
+    stopSellingApplied: request.stopSellingApplied,
+  };
+}
+
 // Supplier's own tours catalogue (paginated, mirrors GET /tours/supplier/my-tours).
 // NOTE: the axios interceptor (src/lib/axios.js) rewrites /tours/supplier/my-tours
 // to /travioghana/supplier/tours, so the handler must match the rewritten path.
@@ -174,6 +247,7 @@ export const handlers = [
           currency: b.currency,
           customer: { name: b.customerName, email: b.customerEmail },
           tour: { title: b.tourName },
+          pendingCancellation: pendingCancellationFor(b.id),
         })),
         pagination: {
           currentPage: 1,
@@ -233,6 +307,51 @@ export const handlers = [
     });
   }),
 
+  // Supplier cancellation requests (flag ON). Must be registered before the
+  // single-segment /bookings/:id route is irrelevant here (3 segments), but we
+  // keep it grouped with the other cancellation handlers for clarity.
+  http.get(`${API_BASE_URL}/bookings/supplier/cancellation-requests`, ({ request }) => {
+    const url = new URL(request.url);
+    const status = url.searchParams.get('status');
+    const requests = status
+      ? mockCancellationRequests.filter((r) => r.status === status)
+      : mockCancellationRequests;
+    return HttpResponse.json({
+      status: 'success',
+      data: {
+        requests,
+        pendingCount: mockCancellationRequests.filter(
+          (r) => r.status === 'PENDING_APPROVAL'
+        ).length,
+        pagination: {
+          currentPage: 1,
+          totalPages: 1,
+          totalCount: requests.length,
+          limit: 25,
+        },
+      },
+    });
+  }),
+
+  http.post(`${API_BASE_URL}/bookings/supplier/cancellation-requests/:id/withdraw`, ({ params }) => {
+    const request = mockCancellationRequests.find(
+      (r) => r.id === params.id && r.status === 'PENDING_APPROVAL'
+    );
+    if (!request) {
+      // Mirrors the backend: not yours / already decided → 404.
+      return HttpResponse.json(
+        { status: 'fail', message: 'Cancellation request not found or already decided.' },
+        { status: 404 }
+      );
+    }
+    request.status = 'WITHDRAWN';
+    request.updatedAt = new Date().toISOString();
+    return HttpResponse.json({
+      status: 'success',
+      data: { request, revertedDates: 0 },
+    });
+  }),
+
   http.get(`${API_BASE_URL}/bookings/:id`, ({ params }) => {
     const booking = mockBookings.find(b => b.id === params.id);
     
@@ -281,6 +400,51 @@ export const handlers = [
       const gross = Number(updatedBooking.total) || 0;
       const fee = feeApplies ? Math.round(gross * 0.25 * 100) / 100 : 0;
 
+      // Flag ON: park the cancel as an approval request. The booking is
+      // returned UNCHANGED (nothing is cancelled yet).
+      if (cancellationApprovalMode) {
+        const request = {
+          id: `req-${Date.now()}`,
+          status: 'PENDING_APPROVAL',
+          bookingId: booking.id,
+          booking: { ...booking },
+          tour: {
+            id: 'tour-1',
+            title: booking.tourName,
+            supplier: { id: 'sp-001', name: 'Test Supplier' },
+          },
+          supplier: 'sp-001',
+          payload: {
+            cancellationCode: code,
+            cancellationCategory: category,
+            explanation: body.explanation || '',
+            evidenceUrl: body.evidenceUrl,
+            customerRefundAgreed: body.customerRefundAgreed,
+            agreedToTerms: true,
+            supplierNotes: body.supplierNotes,
+          },
+          preview: {
+            refund: { amount: gross, note: 'Full refund to the customer' },
+            fee,
+            countsTowardRate,
+            stopSell: false,
+          },
+          stopSellingApplied: false,
+          batchId: null,
+          decidedBy: null,
+          decidedAt: null,
+          decisionNote: null,
+          reminderCount: 0,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        mockCancellationRequests.unshift(request);
+        return HttpResponse.json({
+          status: 'success',
+          data: { booking, request },
+        });
+      }
+
       return HttpResponse.json({
         status: 'success',
         data: {
@@ -303,7 +467,35 @@ export const handlers = [
     });
   }),
 
-  http.post(`${API_BASE_URL}/bookings/supplier/cancel-batch`, () => {
+  http.post(`${API_BASE_URL}/bookings/supplier/cancel-batch`, async ({ request }) => {
+    // Flag ON: the batch is parked as approval requests (nothing cancelled).
+    if (cancellationApprovalMode) {
+      const body = await request.json().catch(() => ({}));
+      const requestId = `req-${Date.now()}`;
+      return HttpResponse.json({
+        status: 'success',
+        data: {
+          matched: 1,
+          overflow: false,
+          requested: 1,
+          skipped: 0,
+          failed: 0,
+          stopSellingApplied: Boolean(body.stopAcceptingBookings),
+          blockedDates: body.stopAcceptingBookings ? [body.dateFrom] : [],
+          batchId: `batch-${Date.now()}`,
+          results: [
+            {
+              bookingId: 'BK-2026-0001',
+              bookingNumber: 'TGA-78234',
+              ok: true,
+              requestId,
+            },
+          ],
+          requests: [],
+        },
+      });
+    }
+
     // Mirrors cancelBatchBySupplier: `matched` is the processed batch (max 100
     // per run), `overflow` reports how many matched but were not processed.
     return HttpResponse.json({
