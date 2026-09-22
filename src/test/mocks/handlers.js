@@ -48,7 +48,9 @@ const mockUsers = [
   },
 ];
 
-// Supplier's own tours catalogue (paginated, mirrors GET /tours/supplier/my-tours)
+// Supplier's own tours catalogue (paginated, mirrors GET /tours/supplier/my-tours).
+// NOTE: the axios interceptor (src/lib/axios.js) rewrites /tours/supplier/my-tours
+// to /travioghana/supplier/tours, so the handler must match the rewritten path.
 const mockMyTours = [
   { id: 'tour-1', title: 'Serengeti Safari Adventure', category: 'Safari', status: 'ACTIVE', photos: [], coverPhoto: null, schedulesAndPricing: { pricingSchedules: { schedules: [{ prices: [{ retailPrice: 600 }] }] } }, specialOffers: [{ id: 'so-1', name: 'Safari Week', isActive: true }], specialOfferTargets: [] },
   { id: 'tour-2', title: 'Ngorongoro Crater Day Trip', category: 'Day Trip', status: 'ACTIVE', photos: [], coverPhoto: null, schedulesAndPricing: { pricingSchedules: { schedules: [{ prices: [{ retailPrice: 250 }] }] } }, specialOffers: [], specialOfferTargets: [] },
@@ -193,7 +195,7 @@ export const handlers = [
   }),
 
   // Products/Tours endpoints
-  http.get(`${API_BASE_URL}/tours/supplier/my-tours`, ({ request }) => {
+  http.get(`${API_BASE_URL}/travioghana/supplier/tours`, ({ request }) => {
     const url = new URL(request.url);
     const page = parseInt(url.searchParams.get('page') || '1', 10);
     const MY_TOURS_PAGE_SIZE = 10;

@@ -16,7 +16,7 @@ export default defineConfig({
     testTimeout: 30000,
     hookTimeout: 30000,
     env: {
-      VITE_API_BASE_URL: 'https://expedition-go-backend-v2.onrender.com/api',
+      VITE_API_BASE_URL: 'https://apiv1.travioafrica.com/api',
     },
     exclude: [
       '**/node_modules/**',

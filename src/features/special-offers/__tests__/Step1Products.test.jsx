@@ -134,8 +134,10 @@ describe('Step1Products', () => {
   });
 
   it('shows a retryable error when the catalogue fails to load', async () => {
+    // The axios interceptor rewrites /tours/supplier/my-tours → /travioghana/supplier/tours,
+    // so the override must match the rewritten path.
     server.use(
-      http.get(`${API_BASE_URL}/tours/supplier/my-tours`, () =>
+      http.get(`${API_BASE_URL}/travioghana/supplier/tours`, () =>
         HttpResponse.json({ message: 'Server exploded' }, { status: 422 })
       )
     );
