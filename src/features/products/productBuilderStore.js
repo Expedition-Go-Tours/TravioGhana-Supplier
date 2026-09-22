@@ -830,13 +830,17 @@ export const useProductBuilderStore = create(
         })),
 
       addWeeklyHours: (day) =>
-        set((s) => ({
-          weeklySchedule: {
-            ...s.weeklySchedule,
-            [day]: [...(s.weeklySchedule[day] || []), { startTime: '08:00', endTime: '18:00' }],
-          },
-          isDirty: true,
-        })),
+        set((s) => {
+          const existing = s.weeklySchedule[day] || []
+          if (existing.length >= 1) return {}
+          return {
+            weeklySchedule: {
+              ...s.weeklySchedule,
+              [day]: [...existing, { startTime: '08:00', endTime: '18:00' }],
+            },
+            isDirty: true,
+          }
+        }),
       updateWeeklyHours: (day, index, updates) =>
         set((s) => ({
           weeklySchedule: {
