@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ArrowLeft, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
+  CANCELLATION_CATEGORIES,
   EMPTY_CANCELLATION_FORM,
   validateCancellationForm,
 } from "../lib/cancellationReasons";
@@ -32,7 +33,20 @@ export default function CancellationReasonWizard({
   }));
   const [showErrors, setShowErrors] = useState(false);
 
-  const categories = taxonomy?.categories || [];
+  // The backend sends category KEYS (["OPERATIONAL", ...]) — the
+  // plain-language sentences live in the local taxonomy fallback. Decorate
+  // each key so the cards can render; object-shaped categories (offline
+  // fallback) pass through untouched. Backend stays source of truth for
+  // which categories exist and their order.
+  const categories = (taxonomy?.categories || []).map((key) =>
+    typeof key === "string"
+      ? CANCELLATION_CATEGORIES.find((c) => c.key === key) ?? {
+          key,
+          title: key,
+          description: "",
+        }
+      : key
+  );
   const category = categories.find((c) => c.key === form.category) || null;
   const reasons = form.category
     ? taxonomy?.byCategory?.[form.category] || []
