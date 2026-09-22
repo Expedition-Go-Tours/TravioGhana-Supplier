@@ -94,7 +94,10 @@ function flattenTransportModeObject(value) {
   return modes
 }
 
-function tourToProduct(tour) {
+// Pure server-row -> builder-state mapper (not a component). Exported so it can
+// be unit tested against real API payloads.
+// eslint-disable-next-line react-refresh/only-export-components
+export function tourToProduct(tour) {
   if (!tour) return null
   const content = tour.productContent || {}
   const categorization = tour.categorization || {}
@@ -175,7 +178,33 @@ function tourToProduct(tour) {
     }),
     copyrightConfirmed: !!content.copyrightConfirmed,
     coverPhoto: tour.coverPhoto || '',
-    options: (content.options || []).map((o) => ({ ...o, wheelchairAccessible: false, validityType: o.validityType === 'open_ended' ? 'from_activation' : (o.validityType || 'from_activation') })),
+    options: (content.options || []).map((o) => {
+      // The backend enforces one price list per option and strips schedule-level
+      // pricingCategories on save (see buildPayload). On load, re-derive each
+      // schedule's price list from the option's own pricing so the schedule
+      // wizard's Pricing Categories step prefills correctly. Without this,
+      // editSchedule() reads an empty list, the wizard shows no categories and
+      // the next autosave is rejected with "no price list configured".
+      const optionCats = (Array.isArray(o.pricing?.pricingCategories) && o.pricing.pricingCategories.length > 0)
+        ? o.pricing.pricingCategories
+        : (Array.isArray(td.pricingCategories) ? td.pricingCategories : [])
+      const availability = o.availability && Array.isArray(o.availability.schedules)
+        ? {
+            ...o.availability,
+            schedules: o.availability.schedules.map((sched) =>
+              (Array.isArray(sched.pricingCategories) && sched.pricingCategories.length > 0) || optionCats.length === 0
+                ? sched
+                : { ...sched, pricingCategories: optionCats },
+            ),
+          }
+        : o.availability
+      return {
+        ...o,
+        availability,
+        wheelchairAccessible: false,
+        validityType: o.validityType === 'open_ended' ? 'from_activation' : (o.validityType || 'from_activation'),
+      }
+    }),
     meetingMode: content.meetingMode || 'meeting_point',
     meetingPoint: meetingPoint.lat
       ? {
