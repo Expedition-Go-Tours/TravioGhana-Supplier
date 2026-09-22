@@ -419,14 +419,16 @@ function ScheduleStep({ errors = {}, onTouch }) {
                       </span>
                     </div>
                   ))}
-                  <button
-                    type="button"
-                    onClick={() => addWeeklyHours(day)}
-                    className="flex items-center gap-1.5 text-sm text-emerald-600 hover:text-emerald-700 font-medium shrink-0 sm:self-center"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    Add opening hours
-                  </button>
+                  {(weeklySchedule[day] || []).length === 0 && (
+                    <button
+                      type="button"
+                      onClick={() => addWeeklyHours(day)}
+                      className="flex items-center gap-1.5 text-sm text-emerald-600 hover:text-emerald-700 font-medium shrink-0 sm:self-center"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Add opening hours
+                    </button>
+                  )}
                 </div>
               </div>
               <hr className="border-slate-100" />
@@ -484,16 +486,18 @@ function ScheduleStep({ errors = {}, onTouch }) {
                   />
                 </div>
               ))}
-              <button
-                type="button"
-                onClick={() => updateDateException(i, {
-                  overrideTimes: [...(exception.overrideTimes || []), { startTime: '08:00', endTime: '18:00' }]
-                })}
-                className="flex items-center gap-1.5 text-sm text-emerald-600 hover:text-emerald-700 font-medium"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Add opening hours
-              </button>
+              {(exception.overrideTimes || []).length === 0 && (
+                <button
+                  type="button"
+                  onClick={() => updateDateException(i, {
+                    overrideTimes: [...(exception.overrideTimes || []), { startTime: '08:00', endTime: '18:00' }]
+                  })}
+                  className="flex items-center gap-1.5 text-sm text-emerald-600 hover:text-emerald-700 font-medium"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add opening hours
+                </button>
+              )}
             </div>
           ))}
           <button
