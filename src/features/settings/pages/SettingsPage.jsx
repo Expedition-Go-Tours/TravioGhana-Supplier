@@ -17,6 +17,8 @@ import {
   fetchCurrentUser, updateCurrentUser, uploadSupplierLogo,
   fetchBusinessProfile, updateBusinessProfile,
   fetchNotificationPreferences, updateNotificationPreferences,
+  fetchNotificationRecipients, addNotificationRecipient, updateNotificationRecipient,
+  resendNotificationRecipient, removeNotificationRecipient,
   fetchTaxInfo, updateTaxInfo,
   fetchPayoutMethods, createPayoutMethod, deletePayoutMethod,
   fetchPayouts,
@@ -617,6 +619,8 @@ function NotificationsTab() {
         </div>
       </div>
 
+      <NotificationEmailsCard />
+
       <div className="bg-emerald-50/50 border border-emerald-200/50 rounded-xl p-4">
         <div className="flex items-start gap-3">
           <Bell size={16} className="text-emerald-600 mt-0.5 shrink-0" />
@@ -630,6 +634,203 @@ function NotificationsTab() {
         </div>
       </div>
     </motion.div>
+  );
+}
+
+function NotificationEmailsCard() {
+  const [recipients, setRecipients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [busyId, setBusyId] = useState(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const CATEGORY_LABELS = [
+    { key: "bookings", label: "Bookings" },
+    { key: "reviews", label: "Reviews" },
+    { key: "payments", label: "Payments" },
+    { key: "systemAlerts", label: "System" },
+  ];
+
+  useEffect(() => {
+    fetchNotificationRecipients()
+      .then(setRecipients)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const result = searchParams.get("recipient");
+    if (!result) return;
+    if (result === "verified") toast.success("Email confirmed — it will now receive notifications");
+    else if (result === "expired") toast.error("That confirmation link has expired. Resend it to try again.");
+    else if (result === "invalid") toast.error("That confirmation link is not valid");
+    const next = new URLSearchParams(searchParams);
+    next.delete("recipient");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const handleAdd = async (e) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setAdding(true);
+    try {
+      const created = await addNotificationRecipient({ email: email.trim(), name: name.trim() });
+      if (created) setRecipients((prev) => [...prev, created]);
+      setEmail("");
+      setName("");
+      toast.success("Confirmation email sent");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Could not add that email");
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const handleRemove = async (id) => {
+    setBusyId(id);
+    try {
+      await removeNotificationRecipient(id);
+      setRecipients((prev) => prev.filter((r) => r.id !== id));
+      toast.success("Email removed");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Could not remove that email");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleResend = async (id) => {
+    setBusyId(id);
+    try {
+      const updated = await resendNotificationRecipient(id);
+      if (updated) setRecipients((prev) => prev.map((r) => (r.id === id ? updated : r)));
+      toast.success("Confirmation email resent");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Could not resend");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleToggleCategory = async (recipient, category) => {
+    const current = recipient.preferences?.[category] !== false;
+    setBusyId(recipient.id);
+    try {
+      const updated = await updateNotificationRecipient(recipient.id, { preferences: { [category]: !current } });
+      if (updated) setRecipients((prev) => prev.map((r) => (r.id === recipient.id ? updated : r)));
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Could not update that email");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const statusStyles = {
+    VERIFIED: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    PENDING: "bg-amber-50 text-amber-700 border-amber-200",
+    DISABLED: "bg-slate-100 text-slate-500 border-slate-200",
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+      <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3">
+        <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
+          <Plus size={16} className="text-emerald-600" />
+        </div>
+        <div>
+          <h2 className="text-sm font-semibold text-slate-800">Additional notification emails</h2>
+          <p className="text-xs text-slate-500">Send a copy of your notifications to another inbox. Each address must be confirmed first.</p>
+        </div>
+      </div>
+
+      <div className="px-6 py-5 space-y-4">
+        {loading ? (
+          <div className="flex items-center gap-2 text-sm text-slate-400">
+            <Loader2 size={14} className="animate-spin" /> Loading…
+          </div>
+        ) : recipients.length === 0 ? (
+          <p className="text-sm text-slate-400">No additional emails yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {recipients.map((r) => (
+              <div key={r.id} className="border border-slate-100 rounded-lg p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium text-slate-700 truncate">{r.email}</span>
+                      <span className={`text-[11px] px-2 py-0.5 rounded-full border ${statusStyles[r.status] || statusStyles.PENDING}`}>
+                        {r.status}
+                      </span>
+                    </div>
+                    {r.name ? <p className="text-xs text-slate-400 mt-0.5">{r.name}</p> : null}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {r.status !== "VERIFIED" && (
+                      <button
+                        onClick={() => handleResend(r.id)}
+                        disabled={busyId === r.id}
+                        type="button"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                      >
+                        {busyId === r.id ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />} Resend
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleRemove(r.id)}
+                      disabled={busyId === r.id}
+                      type="button"
+                      className="p-2 text-slate-400 hover:text-red-600 disabled:opacity-50"
+                      aria-label="Remove email"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+                {r.status === "VERIFIED" && (
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3 pt-3 border-t border-slate-50">
+                    {CATEGORY_LABELS.map((c) => (
+                      <label key={c.key} className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
+                        <ToggleSwitch
+                          checked={r.preferences?.[c.key] !== false}
+                          onChange={() => handleToggleCategory(r, c.key)}
+                        />
+                        {c.label}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-2 sm:items-center pt-2">
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="name@company.com"
+            className="h-10 flex-1 rounded-lg border border-slate-200 px-3 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+          />
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Name (optional)"
+            className="h-10 sm:w-44 rounded-lg border border-slate-200 px-3 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+          />
+          <button
+            type="submit"
+            disabled={adding || !email.trim()}
+            className="inline-flex items-center justify-center gap-2 h-10 px-4 bg-emerald-600 text-white rounded-lg text-xs font-medium hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {adding ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Add email
+          </button>
+        </form>
+      </div>
+    </div>
   );
 }
 

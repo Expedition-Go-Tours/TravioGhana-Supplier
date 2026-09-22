@@ -37,6 +37,30 @@ export async function updateNotificationPreferences(data) {
   return response.data?.data || null;
 }
 
+export async function fetchNotificationRecipients() {
+  const response = await api.get("/suppliers/settings/notification-recipients", { skipGlobalErrorHandler: true });
+  return response.data?.data?.recipients || [];
+}
+
+export async function addNotificationRecipient(data) {
+  const response = await api.post("/suppliers/settings/notification-recipients", data, { skipGlobalErrorHandler: true });
+  return response.data?.data?.recipient || null;
+}
+
+export async function updateNotificationRecipient(id, data) {
+  const response = await api.patch(`/suppliers/settings/notification-recipients/${id}`, data, { skipGlobalErrorHandler: true });
+  return response.data?.data?.recipient || null;
+}
+
+export async function resendNotificationRecipient(id) {
+  const response = await api.post(`/suppliers/settings/notification-recipients/${id}/resend`, {}, { skipGlobalErrorHandler: true });
+  return response.data?.data?.recipient || null;
+}
+
+export async function removeNotificationRecipient(id) {
+  await api.delete(`/suppliers/settings/notification-recipients/${id}`, { skipGlobalErrorHandler: true });
+}
+
 export async function fetchTaxInfo() {
   const response = await api.get("/suppliers/settings/tax-info", { skipGlobalErrorHandler: true });
   return response.data?.data || null;
