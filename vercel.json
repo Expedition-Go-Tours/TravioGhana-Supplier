@@ -1,6 +1,14 @@
 {
   "rewrites": [
     {
+      "source": "/confirm/:token",
+      "destination": "https://apiv1.travioafrica.com/api/suppliers/settings/notification-recipients/verify?token=:token"
+    },
+    {
+      "source": "/unsubscribe/:id/:token",
+      "destination": "https://apiv1.travioafrica.com/api/suppliers/settings/notification-recipients/unsubscribe?id=:id&token=:token"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
