@@ -63,9 +63,6 @@ function buildSchedulesAndPricing(state) {
       currency: pricing.currency || 'USD',
       schedules: schedules.length > 0
         ? schedules.map((s, idx) => {
-            const cat = Array.isArray(s.pricingCategories) && s.pricingCategories.length > 0
-              ? s.pricingCategories
-              : topCats
             const scheduleHasHours = hasAnyWeeklyHours(s.weeklySchedule)
             const aggregateHasHours = hasAnyWeeklyHours(weekly)
             const weeklySchedule = idx === 0 && (schedules.length === 1 || !scheduleHasHours)
@@ -100,8 +97,12 @@ function buildSchedulesAndPricing(state) {
               currency: s.currency || pricing.currency || 'USD',
               pricingApproach: s.pricingApproach || pricing.pricingApproach || 'dependsOnAge',
               uniformPrice: s.uniformPrice ?? pricing.uniformPrice ?? null,
-              pricingCategories: cleanCategories(cat),
-              prices: cleanCategories(cat).filter(c => c.price != null && !c.notAllowed && !c.ticketNotRequired).map(c => ({ ageGroup: c.name, retailPrice: c.price })),
+              // NOTE: pricingCategories intentionally omitted from schedules.
+              // The backend enforces "one price list per option" and rebuilds
+              // schedule prices from option-level travelerDetails.pricingCategories.
+              // Sending schedule-level pricingCategories causes validation errors
+              // when tier normalisation produces subtly different structures.
+              prices: cleanCategories(topCats).filter(c => c.price != null && !c.notAllowed && !c.ticketNotRequired).map(c => ({ ageGroup: c.name, retailPrice: c.price })),
               minParticipants: s.minParticipants ?? pricing.minParticipants ?? null,
               maxParticipants: s.maxParticipants ?? pricing.maxParticipants ?? null,
             }
@@ -132,7 +133,18 @@ export function buildPayload(state) {
   const options = Array.isArray(state.options) ? state.options : []
   const optionPayload = options.map((o) => {
     const { pricing, availability, cutoff } = effectiveOptionData(state, o)
-    return { ...o, pricing, availability, cutoff, wheelchairAccessible: false }
+    // Strip pricingCategories from schedules inside options — the backend
+    // enforces "one price list per option" and rebuilds schedule prices from
+    // option-level travelerDetails. Keeping stale schedule-level
+    // pricingCategories causes validation errors when tier normalisation
+    // produces subtly different structures.
+    const cleanedAvailability = availability && availability.schedules
+      ? {
+          ...availability,
+          schedules: availability.schedules.map(({ pricingCategories, ...rest }) => rest),
+        }
+      : availability
+    return { ...o, pricing, availability: cleanedAvailability, cutoff, wheelchairAccessible: false }
   })
 
   const primary = primaryOptionData(state)
