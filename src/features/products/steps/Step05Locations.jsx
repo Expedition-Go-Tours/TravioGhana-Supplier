@@ -909,10 +909,11 @@ function LocationRow({ loc, position, globalIdx, onEdit, onRemove, dragRef, onDr
 function LocationModal({ index, loc, locations, duration, durationUnit, dayCount, onClose, onUpdate }) {
   const [errors, setErrors] = useState({})
   // A "custom" location has no city/region from the geocoder or the XLSX, so we
-  // surface a required City field for it. It starts visible for stops that have
-  // no city at mount (so it never unmounts mid-typing as `loc.city` fills in),
-  // and is also revealed when the supplier picks a custom name — that name has
-  // no catalog place behind it, so any inherited city/region is stale.
+  // surface a required City field for it. It is visible while the stop has no
+  // city: from mount for city-less stops, and for the duration of a custom name
+  // (that name has no catalog place behind it, so any inherited city/region is
+  // stale). Picking a real catalog place collapses it again, since the pick
+  // supplies its own city/region.
   const [showCityField, setShowCityField] = useState(() => !(loc.city || '').trim())
 
   const totalStopMinutes = sumStopMinutes(locations)
@@ -934,6 +935,22 @@ function LocationModal({ index, loc, locations, duration, durationUnit, dayCount
     onUpdate(index, { name: value, city: '', region: '' })
     setShowCityField(true)
     setErrors((prev) => ({ ...prev, name: undefined, city: undefined }))
+  }
+
+  // A catalog pick carries its own city/region, so the manual City field is only
+  // needed while the stop ends up without one. This collapses the field again
+  // after a custom name was replaced by a real catalog place.
+  function handleNameSelect(place) {
+    update('name', place.name)
+    if (place.city) update('city', place.city)
+    if (place.region) update('region', place.region)
+
+    if ((place.city || '').trim()) {
+      setShowCityField(false)
+      setErrors((prev) => ({ ...prev, city: undefined }))
+    } else {
+      setShowCityField(!(loc.city || '').trim())
+    }
   }
 
   function validate() {
@@ -1015,11 +1032,7 @@ function LocationModal({ index, loc, locations, duration, durationUnit, dayCount
             </p>
             <PlaceAutocomplete
               value={loc.name || ''}
-              onSelect={(place) => {
-                update('name', place.name)
-                if (place.city) update('city', place.city)
-                if (place.region) update('region', place.region)
-              }}
+              onSelect={handleNameSelect}
               onChange={(v) => update('name', v)}
               onAddCustom={handleAddCustomName}
               placeholder="Search for a place or type a name…"

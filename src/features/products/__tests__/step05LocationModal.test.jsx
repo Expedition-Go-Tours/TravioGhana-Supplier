@@ -92,6 +92,29 @@ describe('Step05 location modal — custom name reveals the City picker', () => 
     expect(loc.region).toBe('')
   })
 
+  it('collapses the City field again when a catalog name is picked', async () => {
+    const user = userEvent.setup()
+    await openModal(user)
+
+    await addCustomName(user, 'Auntie Efua Kitchen Tour')
+    expect(await screen.findByPlaceholderText(CITY_PLACEHOLDER)).toBeInTheDocument()
+
+    // Clear the custom name and pick a real catalog place instead.
+    const nameInput = screen.getByPlaceholderText(NAME_PLACEHOLDER)
+    await user.clear(nameInput)
+    await user.type(nameInput, 'Kakum')
+    await user.click(await screen.findByRole('option', { name: /Kakum/ }))
+
+    await waitFor(() =>
+      expect(screen.queryByPlaceholderText(CITY_PLACEHOLDER)).not.toBeInTheDocument(),
+    )
+
+    const loc = useProductBuilderStore.getState().locations[0]
+    expect(loc.name).toBe('Kakum National Park')
+    expect(loc.city).toBe('Cape Coast')
+    expect(loc.region).toBe('Central')
+  })
+
   it('blocks Done until the revealed City is filled', async () => {
     const user = userEvent.setup()
     await openModal(user)
