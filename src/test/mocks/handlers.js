@@ -692,6 +692,33 @@ export const handlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
+  // Places catalog autocomplete (cities, towns and attractions — the curated
+  // XLSX import) backing the product builder's PlaceAutocomplete pickers.
+  http.get(`${API_BASE_URL}/places/search`, ({ request }) => {
+    const url = new URL(request.url);
+    const q = (url.searchParams.get('q') || '').trim().toLowerCase();
+    const types = (url.searchParams.get('types') || '')
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+
+    const places = [
+      { name: 'Accra', type: 'city', city: 'Accra', region: 'Greater Accra', lat: 5.6037, lng: -0.187 },
+      { name: 'Kumasi', type: 'city', city: 'Kumasi', region: 'Ashanti', lat: 6.6885, lng: -1.6244 },
+      { name: 'Cape Coast', type: 'city', city: 'Cape Coast', region: 'Central', lat: 5.1315, lng: -1.2795 },
+      { name: 'Koforidua', type: 'town', city: 'Koforidua', region: 'Eastern', lat: 6.094, lng: -0.2591 },
+      { name: 'Kakum National Park', type: 'attraction', city: 'Cape Coast', region: 'Central', lat: 5.35, lng: -1.3833 },
+    ];
+
+    const filtered = places.filter((place) => {
+      if (types.length > 0 && !types.includes(place.type)) return false;
+      if (!q) return true;
+      return place.name.toLowerCase().includes(q);
+    });
+
+    return HttpResponse.json({ data: { places: filtered } });
+  }),
+
   // Backend Location API (proxy)
   http.get(`${API_BASE_URL}/locations/autocomplete`, ({ request }) => {
     const url = new URL(request.url);

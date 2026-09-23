@@ -909,9 +909,11 @@ function LocationRow({ loc, position, globalIdx, onEdit, onRemove, dragRef, onDr
 function LocationModal({ index, loc, locations, duration, durationUnit, dayCount, onClose, onUpdate }) {
   const [errors, setErrors] = useState({})
   // A "custom" location has no city/region from the geocoder or the XLSX, so we
-  // surface a City field for it. Frozen at mount so the field doesn't unmount
-  // mid-typing as `loc.city` becomes non-empty.
-  const [showCityField] = useState(() => !(loc.city || '').trim())
+  // surface a required City field for it. It starts visible for stops that have
+  // no city at mount (so it never unmounts mid-typing as `loc.city` fills in),
+  // and is also revealed when the supplier picks a custom name — that name has
+  // no catalog place behind it, so any inherited city/region is stale.
+  const [showCityField, setShowCityField] = useState(() => !(loc.city || '').trim())
 
   const totalStopMinutes = sumStopMinutes(locations)
   const productMinutes = productDurationMinutes(duration, durationUnit)
@@ -923,6 +925,15 @@ function LocationModal({ index, loc, locations, duration, durationUnit, dayCount
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }))
     }
+  }
+
+  // Picking a custom name means the stop no longer maps to a catalog place, so
+  // any city/region it inherited from an earlier pick is stale. Clearing them
+  // forces a deliberate choice via the City field the change reveals.
+  function handleAddCustomName(value) {
+    onUpdate(index, { name: value, city: '', region: '' })
+    setShowCityField(true)
+    setErrors((prev) => ({ ...prev, name: undefined, city: undefined }))
   }
 
   function validate() {
@@ -1010,7 +1021,7 @@ function LocationModal({ index, loc, locations, duration, durationUnit, dayCount
                 if (place.region) update('region', place.region)
               }}
               onChange={(v) => update('name', v)}
-              onAddCustom={(v) => update('name', v)}
+              onAddCustom={handleAddCustomName}
               placeholder="Search for a place or type a name…"
               hasError={!!errors.name}
             />
