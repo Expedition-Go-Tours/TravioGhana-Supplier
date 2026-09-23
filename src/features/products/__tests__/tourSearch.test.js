@@ -34,6 +34,33 @@ describe("tourSearchText", () => {
     expect(tourSearchText(null)).toBe("");
     expect(tourSearchText(undefined)).toBe("");
   });
+
+  it("includes itinerary stop names, cities and regions", () => {
+    const text = tourSearchText(
+      tour({
+        productContent: {
+          locations: [
+            { name: "Cedi bead Factory Akosombo", city: "Accra", region: "Greater Accra" },
+            { name: "Akosombo Shrine", city: "Koforidua", region: "Eastern" },
+          ],
+        },
+      }),
+    );
+    expect(text).toContain("cedi bead factory akosombo");
+    expect(text).toContain("akosombo shrine");
+    expect(text).toContain("koforidua");
+  });
+
+  it("includes the server-extracted itinerary city list", () => {
+    expect(tourSearchText(tour({ itineraryCities: ["Koforidua", "Akosombo"] }))).toContain("koforidua");
+  });
+
+  it("ignores missing or malformed itinerary data", () => {
+    expect(() => tourSearchText(tour({ productContent: null }))).not.toThrow();
+    expect(() => tourSearchText(tour({ productContent: [] }))).not.toThrow();
+    expect(() => tourSearchText(tour({ productContent: { locations: [null, "x"] } }))).not.toThrow();
+    expect(tourSearchText(tour({ productContent: { locations: [] } }))).toContain("victoria falls");
+  });
 });
 
 describe("searchTours", () => {
@@ -77,6 +104,25 @@ describe("searchTours", () => {
 
   it("returns [] for null list", () => {
     expect(searchTours(null, "safari")).toEqual([]);
+  });
+
+  it("finds a tour by an itinerary stop name or stop city", () => {
+    const withStops = tour({
+      id: "t3",
+      title: "Akosombo: African spirituality shrine experience",
+      description: "Shrine experience.",
+      city: "Accra",
+      productContent: {
+        locations: [
+          { name: "Cedi bead Factory Akosombo", city: "Accra" },
+          { name: "dkdkdk", city: "Koforidua" },
+        ],
+      },
+    });
+
+    expect(searchTours([withStops], "Cedi bead Factory Akosombo").map((t) => t.id)).toEqual(["t3"]);
+    expect(searchTours([withStops], "dkdkdk").map((t) => t.id)).toEqual(["t3"]);
+    expect(searchTours([withStops], "Koforidua").map((t) => t.id)).toEqual(["t3"]);
   });
 });
 
