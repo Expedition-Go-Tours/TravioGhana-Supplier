@@ -1,8 +1,4 @@
-import { transformImage, getSrcSet } from '@/lib/image'
-
-function buildBreakpoints(width) {
-  return [width, Math.round(width * 1.5), width * 2, Math.round(width * 3)]
-}
+import { transformImage, getSrcSet, buildBreakpoints } from '@/lib/image'
 
 export default function OptimizedImage({
   src,

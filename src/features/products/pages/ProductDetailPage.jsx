@@ -17,6 +17,8 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import { PRODUCT_STATUSES } from "@/lib/constants";
 import { formatCurrency, formatDate, formatTime, cn } from "@/lib/utils";
 import OptimizedImage from "@/components/shared/OptimizedImage";
+import { lightboxImageUrls } from "@/lib/image";
+import { prefetchLightboxImages } from "@/lib/prefetchImages";
 import { PickupGeoshapePreview } from "@/components/shared/PickupGeoshapeDrawer";
 import PreviewMenu from "@/components/shared/PreviewMenu";
 import { getUniqueCities } from "@/features/products/utils/getUniqueCities";
@@ -140,6 +142,9 @@ function PhotoGalleryModal({ displayPhotos, index: lightboxIndex, setLightboxInd
   if (lightboxIndex === null) return null;
   const photo = displayPhotos[lightboxIndex];
   if (!photo) return null;
+  // Shared with the prefetcher (see `prefetchLightboxImages`), so these are
+  // already in cache by the time the viewer opens.
+  const image = lightboxImageUrls(photo);
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 p-4 md:p-8"
@@ -169,11 +174,11 @@ function PhotoGalleryModal({ displayPhotos, index: lightboxIndex, setLightboxInd
       )}
       <div className="flex flex-col items-center max-w-6xl w-full" onClick={(e) => e.stopPropagation()}>
         <div className="relative w-full flex items-center justify-center">
-          <OptimizedImage
-            src={photo}
-            width={1600}
+          <img
+            src={image?.src}
+            srcSet={image?.srcSet}
             alt={`${tour?.title} - Photo ${lightboxIndex + 1}`}
-            fit="fill"
+            decoding="async"
             className="max-h-[80vh] w-auto max-w-full object-contain rounded-xl shadow-2xl"
           />
         </div>
@@ -379,6 +384,10 @@ export default function ProductDetailPage() {
   }, []);
 
   const displayPhotos = useMemo(() => tour ? reorderPhotos(tour) : [], [tour]);
+
+  // Warm the lightbox photos while the page is idle so "next"/"prev" in
+  // "View all photos" is a cache hit rather than a fresh download per click.
+  useEffect(() => prefetchLightboxImages(displayPhotos), [displayPhotos]);
 
   useEffect(() => {
     if (!menuOpen) return;

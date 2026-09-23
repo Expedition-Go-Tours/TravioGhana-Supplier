@@ -59,3 +59,43 @@ export function getSrcSet(url, widths, opts = {}) {
     })
     .join(', ');
 }
+
+/** The candidate widths a `width`-wide box offers, at 1x/1.5x/2x/3x. */
+export function buildBreakpoints(width) {
+  return [width, Math.round(width * 1.5), width * 2, Math.round(width * 3)];
+}
+
+/**
+ * The photo lightbox's image size. Kept in one place because the prefetcher and
+ * the viewer must request byte-identical URLs — if either one drifts (even a
+ * quality flag), the prefetch becomes a separate cache entry and the "next"
+ * click pays full load time again.
+ */
+export const LIGHTBOX_IMAGE = { width: 1600 };
+
+/**
+ * The exact `src`/`srcSet` the lightbox uses for one photo. The prefetcher
+ * (see `@/lib/prefetchImages`) warms these, and `PhotoGalleryModal` renders
+ * these, so the two cannot disagree.
+ */
+export function lightboxImageUrls(url) {
+  if (!url || typeof url !== 'string') return null;
+
+  const opts = {
+    width: LIGHTBOX_IMAGE.width * 2,
+    quality: 'auto:good',
+    format: 'auto',
+  };
+
+  const src = transformImage(url, opts);
+  if (!src || typeof src !== 'string') return null;
+
+  return {
+    src,
+    // Only Cloudinary (and googleusercontent, which passes through untouched)
+    // can honour width transforms; anything else gets a single plain URL.
+    srcSet: url.includes('res.cloudinary.com')
+      ? getSrcSet(url, buildBreakpoints(LIGHTBOX_IMAGE.width), opts)
+      : undefined,
+  };
+}
