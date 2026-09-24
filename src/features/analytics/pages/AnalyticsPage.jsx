@@ -6,11 +6,33 @@ import { getAuthToken } from "@/stores/authStore";
 import { fetchSupplierAnalytics, fetchMonthlyRevenue } from "../api";
 import { fetchSupplierBookings } from "@/features/bookings/api";
 
+const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * The API buckets revenue as YYYY-MM ("2026-10"). Render it the way a person
+ * reads a trend: "Oct 26", falling back to the raw value if it isn't a bucket.
+ */
+const formatMonthLabel = (value) => {
+  const [year, month] = String(value ?? "").split("-");
+  const index = Number(month) - 1;
+  if (!year || !MONTH_LABELS[index]) return String(value ?? "");
+  return `${MONTH_LABELS[index]} ${year.slice(-2)}`;
+};
+
+/** Axis money: "$820" below a thousand, "$12.5k" above. */
+const formatAxisCurrency = (value) => {
+  const n = Number(value) || 0;
+  if (Math.abs(n) >= 1000) {
+    return `$${(n / 1000).toLocaleString("en-US", { maximumFractionDigits: 1 })}k`;
+  }
+  return `$${n.toLocaleString("en-US")}`;
+};
+
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload?.length) {
     return (
       <div className="bg-white border border-slate-200 rounded-xl shadow-lg p-3">
-        <p className="text-xs font-medium text-slate-500 mb-1">{label}</p>
+        <p className="text-xs font-medium text-slate-500 mb-1">{formatMonthLabel(label)}</p>
         <p className="text-sm font-semibold text-slate-800">{formatCurrency(payload[0].value)}</p>
       </div>
     );
@@ -92,6 +114,14 @@ export default function AnalyticsPage() {
         return { name, revenue, bookings: bookingCount, rating: avgRating };
       });
   }, [bookings, avgRating]);
+
+  // The endpoint returns a continuous month window (zeros included), so an
+  // "empty" trend means every bucket is zero — show that state instead of a
+  // flat chart with no bars.
+  const hasRevenue = useMemo(
+    () => monthlyRevenueData.some((m) => Number(m.revenue) > 0),
+    [monthlyRevenueData],
+  );
 
   return (
     <div className="p-5 md:p-6 max-w-7xl mx-auto space-y-5">
@@ -190,16 +220,21 @@ export default function AnalyticsPage() {
           </div>
           {loading ? (
             <div className="h-[240px] bg-slate-50 rounded-lg animate-pulse" />
-          ) : (
+          ) : hasRevenue ? (
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={monthlyRevenueData} barCategoryGap="24%">
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v / 1000}k`} />
+                <XAxis dataKey="month" interval={1} tickFormatter={formatMonthLabel} tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} tickFormatter={formatAxisCurrency} />
                 <Tooltip content={<CustomTooltip />} cursor={{ fill: "#f8fafc" }} />
-                <Bar dataKey="grossAmount" fill="#044b3b" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                <Bar dataKey="revenue" fill="#044b3b" radius={[4, 4, 0, 0]} maxBarSize={40} />
               </BarChart>
             </ResponsiveContainer>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-[240px] text-center">
+              <TrendingUp size={22} className="text-slate-200 mb-2" />
+              <p className="text-xs text-slate-400">No revenue recorded in the last 12 months</p>
+            </div>
           )}
         </div>
 
