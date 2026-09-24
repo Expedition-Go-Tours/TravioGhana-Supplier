@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import OptimizedImage from "@/components/shared/OptimizedImage";
-import logoSrc from "@/assets/TravioGhana_Gold_Logo.svg";
+import logoSrc from "@/assets/TravioGhana_Logo.svg";
 
 export default function Header() {
   const navigate = useNavigate();
