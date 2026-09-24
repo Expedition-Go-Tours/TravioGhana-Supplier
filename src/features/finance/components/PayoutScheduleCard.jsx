@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  Calendar, Check, ChevronRight, Clock, Info, Loader2, PauseCircle, Pencil,
+  AlertTriangle, Calendar, Check, ChevronRight, Clock, Info, Loader2, PauseCircle, Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -176,6 +176,19 @@ export function PayoutScheduleEditor({ plan, available = 0, currency = "USD", on
           </div>
         )}
 
+        {!paused && plan?.hasVerifiedPayoutMethod === false && (
+          <div className="flex items-start gap-2.5 px-3.5 py-3 rounded-xl bg-amber-50 border border-amber-100">
+            <AlertTriangle size={15} className="text-amber-600 mt-0.5 shrink-0" />
+            <p className="text-xs text-amber-800">
+              You need a verified payout method before a payout can be generated —{" "}
+              <Link to="/finance?tab=methods" className="font-semibold underline decoration-dotted underline-offset-2">
+                add one now
+              </Link>
+              . Your schedule is saved and will run as soon as a method is verified.
+            </p>
+          </div>
+        )}
+
         <div role="radiogroup" aria-label="Payout schedule" className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {options.map((option) => {
             const isSelected = selected === option.value;
@@ -309,6 +322,14 @@ export function PayoutScheduleSummary({ plan, available = 0, currency = "USD" })
           <p className="text-xs text-gray-500 mt-1.5">
             {formatCurrency(available, currency)} accumulating · only completed bookings past their travel date are included.
           </p>
+          {plan?.hasVerifiedPayoutMethod === false && (
+            <Link
+              to="/finance?tab=methods"
+              className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-md text-xs font-semibold bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
+            >
+              <AlertTriangle size={11} /> Add a payout method to get paid
+            </Link>
+          )}
           <div className="mt-2">
             <PendingChangeChip plan={plan} />
           </div>

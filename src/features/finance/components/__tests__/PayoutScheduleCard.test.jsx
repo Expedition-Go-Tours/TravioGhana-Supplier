@@ -37,7 +37,11 @@ const basePlan = {
 
 function Harness({ initial }) {
   const [plan, setPlan] = useState(initial);
-  return <PayoutScheduleEditor plan={plan} available={1240} onSaved={setPlan} />;
+  return (
+    <MemoryRouter>
+      <PayoutScheduleEditor plan={plan} available={1240} onSaved={setPlan} />
+    </MemoryRouter>
+  );
 }
 
 // The option cards' accessible names all contain the word "month"/"week", so
@@ -104,6 +108,12 @@ describe('PayoutScheduleEditor', () => {
     expect(radio('Twice a month')).toHaveAttribute('aria-checked', 'true');
   });
 
+  it('tells a supplier with no payout method that their schedule is on hold', () => {
+    render(<Harness initial={{ ...basePlan, hasVerifiedPayoutMethod: false }} />);
+    expect(screen.getByText(/need a verified payout method/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /add one now/i })).toHaveAttribute('href', '/finance?tab=methods');
+  });
+
   it('reports a save failure without losing the selection', async () => {
     updatePayoutSettingsMock.mockRejectedValue({ response: { data: { message: 'Nope' } } });
 
@@ -138,5 +148,23 @@ describe('PayoutScheduleSummary', () => {
       </MemoryRouter>
     );
     expect(screen.getByText(/paused/i)).toBeInTheDocument();
+  });
+
+  it('prompts for a payout method when the supplier has none', () => {
+    render(
+      <MemoryRouter>
+        <PayoutScheduleSummary plan={{ ...basePlan, hasVerifiedPayoutMethod: false }} available={0} />
+      </MemoryRouter>
+    );
+    expect(screen.getByRole('link', { name: /add a payout method to get paid/i })).toHaveAttribute('href', '/finance?tab=methods');
+  });
+
+  it('shows no payout-method prompt once a method is verified', () => {
+    render(
+      <MemoryRouter>
+        <PayoutScheduleSummary plan={{ ...basePlan, hasVerifiedPayoutMethod: true }} available={0} />
+      </MemoryRouter>
+    );
+    expect(screen.queryByText(/add a payout method to get paid/i)).not.toBeInTheDocument();
   });
 });
