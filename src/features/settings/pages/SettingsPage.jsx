@@ -21,7 +21,7 @@ import {
   resendNotificationRecipient, removeNotificationRecipient,
   fetchTaxInfo, updateTaxInfo,
   fetchPayoutMethods, createPayoutMethod, deletePayoutMethod,
-  fetchPayouts,
+  fetchPayouts, fetchPayoutSettings, fetchFinanceSummary,
   fetchTeamMembers, inviteTeamMember, removeTeamMember, updateTeamMemberRole,
   directAddTeamMember, resendInvite
 } from "../api";
@@ -31,6 +31,7 @@ import { config } from "@/config";
 import { useTeamRole } from "@/hooks/useTeamRole";
 import { TEAM_ROLE_LABELS, TEAM_ROLE_COLORS } from "@/config/teamRoles";
 import SocialMediaManager from "../components/SocialMediaManager";
+import { PayoutScheduleEditor } from "@/features/finance/components/PayoutScheduleCard";
 
 const TABS = [
   { key: "profile", label: "Profile", icon: User },
@@ -911,17 +912,23 @@ function PayoutsTab() {
     bankCountry: "", paypalEmail: "", currency: "USD",
   });
   const [savingMethod, setSavingMethod] = useState(false);
+  const [plan, setPlan] = useState(null);
+  const [available, setAvailable] = useState(0);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const [m, p] = await Promise.all([
+      const [m, p, settings, summary] = await Promise.all([
         fetchPayoutMethods(),
         fetchPayouts({ limit: 10 }),
+        fetchPayoutSettings().catch(() => null),
+        fetchFinanceSummary().catch(() => null),
       ]);
       setMethods(m);
       setPayouts(p?.payouts || []);
       setPayoutsSummary(p?.summary || {});
+      setPlan(settings);
+      setAvailable(Number(summary?.availableBalance?.amount) || 0);
     } catch { /* ignore */ }
     finally { setLoading(false); }
   };
@@ -984,6 +991,9 @@ function PayoutsTab() {
           <p className="text-[11px] font-medium text-slate-500 mt-0.5">Payout Methods</p>
         </div>
       </div>
+
+      {/* Automated payout schedule (weekly / twice a month / monthly) */}
+      {plan && <PayoutScheduleEditor plan={plan} available={available} onSaved={setPlan} />}
 
       {/* Payout Methods */}
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">

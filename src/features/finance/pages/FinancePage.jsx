@@ -12,6 +12,7 @@ import {
 import { toast } from "sonner";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { PayoutScheduleSummary } from "../components/PayoutScheduleCard";
 import {
   cancelPayoutRequest, createPayoutMethod, createPayoutRequest, createRefundRequest, deletePayoutMethod,
   fetchFinanceDisputes, fetchFinanceEarnings, fetchFinanceSummary, fetchPayoutMethods, fetchPayoutRequests,
@@ -395,6 +396,13 @@ export default function FinancePage() {
   const windowOpen = Boolean(windowInfo?.open);
   const canRequestPayout = windowOpen && stats.available > 0;
 
+  // Automated payout schedule (weekly / twice a month / monthly). Enrolled
+  // suppliers are paid on their schedule — the withdrawal-window card and the
+  // manual request button apply only to legacy suppliers, or to everyone while
+  // the scheduler is paused.
+  const payoutPlan = summary?.payoutPlan || null;
+  const showSchedule = Boolean(payoutPlan?.autoManaged) && payoutPlan?.autoRunsEnabled !== false;
+
   // Cycle display strings from the server-provided summary
   const cycleInfo = useMemo(() => {
     const current = summary?.currentCycle?.label || "";
@@ -484,7 +492,7 @@ export default function FinancePage() {
           <div className="w-1 h-9 bg-emerald-500 rounded-full" />
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Finance</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Track earnings, payout cycles, and payment methods</p>
+            <p className="text-sm text-gray-500 mt-0.5">Track earnings, your payout schedule, and payment methods</p>
           </div>
         </div>
         <button onClick={() => { loadData(); loadCharges(); }} disabled={loading}
@@ -563,8 +571,13 @@ export default function FinancePage() {
         </div>
       </div>
 
-      {/* Payout Cycle Section */}
+      {/* Payout section — an automated schedule for enrolled suppliers, the
+          legacy withdrawal window for everyone else. */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {showSchedule ? (
+          <PayoutScheduleSummary plan={payoutPlan} available={stats.available} />
+        ) : (
+        <>
         {/* Current Payout Cycle */}
         <div className="lg:col-span-2 bg-white border border-gray-200 rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0">
@@ -603,6 +616,8 @@ export default function FinancePage() {
             Request payout · {formatCurrency(stats.available)}
           </button>
         </div>
+        </>
+        )}
 
         {/* Next Cycle */}
         <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 flex items-center gap-3 sm:gap-4">
@@ -866,7 +881,12 @@ export default function FinancePage() {
             {/* Info Banner */}
             <div className="flex items-center gap-2.5 p-3 bg-teal-50 rounded-lg">
               <Info size={16} className="text-teal-600 shrink-0" />
-              <p className="text-sm text-teal-700">Payouts can be requested twice monthly during open withdrawal windows. Bookings with an open refund request are held until it is resolved.</p>
+              <p className="text-sm text-teal-700">
+                {showSchedule
+                  ? `Payouts are generated automatically on your ${(payoutPlan?.scheduleShortLabel || "chosen").toLowerCase()} schedule — the next run is ${formatDate(payoutPlan?.nextRunAt)}.`
+                  : "Payouts can be requested twice monthly during open withdrawal windows."}{" "}
+                Bookings with an open refund request are held until it is resolved.
+              </p>
             </div>
 
             {/* Table */}
@@ -1070,7 +1090,11 @@ export default function FinancePage() {
                   <Banknote size={26} className="text-emerald-300" />
                 </div>
                 <h3 className="text-base font-semibold text-gray-700 mb-1">No payout requests yet</h3>
-                <p className="text-sm text-gray-400 max-w-[260px]">Submit a request during an open withdrawal window to receive your earnings.</p>
+                <p className="text-sm text-gray-400 max-w-[260px]">
+                  {showSchedule
+                    ? "Payouts are generated automatically on your schedule — your next run will appear here."
+                    : "Submit a request during an open withdrawal window to receive your earnings."}
+                </p>
               </div>
             ) : (
               <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
@@ -1097,7 +1121,14 @@ export default function FinancePage() {
                           className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors"
                         >
                           <td className="py-3 px-4">
-                            <span className="font-mono text-xs font-medium text-emerald-600">{r.requestNumber}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-xs font-medium text-emerald-600">{r.requestNumber}</span>
+                              {r.autoGenerated && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-sky-50 text-sky-700">
+                                  <RefreshCw size={10} /> Automatic
+                                </span>
+                              )}
+                            </div>
                             {r.reference && (
                               <p className="text-[11px] text-gray-400 mt-0.5">Ref: {r.reference}</p>
                             )}

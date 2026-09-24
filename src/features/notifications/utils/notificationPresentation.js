@@ -23,6 +23,7 @@ const BACKEND_TYPE_TO_UI = {
   PAYOUT_REQUEST_SUBMITTED: "payment",
   PAYOUT_REQUEST_APPROVED: "payment",
   PAYOUT_REQUEST_REJECTED: "alert",
+  PAYOUT_SCHEDULE_UPDATED: "payment",
   SYSTEM_ALERT: "system",
   NEW_MESSAGE: "message",
   TEAM_INVITE_ACCEPTED: "system",
@@ -103,6 +104,7 @@ function getNotificationRoute(type, data = {}) {
     case "PAYOUT_PROCESSED":
     case "PAYOUT_APPROVED":
     case "PAYOUT_COMPLETED":
+    case "PAYOUT_SCHEDULE_UPDATED":
       return { path: "/finance", label: "View Finance" };
     case "PAYOUT_REQUEST_SUBMITTED":
     case "PAYOUT_REQUEST_APPROVED":
