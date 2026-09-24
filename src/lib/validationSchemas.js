@@ -235,7 +235,16 @@ export const businessProfileSchema = z.object({
   instagram: z.string().max(200).optional().or(z.literal("")),
   facebook: z.string().max(200).optional().or(z.literal("")),
   twitter: z.string().max(200).optional().or(z.literal("")),
-  operatingHours: z.string().max(500).optional().or(z.literal("")),
+  // Weekly schedule: { Monday: [{ startTime, endTime }], ... } — at most one
+  // range per day, 24-hour "HH:mm" strings (features/settings/utils/operatingHours).
+  // A plain string is still accepted so legacy free-text records can be saved.
+  operatingHours: z.union([
+    z.string().max(500),
+    z.record(z.string(), z.array(z.object({
+      startTime: z.string(),
+      endTime: z.string(),
+    })).max(1)),
+  ]).optional(),
   phoneNumber: z.string().optional().or(z.literal("")),
   address: z.string().optional().or(z.literal("")),
 });

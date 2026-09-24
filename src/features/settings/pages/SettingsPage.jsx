@@ -31,6 +31,8 @@ import { config } from "@/config";
 import { useTeamRole } from "@/hooks/useTeamRole";
 import { TEAM_ROLE_LABELS, TEAM_ROLE_COLORS } from "@/config/teamRoles";
 import SocialMediaManager from "../components/SocialMediaManager";
+import OperatingHoursEditor from "../components/OperatingHoursEditor";
+import { emptyWeeklyHours, normalizeWeeklyHours, validateOperatingHours } from "../utils/operatingHours";
 import { PayoutScheduleEditor } from "@/features/finance/components/PayoutScheduleCard";
 
 const TABS = [
@@ -130,7 +132,7 @@ function ProfileTab() {
   const [form, setForm] = useState({
     name: "", phone: "", language: "en", timezone: "UTC", email: "",
     description: "", address: "", city: "", country: "", region: "",
-    website: "", operatingHours: "",
+    website: "", operatingHours: emptyWeeklyHours(),
     instagram: "", facebook: "", twitter: "",
     tiktok: "", youtube: "", linkedin: "", whatsapp: "", pinterest: "",
   });
@@ -139,6 +141,7 @@ function ProfileTab() {
   const [logoPreview, setLogoPreview] = useState(null);
   const [currentLogoUrl, setCurrentLogoUrl] = useState(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [hoursErrors, setHoursErrors] = useState({});
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -159,7 +162,7 @@ function ProfileTab() {
             city: bi.city || "", country: bi.country || "",
             region: bi.region || "", website: bi.website || "",
             instagram: bi.instagram || "", facebook: bi.facebook || "",
-            twitter: bi.twitter || "", operatingHours: bi.operatingHours || "",
+            twitter: bi.twitter || "", operatingHours: normalizeWeeklyHours(bi.operatingHours),
             tiktok: bi.tiktok || "", youtube: bi.youtube || "",
             linkedin: bi.linkedin || "", whatsapp: bi.whatsapp || "",
             pinterest: bi.pinterest || "",
@@ -188,6 +191,15 @@ function ProfileTab() {
   };
 
   const handleSaveBusiness = async () => {
+    // The schedule is optional, but a range that ends before it starts must not
+    // be stored — surface it on the offending day instead of saving junk.
+    const errorsFound = validateOperatingHours(form.operatingHours);
+    if (Object.keys(errorsFound).length > 0) {
+      setHoursErrors(errorsFound);
+      toast.error("Fix your operating hours before saving");
+      return;
+    }
+    setHoursErrors({});
     setSaving(true);
     try {
       await updateBusinessProfile({
@@ -471,14 +483,23 @@ function ProfileTab() {
                 placeholder="https://yourbusiness.com"
                 className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                <Clock size={13} className="inline mr-1 text-slate-400" />Operating Hours
-              </label>
-              <input type="text" value={form.operatingHours} onChange={(e) => setForm((p) => ({ ...p, operatingHours: e.target.value }))}
-                placeholder="e.g. Mon-Fri 9AM-5PM"
-                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
-            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              <Clock size={13} className="inline mr-1 text-slate-400" />Operating Hours
+            </label>
+            <p className="text-xs text-slate-400 mb-3">
+              The hours your business is open. Leave a day empty if you are closed.
+            </p>
+            <OperatingHoursEditor
+              value={form.operatingHours}
+              onChange={(next) => {
+                setForm((p) => ({ ...p, operatingHours: next }));
+                if (Object.keys(hoursErrors).length > 0) setHoursErrors({});
+              }}
+              errors={hoursErrors}
+            />
           </div>
 
           <div>
