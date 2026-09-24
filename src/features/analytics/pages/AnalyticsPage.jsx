@@ -1,7 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { DollarSign, ShoppingCart, Star, TrendingUp, Loader2, RefreshCw, AlertTriangle } from "lucide-react";
+import {
+  DollarSign, ShoppingCart, Star, TrendingUp, Loader2, RefreshCw, AlertTriangle,
+  Image as ImageIcon,
+} from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import OptimizedImage from "@/components/shared/OptimizedImage";
 import { getAuthToken } from "@/stores/authStore";
 import { fetchSupplierAnalytics, fetchMonthlyRevenue } from "../api";
 import { fetchSupplierBookings } from "@/features/bookings/api";
@@ -40,9 +45,37 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null;
 };
 
+/**
+ * Best Selling Products thumbnail. Tours carry a cover photo (the bookings
+ * endpoint selects it), so show the real image — with a neutral placeholder if
+ * a tour has none or the image fails to load, never an initial.
+ */
+function ProductThumb({ src, alt }) {
+  const [failed, setFailed] = useState(false);
+  const showImage = Boolean(src) && !failed;
+
+  return (
+    <div className="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200/70 flex items-center justify-center shrink-0 overflow-hidden">
+      {showImage ? (
+        <OptimizedImage
+          src={src}
+          alt={alt}
+          width={36}
+          height={36}
+          className="w-full h-full object-cover"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <ImageIcon size={14} className="text-slate-300" />
+      )}
+    </div>
+  );
+}
+
 const PIE_COLORS = ["#044b3b", "#0f766e", "#0891b2", "#ca8a04", "#94a3b8"];
 
 export default function AnalyticsPage() {
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -101,18 +134,30 @@ export default function AnalyticsPage() {
   }, [bookings]);
 
   const productRevenue = useMemo(() => {
+    // One pass over the bookings: revenue, booking count and the tour's cover
+    // photo (the previous version re-filtered the whole list per product, and
+    // dropped the photo the bookings endpoint already sends).
     const map = {};
     bookings.forEach(b => {
       const name = b.tourName || "Unknown";
-      map[name] = (map[name] || 0) + (b.total || 0);
+      if (!map[name]) map[name] = { revenue: 0, bookings: 0, photo: "", tourId: "" };
+      map[name].revenue += (b.total || 0);
+      map[name].bookings += 1;
+      if (!map[name].photo && b.tourPhoto) map[name].photo = b.tourPhoto;
+      if (!map[name].tourId && b.tourId) map[name].tourId = b.tourId;
     });
+
     return Object.entries(map)
-      .sort((a, b) => b[1] - a[1])
+      .sort((a, b) => b[1].revenue - a[1].revenue)
       .slice(0, 4)
-      .map(([name, revenue]) => {
-        const bookingCount = bookings.filter(b => (b.tourName || "Unknown") === name).length;
-        return { name, revenue, bookings: bookingCount, rating: avgRating };
-      });
+      .map(([name, agg]) => ({
+        name,
+        revenue: agg.revenue,
+        bookings: agg.bookings,
+        photo: agg.photo,
+        tourId: agg.tourId,
+        rating: avgRating,
+      }));
   }, [bookings, avgRating]);
 
   // The endpoint returns a continuous month window (zeros included), so an
@@ -298,9 +343,7 @@ export default function AnalyticsPage() {
                   <tr key={i} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors">
                     <td className="py-3 pr-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-[#044b3b]/10 flex items-center justify-center text-xs font-bold text-[#044b3b] shrink-0">
-                          {(p.name || "?").charAt(0)}
-                        </div>
+                        <ProductThumb src={p.photo} alt={p.name} />
                         <p className="text-[11px] text-slate-700 font-medium leading-relaxed line-clamp-2">{p.name}</p>
                       </div>
                     </td>
@@ -308,7 +351,14 @@ export default function AnalyticsPage() {
                     <td className="py-3 px-3 text-right text-[11px] text-slate-600">{p.bookings}</td>
                     <td className="py-3 pl-3 text-right text-[11px] text-amber-600">{p.rating.toFixed(2)} ★</td>
                     <td className="py-3 pl-3 text-right">
-                      <button className="text-[11px] text-[#044b3b] font-medium hover:underline whitespace-nowrap">View details</button>
+                      <button
+                        type="button"
+                        onClick={() => p.tourId && navigate(`/products/${p.tourId}`)}
+                        disabled={!p.tourId}
+                        className="text-[11px] text-[#044b3b] font-medium hover:underline whitespace-nowrap disabled:text-slate-300 disabled:no-underline disabled:cursor-not-allowed"
+                      >
+                        View details
+                      </button>
                     </td>
                   </tr>
                 ))}
