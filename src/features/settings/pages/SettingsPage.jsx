@@ -23,7 +23,7 @@ import {
   fetchPayoutMethods, createPayoutMethod, deletePayoutMethod,
   fetchPayouts, fetchPayoutSettings, fetchFinanceSummary,
   fetchTeamMembers, inviteTeamMember, removeTeamMember, updateTeamMemberRole,
-  directAddTeamMember, resendInvite
+  directAddTeamMember, resendInvite, revokeTeamInvite
 } from "../api";
 import { getAuthToken, useAuthStore } from "@/stores/authStore";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -1528,8 +1528,9 @@ function ResendButton({ email }) {
   const handleResend = async () => {
     setResending(true);
     try {
-      await resendInvite(email);
-      toast.success("Invitation resent to " + email);
+      const { emailSent } = await resendInvite(email);
+      if (emailSent) toast.success("Invitation resent to " + email);
+      else toast.warning("A new link was created for " + email + ", but the email could not be sent.");
     } catch (err) {
       toast.error(err?.response?.data?.message || "Failed to resend invitation");
     } finally {
@@ -1571,9 +1572,13 @@ function TeamTab() {
         setMembers((prev) => [...prev, member]);
         toast.success(form.email + " added as a team member");
       } else {
-        const member = await inviteTeamMember({ email: form.email, role: form.role });
+        const { member, emailSent } = await inviteTeamMember({ email: form.email, role: form.role });
         setMembers((prev) => [...prev, member]);
-        toast.success("Invitation sent to " + form.email);
+        if (emailSent) {
+          toast.success("Invitation sent to " + form.email);
+        } else {
+          toast.warning("Invitation created for " + form.email + ", but the email could not be sent — use Resend to try again.");
+        }
       }
       setForm({ email: "", role: "editor" });
       setShowInvite(false);
@@ -1597,13 +1602,22 @@ function TeamTab() {
 
   const handleRemove = async () => {
     if (!memberToRemove) return;
+    const isPending = memberToRemove.status === "PENDING";
     try {
-      await removeTeamMember(memberToRemove.id);
-      setMembers((prev) => prev.filter((m) => m.id !== memberToRemove.id));
-      toast.success("Removed " + memberToRemove.email);
+      if (isPending) {
+        // Pending invitations are cancelled (row kept, invitee emailed) so the
+        // link dies immediately instead of silently working until it expires.
+        await revokeTeamInvite(memberToRemove.id);
+        setMembers((prev) => prev.map((m) => m.id === memberToRemove.id ? { ...m, status: "REVOKED" } : m));
+        toast.success("Invitation to " + memberToRemove.email + " cancelled");
+      } else {
+        await removeTeamMember(memberToRemove.id);
+        setMembers((prev) => prev.filter((m) => m.id !== memberToRemove.id));
+        toast.success("Removed " + memberToRemove.email);
+      }
       setMemberToRemove(null);
     } catch (err) {
-      toast.error(err?.response?.data?.message || "Failed to remove member");
+      toast.error(err?.response?.data?.message || (isPending ? "Failed to cancel invitation" : "Failed to remove member"));
     }
   };
 
@@ -1731,8 +1745,13 @@ function TeamTab() {
                     )}
                   </div>
                   <span className="w-20">
-                    <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded", m.status === "PENDING" ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700")}>
-                      {m.status === "PENDING" ? "Pending" : "Active"}
+                    <span className={cn(
+                      "text-[10px] font-medium px-1.5 py-0.5 rounded",
+                      m.status === "PENDING" && "bg-amber-50 text-amber-700",
+                      m.status === "REVOKED" && "bg-slate-100 text-slate-500",
+                      m.status !== "PENDING" && m.status !== "REVOKED" && "bg-emerald-50 text-emerald-700",
+                    )}>
+                      {m.status === "PENDING" ? "Pending" : m.status === "REVOKED" ? "Cancelled" : "Active"}
                     </span>
                   </span>
                   {m.status === "PENDING" && (
@@ -1770,21 +1789,27 @@ function TeamTab() {
                   <AlertTriangle size={20} className="text-red-600" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-800">Remove Team Member</h3>
-                  <p className="text-xs text-slate-500">This action cannot be undone</p>
+                  <h3 className="text-sm font-semibold text-slate-800">
+                    {memberToRemove.status === "PENDING" ? "Cancel Invitation" : "Remove Team Member"}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {memberToRemove.status === "PENDING" ? "Their invite link stops working immediately" : "This action cannot be undone"}
+                  </p>
                 </div>
               </div>
               <p className="text-sm text-slate-600 mb-6">
-                Are you sure you want to remove <span className="font-medium">{memberToRemove.email}</span> from your team?
+                {memberToRemove.status === "PENDING"
+                  ? <>Cancel the invitation sent to <span className="font-medium">{memberToRemove.email}</span>?</>
+                  : <>Are you sure you want to remove <span className="font-medium">{memberToRemove.email}</span> from your team?</>}
               </p>
               <div className="flex items-center gap-3 justify-end">
                 <button onClick={() => setMemberToRemove(null)}
                   className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
-                  Cancel
+                  Keep
                 </button>
                 <button onClick={handleRemove}
                   className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors">
-                  Remove
+                  {memberToRemove.status === "PENDING" ? "Cancel Invitation" : "Remove"}
                 </button>
               </div>
             </motion.div>

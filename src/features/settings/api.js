@@ -88,16 +88,30 @@ export async function fetchTeamMembers() {
 
 export async function inviteTeamMember(data) {
   const response = await api.post("/suppliers/settings/team/invite", data, { skipGlobalErrorHandler: true });
-  return response.data?.data?.member || null;
+  // emailSent is false when the invitation row was created but the mail
+  // provider failed — the caller must surface that instead of "sent".
+  return {
+    member: response.data?.data?.member || null,
+    emailSent: response.data?.data?.emailSent !== false,
+    message: response.data?.message,
+  };
 }
 
 export async function resendInvite(email) {
   const response = await api.post("/suppliers/settings/team/invite/resend", { email }, { skipGlobalErrorHandler: true });
-  return response.data;
+  return {
+    emailSent: response.data?.data?.emailSent !== false,
+    message: response.data?.message,
+  };
 }
 
 export async function removeTeamMember(id) {
   return api.delete(`/suppliers/settings/team/members/${id}`, { skipGlobalErrorHandler: true });
+}
+
+export async function revokeTeamInvite(id) {
+  // Cancels a pending invitation (keeps the row, emails the invitee).
+  return api.delete(`/suppliers/settings/team/invite/${id}`, { skipGlobalErrorHandler: true });
 }
 
 export async function updateTeamMemberRole(id, role) {
