@@ -124,7 +124,7 @@ export default function RefundClaimsPage() {
   }, [claims]);
 
   return (
-    <div className="p-5 md:p-6 max-w-5xl mx-auto space-y-5">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-slate-900">Refund requests</h1>

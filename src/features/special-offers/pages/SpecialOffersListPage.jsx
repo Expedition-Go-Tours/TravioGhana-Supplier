@@ -118,7 +118,7 @@ export default function SpecialOffersListPage() {
   ];
 
   return (
-    <div className="p-5 md:p-6 max-w-4xl mx-auto">
+    <div className="max-w-4xl">
       {/* Header */}
       <motion.div {...FADE_UP} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div>

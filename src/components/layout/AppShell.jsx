@@ -1,6 +1,7 @@
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation, useMatches } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
+import PageContainer from "./PageContainer";
 import { useSidebarStore } from "@/stores/sidebarStore";
 import SupportFloating from "@/features/chat/components/SupportFloating";
 import { useRealtimeNotifications } from "@/features/notifications/hooks/useRealtimeNotifications";
@@ -8,8 +9,12 @@ import { useRealtimeNotifications } from "@/features/notifications/hooks/useReal
 export default function AppShell() {
   const { isCollapsed, isMobileOpen } = useSidebarStore();
   const location = useLocation();
+  const matches = useMatches();
   const isProductBuilder = location.pathname.includes('/products/build');
   const isChatPage = location.pathname.startsWith('/chat');
+  // Routes that own their full-viewport layout opt out of the shared container
+  // with `handle.bleed` in router.jsx (they import SHELL_GUTTER themselves).
+  const isBleed = matches.some((match) => match.handle?.bleed);
   useRealtimeNotifications();
 
   return (
@@ -27,9 +32,9 @@ export default function AppShell() {
           isCollapsed ? "lg:ml-[64px]" : "lg:ml-[270px]"
         }`}
       >
-        <div className="min-h-[calc(100vh-64px)]">
+        <PageContainer bleed={isBleed}>
           <Outlet />
-        </div>
+        </PageContainer>
       </main>
       {!isProductBuilder && !isChatPage && <SupportFloating />}
     </div>

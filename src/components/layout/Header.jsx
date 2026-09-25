@@ -13,6 +13,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import OptimizedImage from "@/components/shared/OptimizedImage";
+import { SHELL_GUTTER } from "./shell";
 import logoSrc from "@/assets/TravioGhana_Logo.svg";
 
 export default function Header() {
@@ -34,7 +35,7 @@ export default function Header() {
 
   return (
     <header
-      className={`fixed top-0 right-0 h-16 bg-white border-b border-[#eaeaea] flex items-center px-2 sm:px-4 lg:px-6 z-40 transition-all duration-300 ${
+      className={`fixed top-0 right-0 h-16 bg-white border-b border-[#eaeaea] flex items-center ${SHELL_GUTTER} z-40 transition-all duration-300 ${
         isCollapsed ? "lg:left-[64px]" : "lg:left-[270px]"
       } left-0`}
     >

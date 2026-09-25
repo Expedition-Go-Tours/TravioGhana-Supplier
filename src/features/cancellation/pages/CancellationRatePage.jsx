@@ -126,7 +126,7 @@ export default function CancellationRatePage() {
   };
 
   return (
-    <div className="p-5 md:p-6 max-w-5xl mx-auto space-y-6 bg-linear-to-b from-transparent via-teal-50/3 to-teal-50/6 rounded-[20px]">
+    <div className="max-w-5xl space-y-6 bg-linear-to-b from-transparent via-teal-50/3 to-teal-50/6 rounded-[20px]">
       {/* Header */}
       <div className="flex items-center gap-4">
         <div className="w-1 h-10 bg-linear-to-b from-teal-600 to-teal-400 rounded-full" />

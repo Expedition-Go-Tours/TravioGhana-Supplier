@@ -33,6 +33,7 @@ import Step17ProductPreview from '@/features/products/steps/Step17ProductPreview
 import SupplierAgreementModal from '@/features/products/SupplierAgreementModal'
 import SubmitSuccessOverlay from '@/features/products/SubmitSuccessOverlay'
 import { safeId } from '@/lib/utils'
+import { SHELL_GUTTER } from '@/components/layout/shell'
 
 const STEP_COMPONENTS = {
   1: Step01Language,
@@ -714,7 +715,7 @@ export default function ProductBuilderPage() {
       className="fixed inset-0 z-50 bg-white overflow-hidden"
     ><div className="h-full flex flex-col">
       {/* Header bar */}
-      <div className="flex items-center justify-between px-3 sm:px-4 lg:px-6 py-2.5 sm:py-3 border-b border-slate-200 bg-white shrink-0 gap-2">
+      <div className={`flex items-center justify-between ${SHELL_GUTTER} py-2.5 sm:py-3 border-b border-slate-200 bg-white shrink-0 gap-2`}>
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
             onClick={() => navigate('/products')}
@@ -759,7 +760,7 @@ export default function ProductBuilderPage() {
 
           {draftInfo && (
             <div className={[
-              'flex items-start gap-2.5 px-3 sm:px-4 lg:px-6 py-2.5 border-b text-[13px] sm:text-sm shrink-0',
+              `flex items-start gap-2.5 ${SHELL_GUTTER} py-2.5 border-b text-[13px] sm:text-sm shrink-0`,
               draftInfo.draftStatus === 'PENDING_APPROVAL'
                 ? 'bg-amber-50 border-amber-200 text-amber-800'
                 : draftInfo.draftStatus === 'REJECTED'
@@ -843,7 +844,7 @@ export default function ProductBuilderPage() {
           </AnimatePresence>
 
           {/* Main area: sidebar + content */}
-          <div className="flex-1 flex gap-0 min-h-0 px-3 sm:px-4 lg:px-6 py-3 sm:py-4 lg:py-5">
+          <div className={`flex-1 flex gap-0 min-h-0 ${SHELL_GUTTER} py-3 sm:py-4 lg:py-5`}>
             {/* Desktop sidebar */}
             <div className="hidden lg:flex shrink-0">
               <WizardSidebar currentStep={gygStepNumber} onSelectStep={handleSelectStep} />

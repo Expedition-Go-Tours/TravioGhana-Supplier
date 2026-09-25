@@ -101,7 +101,7 @@ export default function PerformancePage() {
   const [dateRange, setDateRange] = useState("6months");
 
   return (
-    <div className="p-4 md:p-6">
+    <div>
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>

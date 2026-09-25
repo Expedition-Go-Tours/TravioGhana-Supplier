@@ -138,7 +138,7 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="p-5 md:p-6 max-w-7xl mx-auto space-y-5">
+    <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">

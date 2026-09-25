@@ -377,7 +377,7 @@ export default function VerificationPage() {
   const pendingFleet = vehicles.filter((v) => v.status !== "VERIFIED").length + guides.filter((g) => g.status !== "VERIFIED").length;
 
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-5">
+    <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">

@@ -11,6 +11,7 @@ import CustomerDetailsPanel from "../components/CustomerDetailsPanel";
 import { getConversations, getOrCreateConversation, getMessages, sendMessage, markConversationAsRead, deleteConversation } from "../api";
 import { useChatSocket } from "../hooks/useChatSocket";
 import { getChatSocket } from "../chatSocket";
+import { SHELL_GUTTER } from "@/components/layout/shell";
 
 const PAGE_SIZE = 50;
 const TABS = [
@@ -366,7 +367,7 @@ export default function ChatPage() {
   );
 
   return (
-    <div className="px-2 py-2 sm:px-6 sm:py-4 h-[calc(100vh-80px)] sm:h-[calc(100vh-120px)] mx-auto">
+    <div className={`${SHELL_GUTTER} py-2 sm:py-4 h-[calc(100vh-80px)] sm:h-[calc(100vh-120px)]`}>
       <div className="relative flex h-full sm:rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-900/5 overflow-hidden">
         {/* Desktop: 3-column layout */}
         <div className="hidden lg:flex h-full w-full">
