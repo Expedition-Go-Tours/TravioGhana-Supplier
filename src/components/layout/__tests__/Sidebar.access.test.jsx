@@ -35,6 +35,18 @@ const businessProfile = {
   supplierSince: '2021-03-04T00:00:00.000Z',
 };
 
+/**
+ * What the server hands a MEMBER: the owner's own profile object, with the legal
+ * name nested in `businessInfo` and no top-level `businessName` on the profile
+ * itself. This is the shape a real member's sign-in resolves, and it is what the
+ * card must fall back to.
+ */
+const memberResolvedProfile = {
+  status: 'ACTIVE',
+  businessInfo: { legalBusinessName: 'Expedition Go Tours Ltd' },
+  createdAt: '2021-03-04T00:00:00.000Z',
+};
+
 vi.mock('@/features/auth/api', () => ({
   loadSupplierProfile: vi.fn(async () => businessProfile),
 }));
@@ -44,6 +56,7 @@ vi.mock('@/lib/axios', () => ({
 }));
 
 import Sidebar from '../Sidebar';
+import { loadSupplierProfile } from '@/features/auth/api';
 import { useAuthStore } from '@/stores/authStore';
 import { permissionsForRoles, TEAM_ROLES } from '@/config/teamRoles';
 import { PAGE_ACCESS } from '@/config/pageAccess';
@@ -54,13 +67,27 @@ const NAV_LABELS = [
   'Notifications', 'Verification', 'Analytics', 'Settings',
 ];
 
-function signIn({ roles, isOwner = false, name = 'Gideon Kwarteng', profileStatus = null }) {
+/**
+ * The owner IS the supplier. A team member is not: their own account is a plain
+ * `customer` account, and the supplier profile they hold was resolved by the
+ * server through the membership. Modelling a member with `roles: ['supplier']`
+ * is what hid this card's bug from the tests, so members are modelled as
+ * members.
+ */
+function signIn({ roles, isOwner = false, name = 'Gideon Kwarteng', profileStatus = null, storedProfile }) {
+  const accountRoles = isOwner ? ['supplier', ...roles] : ['customer'];
+  const memberProfile = storedProfile !== undefined
+    ? storedProfile
+    : { ...memberResolvedProfile, ...(profileStatus ? { status: profileStatus } : {}) };
+
   useAuthStore.setState({
-    user: { id: 'u-1', name, email: 'member@example.com', roles: ['supplier', ...roles], createdAt: '2024-01-01' },
+    user: { id: 'u-1', name, email: 'member@example.com', roles: accountRoles, createdAt: '2024-01-01' },
     token: 'token',
     isAuthenticated: true,
     isLoading: false,
-    supplierProfile: profileStatus ? { status: profileStatus } : null,
+    supplierProfile: isOwner
+      ? (profileStatus ? { status: profileStatus } : null)
+      : memberProfile,
   });
 
   teamRoleState.isOwner = isOwner;
@@ -148,6 +175,38 @@ describe('sidebar navigation per team role', () => {
 });
 
 describe('sidebar business identity', () => {
+  it('loads the business for a member whose own account is a plain customer account', async () => {
+    signIn({ roles: [TEAM_ROLES.SUPPORT], name: 'Ama Boateng' });
+
+    renderSidebar();
+
+    // The card is the business, so it must be fetched for a member too — the
+    // effect used to bail out on `user.roles` and leave them looking at their own
+    // account instead.
+    await waitFor(() => expect(loadSupplierProfile).toHaveBeenCalled());
+  });
+
+  it('names the business from the profile sign-in resolved, when the card fetch carries no name', async () => {
+    // `/suppliers/application/status` answers with a nested profile; the name a
+    // member sees lives in `businessInfo.legalBusinessName`.
+    loadSupplierProfile.mockResolvedValueOnce({ logoUrl: businessProfile.logoUrl, supplierSince: businessProfile.supplierSince });
+    signIn({ roles: [TEAM_ROLES.SUPPORT], name: 'Ama Boateng' });
+
+    renderSidebar();
+
+    await waitFor(() => expect(screen.getByText('Expedition Go Tours Ltd')).toBeInTheDocument());
+    expect(screen.queryByText('Ama Boateng')).not.toBeInTheDocument();
+  });
+
+  it('still loads the business for a member whose sign-in stored no profile', async () => {
+    signIn({ roles: [TEAM_ROLES.EDITOR], name: 'Ama Boateng', storedProfile: null });
+
+    renderSidebar();
+
+    await waitFor(() => expect(loadSupplierProfile).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByText('Expedition Go Tours Ltd')).toBeInTheDocument());
+  });
+
   it('shows the business a team member works for, not their own account', async () => {
     signIn({ roles: [TEAM_ROLES.SUPPORT], name: 'Ama Boateng' });
 

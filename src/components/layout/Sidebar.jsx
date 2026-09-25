@@ -63,6 +63,13 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
   const showLogoutConfirm = logoutConfirmOpen && !isCollapsed;
   const { hasPermission, isOwner, teamRoles } = useTeamRole();
 
+  // Who the viewer is acting as. A team member's own account is a plain
+  // `customer` account, so testing `user.roles` alone hid the business card
+  // from every member: they were all looking at their own name and avatar
+  // instead of the business they work for.
+  const actsForSupplier =
+    Boolean(user?.roles?.includes("supplier")) || Boolean(supplierProfile) || teamRoles.length > 0;
+
   // A member without business-profile rights still gets their own Security tab,
   // so the card falls back to the settings root instead of a hidden tab.
   const canEditBusiness = hasPermission("settings.business");
@@ -78,13 +85,13 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
   // logo, verification status and join date — their own account is a different
   // person with (usually) no supplier profile at all.
   useEffect(() => {
-    if (!user?.roles?.includes("supplier")) return;
+    if (!actsForSupplier) return;
     let cancelled = false;
     loadSupplierProfile()
       .then((profile) => { if (!cancelled) setBusiness(profile || null); })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [user?.roles]);
+  }, [actsForSupplier]);
 
   // Company logo is fetched directly from the backend on mount so it always
   // reflects the server even after a fresh login/refresh (the auth store is
@@ -108,18 +115,28 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
     return () => { cancelled = true; };
   }, [user?.roles]);
 
+  // Name, logo, status and join date all describe the business. A member has
+  // none of their own, so the fetched account is the first choice, the profile
+  // sign-in already resolved through the membership is the second, and the
+  // viewer's own name only stands in when there is no business at all.
   const businessName =
-    extractBusinessName(business?.businessInfo) || business?.businessName || null;
+    business?.businessName ||
+    extractBusinessName(business?.businessInfo) ||
+    extractBusinessName(supplierProfile?.businessInfo) ||
+    supplierProfile?.businessName ||
+    null;
 
   // The business logo wins over the viewer's own avatar: a team member has
   // never uploaded one, so falling back keeps the owner unchanged.
   const effectiveLogoUrl = business?.logoUrl || (logoLoaded ? fetchedLogoUrl : logoUrl);
 
   const statusStyle =
-    SIDEBAR_STATUS_STYLES[business?.status || supplierProfile?.status] || null;
+    SIDEBAR_STATUS_STYLES[
+      business?.status || business?.supplierProfile?.status || supplierProfile?.status
+    ] || null;
 
   // "Member since" is when the business joined Travio, for every viewer.
-  const memberSince = business?.supplierSince || user?.createdAt;
+  const memberSince = business?.supplierSince || supplierProfile?.createdAt || user?.createdAt;
 
   const handleLogout = async () => {
     await useAuthStore.getState().logout();
