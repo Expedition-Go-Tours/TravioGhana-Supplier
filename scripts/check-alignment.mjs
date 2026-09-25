@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Verifies the dashboard alignment invariant: every page's content must start
- * on the same left edge as the header logo (see src/components/layout/shell.js).
+ * on the same left edge as the header gutter (see src/components/layout/shell.js).
  *
  *   BASE_URL=http://localhost:4173 \
  *   SUPPLIER_EMAIL=you@example.com SUPPLIER_PASSWORD=secret \
@@ -97,14 +97,24 @@ try {
 
   const measure = (probe) =>
     page.evaluate((selector) => {
+      // Reference: the header's padded left edge — the gutter the logo sits on.
+      const header = document.querySelector("header");
+      if (!header) return { error: "header not found" };
+      const headerStyle = getComputedStyle(header);
+      const referenceLeft =
+        header.getBoundingClientRect().left + (parseFloat(headerStyle.paddingLeft) || 0);
+
       const logo = document.querySelector('header img[alt="Travio Ghana"]');
+      const logoLeft = logo ? Math.round(logo.getBoundingClientRect().left) : null;
+
       const element = document.querySelector(selector);
       if (!element) return { error: `probe not found: ${selector}` };
       const style = getComputedStyle(element);
       const rect = element.getBoundingClientRect();
       const pad = (parseFloat(style.borderLeftWidth) || 0) + (parseFloat(style.paddingLeft) || 0);
       return {
-        logoLeft: logo ? Math.round(logo.getBoundingClientRect().left) : null,
+        referenceLeft: Math.round(referenceLeft),
+        logoLeft,
         contentLeft: Math.round(rect.left + pad),
       };
     }, probe);
@@ -117,7 +127,7 @@ try {
       if (!path) continue;
 
       if (route.skip) {
-        rows.push({ width, name: route.name, logo: "-", content: "-", delta: "-", note: `skipped: ${route.skip}` });
+        rows.push({ width, name: route.name, gutter: "-", content: "-", delta: "-", note: `skipped: ${route.skip}` });
         continue;
       }
 
@@ -134,15 +144,18 @@ try {
 
         const result = await measure(probe);
         if (result.error) throw new Error(result.error);
-        if (result.logoLeft === null) throw new Error("header logo not found");
+        // If the header carries a brand logo, it must sit on that same gutter.
+        if (result.logoLeft !== null && Math.abs(result.logoLeft - result.referenceLeft) > 1) {
+          throw new Error(`header logo (${result.logoLeft}) is off its own gutter (${result.referenceLeft})`);
+        }
 
-        const delta = result.contentLeft - result.logoLeft;
+        const delta = result.contentLeft - result.referenceLeft;
         const ok = Math.abs(delta) <= 1;
         if (!ok) failures.push({ width, name: route.name, path, ...result, delta });
-        rows.push({ width, name: route.name, logo: result.logoLeft, content: result.contentLeft, delta, note: ok ? "ok" : "MISALIGNED" });
+        rows.push({ width, name: route.name, gutter: result.referenceLeft, content: result.contentLeft, delta, note: ok ? "ok" : "MISALIGNED" });
       } catch (error) {
         failures.push({ width, name: route.name, path, error: String(error.message || error) });
-        rows.push({ width, name: route.name, logo: "-", content: "-", delta: "-", note: `error: ${error.message || error}` });
+        rows.push({ width, name: route.name, gutter: "-", content: "-", delta: "-", note: `error: ${error.message || error}` });
       }
     }
   }
@@ -154,20 +167,20 @@ const pad = (value, size) => String(value).padEnd(size);
 const padStart = (value, size) => String(value).padStart(size);
 
 console.log(`\nAlignment report — ${BASE_URL}\n`);
-console.log(`${pad("width", 6)} ${pad("page", 22)} ${padStart("logo", 6)} ${padStart("content", 8)} ${padStart("delta", 6)}   note`);
+console.log(`${pad("width", 6)} ${pad("page", 22)} ${padStart("gutter", 6)} ${padStart("content", 8)} ${padStart("delta", 6)}   note`);
 console.log("-".repeat(72));
 for (const row of rows) {
   console.log(
-    `${pad(row.width, 6)} ${pad(row.name, 22)} ${padStart(row.logo, 6)} ${padStart(row.content, 8)} ${padStart(row.delta, 6)}   ${row.note}`,
+    `${pad(row.width, 6)} ${pad(row.name, 22)} ${padStart(row.gutter, 6)} ${padStart(row.content, 8)} ${padStart(row.delta, 6)}   ${row.note}`,
   );
 }
 
 if (failures.length) {
   console.error(`\n✗ ${failures.length} misaligned page(s):`);
   for (const failure of failures) {
-    console.error(`  - ${failure.width}px ${failure.name} (${failure.path}): ${failure.error || `content ${failure.contentLeft} vs logo ${failure.logoLeft}`}`);
+    console.error(`  - ${failure.width}px ${failure.name} (${failure.path}): ${failure.error || `content ${failure.contentLeft} vs gutter ${failure.referenceLeft}`}`);
   }
   process.exit(1);
 }
 
-console.log("\n✓ every page starts on the header logo's left edge");
+console.log("\n✓ every page starts on the header gutter (and the logo sits on it)");
