@@ -5,7 +5,7 @@ import RefundClaimsPage from "@/features/refund-claims/pages/RefundClaimsPage";
 import { useSearchParams } from "react-router-dom";
 import {
   DollarSign, Wallet, CreditCard, Loader2, RefreshCw, Plus, Trash2,
-  TrendingUp, Building2, Landmark,
+  TrendingUp, Building2, Landmark, Smartphone,
   CheckCircle2, AlertTriangle, X, ChevronDown, ChevronLeft, ChevronRight, Banknote,
   Calendar, Info, Search, Lock, XCircle, Undo2,
 } from "lucide-react";
@@ -57,8 +57,12 @@ const INITIAL_REFUND_FORM = { bookingId: "", reason: "", description: "" };
 
 const METHOD_TYPES = [
   { value: "BANK_TRANSFER", label: "Bank Transfer", icon: Building2, desc: "Direct bank deposit" },
+  { value: "MOBILE_MONEY", label: "Mobile Money", icon: Smartphone, desc: "MTN, Telecel or AT wallet" },
   { value: "PAYPAL", label: "PayPal", icon: Wallet, desc: "Online payment platform" },
 ];
+
+/** Ghana mobile money providers (mirrors the payout options used at sign-up). */
+const MOBILE_MONEY_PROVIDERS = ["MTN Mobile Money", "Telecel Cash", "AT Money"];
 
 const INITIAL_METHOD_FORM = {
   type: "BANK_TRANSFER", accountName: "", accountNumber: "", bankName: "", bankCountry: "",
@@ -352,6 +356,8 @@ export default function FinancePage() {
       const payload = { type: methodForm.type, currency: methodForm.currency };
       if (methodForm.type === "BANK_TRANSFER") {
         Object.assign(payload, { accountName: methodForm.accountName, accountNumber: methodForm.accountNumber, bankName: methodForm.bankName, bankCountry: methodForm.bankCountry, branchName: methodForm.branchName || null, branchCode: methodForm.branchCode || null });
+      } else if (methodForm.type === "MOBILE_MONEY") {
+        Object.assign(payload, { accountName: methodForm.accountName, mobileProvider: methodForm.mobileProvider, mobileNumber: methodForm.mobileNumber });
       } else { payload.paypalEmail = methodForm.paypalEmail; }
       await createPayoutMethod(payload);
       toast.success("Payout method added");
@@ -1447,6 +1453,32 @@ export default function FinancePage() {
                             {formErrors.bankCountry && <p className="mt-1 text-xs text-red-600">{formErrors.bankCountry}</p>}
                           </div>
                         </div>
+                      ) : methodForm.type === "MOBILE_MONEY" ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Wallet Holder Name</label>
+                            <input placeholder="e.g. John Doe" value={methodForm.accountName} onChange={(e) => { setMethodForm((p) => ({ ...p, accountName: e.target.value })); clearError("accountName"); }}
+                              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all" required />
+                            {formErrors.accountName && <p className="mt-1 text-xs text-red-600">{formErrors.accountName}</p>}
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Mobile Money Provider</label>
+                            <select value={methodForm.mobileProvider} onChange={(e) => { setMethodForm((p) => ({ ...p, mobileProvider: e.target.value })); clearError("mobileProvider"); }}
+                              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all" required>
+                              <option value="">Select provider</option>
+                              {MOBILE_MONEY_PROVIDERS.map((provider) => (
+                                <option key={provider} value={provider}>{provider}</option>
+                              ))}
+                            </select>
+                            {formErrors.mobileProvider && <p className="mt-1 text-xs text-red-600">{formErrors.mobileProvider}</p>}
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Mobile Money Number</label>
+                            <input placeholder="e.g. 0244000000" value={methodForm.mobileNumber} onChange={(e) => { setMethodForm((p) => ({ ...p, mobileNumber: e.target.value })); clearError("mobileNumber"); }}
+                              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all" required />
+                            {formErrors.mobileNumber && <p className="mt-1 text-xs text-red-600">{formErrors.mobileNumber}</p>}
+                          </div>
+                        </div>
                       ) : (
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1.5">PayPal Email</label>
@@ -1512,7 +1544,9 @@ export default function FinancePage() {
                               )}>
                                 {method.type === "BANK_TRANSFER"
                                   ? <Landmark size={20} className={isExpanded ? "text-emerald-700" : "text-emerald-600"} />
-                                  : <Wallet size={20} className={isExpanded ? "text-emerald-700" : "text-emerald-600"} />}
+                                  : method.type === "MOBILE_MONEY"
+                                    ? <Smartphone size={20} className={isExpanded ? "text-emerald-700" : "text-emerald-600"} />
+                                    : <Wallet size={20} className={isExpanded ? "text-emerald-700" : "text-emerald-600"} />}
                               </div>
                               <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
@@ -1577,6 +1611,22 @@ export default function FinancePage() {
                                       <div>
                                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Country</p>
                                         <p className="text-sm font-medium text-gray-700 mt-1">{method.bankCountry || method.country || "—"}</p>
+                                      </div>
+                                    </>
+                                  )}
+                                  {method.type === "MOBILE_MONEY" && (
+                                    <>
+                                      <div>
+                                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Wallet Holder</p>
+                                        <p className="text-sm font-medium text-gray-700 mt-1">{method.accountName || "—"}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Provider</p>
+                                        <p className="text-sm font-medium text-gray-700 mt-1">{method.mobileProvider || "—"}</p>
+                                      </div>
+                                      <div className="col-span-2">
+                                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Wallet Number</p>
+                                        <p className="text-sm font-medium text-gray-700 mt-1 font-mono">{method.mobileNumber || "—"}</p>
                                       </div>
                                     </>
                                   )}

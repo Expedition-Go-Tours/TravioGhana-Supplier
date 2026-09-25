@@ -4,7 +4,7 @@ import {
   User, Bell, CreditCard, Shield, FileText, Users,
   Loader2, Upload, Trash2, X, Plus, Building2,
   Wallet, Globe, MapPin, Clock, Phone, Save, Key, Eye, EyeOff,
-  Landmark, Banknote, AlertTriangle, RefreshCw
+  Landmark, Banknote, AlertTriangle, RefreshCw, Smartphone
 } from "lucide-react";
 import { toast } from "sonner";
 import PhoneInput from "@/components/forms/PhoneInput";
@@ -46,8 +46,12 @@ const TABS = [
 
 const METHOD_TYPES = [
   { value: "BANK_TRANSFER", label: "Bank Transfer", icon: Building2, desc: "Direct bank deposit" },
+  { value: "MOBILE_MONEY", label: "Mobile Money", icon: Smartphone, desc: "MTN, Telecel or AT wallet" },
   { value: "PAYPAL", label: "PayPal", icon: Wallet, desc: "Online payment platform" },
 ];
+
+/** Ghana mobile money providers (mirrors the payout options used at sign-up). */
+const MOBILE_MONEY_PROVIDERS = ["MTN Mobile Money", "Telecel Cash", "AT Money"];
 
 const FADE_UP = {
   initial: { opacity: 0, y: 16 },
@@ -930,7 +934,7 @@ function PayoutsTab() {
   const [showMethodForm, setShowMethodForm] = useState(false);
   const [methodForm, setMethodForm] = useState({
     type: "BANK_TRANSFER", accountName: "", accountNumber: "", bankName: "",
-    bankCountry: "", paypalEmail: "", currency: "USD",
+    bankCountry: "", mobileProvider: "", mobileNumber: "", paypalEmail: "", currency: "USD",
   });
   const [savingMethod, setSavingMethod] = useState(false);
   const [plan, setPlan] = useState(null);
@@ -966,13 +970,18 @@ function PayoutsTab() {
           accountName: methodForm.accountName, accountNumber: methodForm.accountNumber,
           bankName: methodForm.bankName, bankCountry: methodForm.bankCountry,
         });
+      } else if (methodForm.type === "MOBILE_MONEY") {
+        Object.assign(payload, {
+          accountName: methodForm.accountName, mobileProvider: methodForm.mobileProvider,
+          mobileNumber: methodForm.mobileNumber,
+        });
       } else {
         payload.paypalEmail = methodForm.paypalEmail;
       }
       await createPayoutMethod(payload);
       toast.success("Payout method added");
       setShowMethodForm(false);
-      setMethodForm({ type: "BANK_TRANSFER", accountName: "", accountNumber: "", bankName: "", bankCountry: "", paypalEmail: "", currency: "USD" });
+      setMethodForm({ type: "BANK_TRANSFER", accountName: "", accountNumber: "", bankName: "", bankCountry: "", mobileProvider: "", mobileNumber: "", paypalEmail: "", currency: "USD" });
       await loadData();
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to add payout method");
@@ -1112,6 +1121,31 @@ function PayoutsTab() {
                       </Select>
                     </div>
                   </div>
+                ) : methodForm.type === "MOBILE_MONEY" ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Wallet Holder Name</label>
+                      <input value={methodForm.accountName} onChange={(e) => setMethodForm((p) => ({ ...p, accountName: e.target.value }))}
+                        placeholder="e.g. John Doe"
+                        className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" required />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Mobile Money Provider</label>
+                      <select value={methodForm.mobileProvider} onChange={(e) => setMethodForm((p) => ({ ...p, mobileProvider: e.target.value }))}
+                        className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" required>
+                        <option value="">Select provider</option>
+                        {MOBILE_MONEY_PROVIDERS.map((provider) => (
+                          <option key={provider} value={provider}>{provider}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Mobile Money Number</label>
+                      <input value={methodForm.mobileNumber} onChange={(e) => setMethodForm((p) => ({ ...p, mobileNumber: e.target.value }))}
+                        placeholder="e.g. 0244000000"
+                        className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" required />
+                    </div>
+                  </div>
                 ) : (
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">PayPal Email</label>
@@ -1145,17 +1179,27 @@ function PayoutsTab() {
                 <div key={method.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center">
-                      {method.type === "BANK_TRANSFER" ? <Landmark size={18} className="text-slate-600" /> : <Wallet size={18} className="text-slate-600" />}
+                      {method.type === "BANK_TRANSFER"
+                        ? <Landmark size={18} className="text-slate-600" />
+                        : method.type === "MOBILE_MONEY"
+                          ? <Smartphone size={18} className="text-slate-600" />
+                          : <Wallet size={18} className="text-slate-600" />}
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-slate-700">
-                        {method.type === "BANK_TRANSFER" ? method.bankName || "Bank Account" : "PayPal"}
+                        {method.type === "BANK_TRANSFER"
+                          ? method.bankName || "Bank Account"
+                          : method.type === "MOBILE_MONEY"
+                            ? method.mobileProvider || "Mobile Money"
+                            : "PayPal"}
                         {method.isDefault && <span className="ml-2 text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md font-medium">Default</span>}
                       </p>
                       <p className="text-xs text-slate-500 mt-0.5">
                         {method.type === "BANK_TRANSFER"
                           ? `****${method.accountNumber?.slice(-4) || ""}`
-                          : method.paypalEmail}
+                          : method.type === "MOBILE_MONEY"
+                            ? `${method.accountName ? `${method.accountName} · ` : ""}${method.mobileNumber || ""}`
+                            : method.paypalEmail}
                       </p>
                     </div>
                   </div>

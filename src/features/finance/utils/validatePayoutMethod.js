@@ -47,11 +47,17 @@ const emailValid = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((v || "").trim())
 
 const hasValue = (v) => typeof v === "string" && v.trim() !== ""
 
+/** Mobile money wallet: 9-15 digits after stripping separators (Ghana: 10). */
+const mobileNumberValid = (v) => {
+  const digits = (v || "").replace(/[\s\-()]/g, "").replace(/^\+/, "")
+  return /^\d+$/.test(digits) && digits.length >= 9 && digits.length <= 15
+}
+
 /**
  * Validate the payout method form object.
  * @param {{ type, accountName?, accountNumber?, bankName?, bankCountry?,
  *          iban?, swiftCode?, routingNumber?, sortCode?, branchCode?, branchName?,
- *          paypalEmail? }} form
+ *          mobileProvider?, mobileNumber?, paypalEmail? }} form
  * @returns {{ ok: boolean, errors: Record<string, string> }}
  */
 export function validatePayoutMethod(form) {
@@ -109,6 +115,19 @@ export function validatePayoutMethod(form) {
     if (hasValue(branchName) && !branchNameValid(branchName)) errors.branchName = "Branch name must be at most 100 characters"
   }
 
+  if (form.type === "MOBILE_MONEY") {
+    const mobileProvider = f(form, "mobileProvider")
+    const mobileNumber = f(form, "mobileNumber")
+    const accountName = f(form, "accountName")
+    if (!hasValue(mobileProvider)) errors.mobileProvider = "Mobile money provider is required"
+    if (!hasValue(mobileNumber)) {
+      errors.mobileNumber = "Mobile money number is required"
+    } else if (!mobileNumberValid(mobileNumber)) {
+      errors.mobileNumber = "Enter a valid mobile money number (9-15 digits)"
+    }
+    if (!hasValue(accountName)) errors.accountName = "Wallet holder name is required"
+  }
+
   if (form.type === "PAYPAL") {
     const paypalEmail = f(form, "paypalEmail")
     if (!hasValue(paypalEmail)) {
@@ -129,4 +148,5 @@ export const validators = {
   sortCodeValid,
   countryValid,
   emailValid,
+  mobileNumberValid,
 }
