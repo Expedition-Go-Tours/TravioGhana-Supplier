@@ -5,6 +5,7 @@ import { TeamRoleContext } from "./teamRoleContext";
 
 export function TeamRoleProvider({ children }) {
   const [teamRole, setTeamRole] = useState(null);
+  const [teamRoles, setTeamRoles] = useState([]);
   const [permissions, setPermissions] = useState([]);
   const [isOwner, setIsOwner] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -17,10 +18,12 @@ export function TeamRoleProvider({ children }) {
       });
       const data = response.data?.data;
       setTeamRole(data?.role || null);
+      setTeamRoles(data?.roles || (data?.role ? [data.role] : []));
       setPermissions(data?.permissions || []);
       setIsOwner(data?.isOwner || false);
     } catch {
       setTeamRole(null);
+      setTeamRoles([]);
       setPermissions([]);
       setIsOwner(false);
     }
@@ -39,6 +42,7 @@ export function TeamRoleProvider({ children }) {
       Promise.resolve().then(() => {
         if (cancelled) return;
         setTeamRole(null);
+        setTeamRoles([]);
         setPermissions([]);
         setIsOwner(false);
         setLoading(false);
@@ -60,11 +64,13 @@ export function TeamRoleProvider({ children }) {
           if (cancelled) return;
           const data = response.data?.data;
           setTeamRole(data?.role || null);
+          setTeamRoles(data?.roles || (data?.role ? [data.role] : []));
           setPermissions(data?.permissions || []);
           setIsOwner(data?.isOwner || false);
         } catch {
           if (cancelled) return;
           setTeamRole(null);
+          setTeamRoles([]);
           setPermissions([]);
           setIsOwner(false);
         } finally {
@@ -94,6 +100,7 @@ export function TeamRoleProvider({ children }) {
     <TeamRoleContext.Provider
       value={{
         teamRole,
+        teamRoles,
         permissions,
         isOwner,
         loading,

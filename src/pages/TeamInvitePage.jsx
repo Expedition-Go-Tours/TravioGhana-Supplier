@@ -5,6 +5,13 @@ import { useAuthStore } from "@/stores/authStore";
 import { useTeamRole } from "@/hooks/useTeamRole";
 import { toast } from "sonner";
 import { fetchInviteDetails, acceptInvite, declineInvite } from "@/features/settings/api";
+import { TEAM_ROLE_COLORS, TEAM_ROLE_LABELS, TEAM_ROLE_SUMMARIES, describeRoles, sortTeamRoles } from "@/config/teamRoles";
+
+/** Roles from the API, tolerating the legacy single-role field. */
+function inviteRoles(invite) {
+  const roles = sortTeamRoles(invite?.roles);
+  return roles.length ? roles : sortTeamRoles(invite?.role);
+}
 
 const STATUS = {
   LOADING: "loading",
@@ -211,7 +218,7 @@ export default function TeamInvitePage() {
             iconBg="bg-emerald-50"
             iconColor="text-emerald-600"
             title="Welcome to the Team!"
-            message={invite ? `You've joined ${invite.supplierName} as ${invite.role}.` : "Invitation accepted!"}
+            message={invite ? `You've joined ${invite.supplierName} as ${describeRoles(inviteRoles(invite))}.` : "Invitation accepted!"}
             buttonText="Go to Dashboard"
             buttonLink="/"
           />
@@ -269,13 +276,33 @@ function ReadyCard({ invite, onAccept, onDecline }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+        <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl">
           <div className="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
             <Shield size={16} className="text-indigo-700" />
           </div>
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Role</p>
-            <p className="text-sm font-semibold text-slate-800 capitalize">{invite.role}</p>
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+              {inviteRoles(invite).length > 1 ? "Roles" : "Role"}
+            </p>
+            <div className="flex flex-wrap items-center gap-1 mt-1">
+              {inviteRoles(invite).map((role) => (
+                <span
+                  key={role}
+                  className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${TEAM_ROLE_COLORS[role] || "bg-slate-100 text-slate-600"}`}
+                >
+                  {TEAM_ROLE_LABELS[role] || role}
+                </span>
+              ))}
+            </div>
+            <ul className="mt-1.5 space-y-0.5">
+              {inviteRoles(invite).map((role) => (
+                <li key={role} className="text-[11px] text-slate-500">
+                  <span className="font-semibold text-slate-600">{TEAM_ROLE_LABELS[role] || role}</span>
+                  {" — "}
+                  {TEAM_ROLE_SUMMARIES[role]}
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
 

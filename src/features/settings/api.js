@@ -114,8 +114,17 @@ export async function revokeTeamInvite(id) {
   return api.delete(`/suppliers/settings/team/invite/${id}`, { skipGlobalErrorHandler: true });
 }
 
-export async function updateTeamMemberRole(id, role) {
-  return api.patch(`/suppliers/settings/team/members/${id}/role`, { role }, { skipGlobalErrorHandler: true });
+/**
+ * Update a member's roles. Accepts an array (up to 2) or a single role string;
+ * `role` is sent as well so the request still works against an older API.
+ */
+export async function updateTeamMemberRole(id, roles) {
+  const list = Array.isArray(roles) ? roles : [roles];
+  return api.patch(
+    `/suppliers/settings/team/members/${id}/role`,
+    { roles: list, role: list[0] },
+    { skipGlobalErrorHandler: true },
+  );
 }
 
 export async function directAddTeamMember(data) {

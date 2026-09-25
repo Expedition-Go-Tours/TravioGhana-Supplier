@@ -33,6 +33,7 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: v
 const INVITE = {
   supplierName: 'Expedition-Go Tours LTD',
   role: 'editor',
+  roles: ['editor', 'finance'],
   invitedEmail: 'invitee@test.com',
 };
 
@@ -58,7 +59,28 @@ describe('TeamInvitePage', () => {
     await waitFor(() => expect(mocks.acceptInvite).toHaveBeenCalledWith('tok-1'));
     expect(mocks.refetch).toHaveBeenCalled();
     expect(await screen.findByText(/welcome to the team/i)).toBeInTheDocument();
-    expect(screen.getByText(/Expedition-Go Tours LTD/)).toBeInTheDocument();
+    // Both roles are named in the confirmation.
+    expect(screen.getByText(/joined Expedition-Go Tours LTD as Editor \+ Finance/i)).toBeInTheDocument();
+  });
+
+  it('shows every role and what it unlocks before the user decides', async () => {
+    authState.current = { isAuthenticated: true, user: { email: 'invitee@test.com' } };
+    // Hold off on auto-accept by using a non-matching account for the offer view.
+    authState.current = { isAuthenticated: true, user: { email: 'someone.else@test.com' } };
+    renderPage();
+
+    expect(await screen.findByText('Roles')).toBeInTheDocument();
+    // The summary sits next to the role label inside the same list item.
+    expect(screen.getByText(/Manage tours, bookings and products/)).toBeInTheDocument();
+    expect(screen.getByText(/See earnings, payouts and payout methods/)).toBeInTheDocument();
+  });
+
+  it('still renders a legacy single-role invitation', async () => {
+    mocks.fetchInviteDetails.mockResolvedValue({ ...INVITE, roles: undefined });
+    renderPage();
+
+    await waitFor(() => expect(mocks.acceptInvite).toHaveBeenCalled());
+    expect(await screen.findByText(/joined Expedition-Go Tours LTD as Editor\./i)).toBeInTheDocument();
   });
 
   it('shows the invitation for a different account and refuses to accept it', async () => {

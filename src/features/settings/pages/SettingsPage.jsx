@@ -29,7 +29,8 @@ import { getAuthToken, useAuthStore } from "@/stores/authStore";
 import { cn, formatCurrency } from "@/lib/utils";
 import { config } from "@/config";
 import { useTeamRole } from "@/hooks/useTeamRole";
-import { TEAM_ROLE_LABELS, TEAM_ROLE_COLORS } from "@/config/teamRoles";
+import { TEAM_ROLE_LABELS, TEAM_ROLE_COLORS, describeRoles, sortTeamRoles } from "@/config/teamRoles";
+import TeamRolePicker from "@/features/settings/components/TeamRolePicker";
 import SocialMediaManager from "../components/SocialMediaManager";
 import OperatingHoursEditor from "../components/OperatingHoursEditor";
 import { emptyWeeklyHours, normalizeWeeklyHours, validateOperatingHours } from "../utils/operatingHours";
@@ -62,7 +63,7 @@ const FADE_UP = {
 export default function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab") || "profile";
-  const { canManageTeam, canManageFinance, isOwner, teamRole } = useTeamRole();
+  const { canManageTeam, canManageFinance, isOwner, teamRole, teamRoles } = useTeamRole();
 
   const filteredTabs = TABS.filter((tab) => {
     if (tab.key === "team") return canManageTeam();
@@ -83,8 +84,8 @@ export default function SettingsPage() {
           <p className="text-sm text-slate-500 mt-0.5">Manage your account and business settings</p>
         </div>
         {!isOwner && teamRole && (
-          <span className={cn("text-[10px] font-medium px-2 py-1 rounded-full", TEAM_ROLE_COLORS[teamRole])}>
-            {TEAM_ROLE_LABELS[teamRole]} Access
+          <span className={cn("text-[10px] font-medium px-2 py-1 rounded-full bg-slate-100 text-slate-600")}>
+            {teamRoles?.length ? describeRoles(teamRoles) : TEAM_ROLE_LABELS[teamRole]} Access
           </span>
         )}
       </div>
@@ -1546,11 +1547,16 @@ function ResendButton({ email }) {
   );
 }
 
+function memberRoles(member) {
+  const roles = sortTeamRoles(member?.roles);
+  return roles.length ? roles : sortTeamRoles(member?.role);
+}
+
 function TeamTab() {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showInvite, setShowInvite] = useState(false);
-  const [form, setForm] = useState({ email: "", role: "editor" });
+  const [form, setForm] = useState({ email: "", roles: ["editor"] });
   const [sending, setSending] = useState(false);
   const [directAdd, setDirectAdd] = useState(false);
   const [editingRole, setEditingRole] = useState(null);
@@ -1558,7 +1564,7 @@ function TeamTab() {
 
   useEffect(() => {
     fetchTeamMembers()
-      .then(setMembers)
+      .then((rows) => setMembers(rows.map((row) => ({ ...row, roles: memberRoles(row) }))))
       .catch(() => toast.error("Failed to load team members"))
       .finally(() => setLoading(false));
   }, []);
@@ -1567,12 +1573,18 @@ function TeamTab() {
     e.preventDefault();
     setSending(true);
     try {
+      if (form.roles.length === 0) {
+        toast.error("Select at least one role");
+        return;
+      }
+      // `role` mirrors roles[0] so an older API deploy still understands the request.
+      const payload = { email: form.email, roles: form.roles, role: form.roles[0] };
       if (directAdd) {
-        const member = await directAddTeamMember({ email: form.email, role: form.role });
+        const member = await directAddTeamMember(payload);
         setMembers((prev) => [...prev, member]);
         toast.success(form.email + " added as a team member");
       } else {
-        const { member, emailSent } = await inviteTeamMember({ email: form.email, role: form.role });
+        const { member, emailSent } = await inviteTeamMember(payload);
         setMembers((prev) => [...prev, member]);
         if (emailSent) {
           toast.success("Invitation sent to " + form.email);
@@ -1580,7 +1592,7 @@ function TeamTab() {
           toast.warning("Invitation created for " + form.email + ", but the email could not be sent — use Resend to try again.");
         }
       }
-      setForm({ email: "", role: "editor" });
+      setForm({ email: "", roles: ["editor"] });
       setShowInvite(false);
     } catch (err) {
       toast.error(err?.response?.data?.message || "Failed to send invitation");
@@ -1589,12 +1601,17 @@ function TeamTab() {
     }
   };
 
-  const handleRoleChange = async (memberId, newRole) => {
+  const handleRoleChange = async (memberId, nextRoles) => {
+    const roles = sortTeamRoles(nextRoles);
+    if (roles.length === 0) {
+      toast.error("A team member needs at least one role");
+      return;
+    }
     try {
-      await updateTeamMemberRole(memberId, newRole);
-      setMembers((prev) => prev.map((m) => m.id === memberId ? { ...m, role: newRole } : m));
+      await updateTeamMemberRole(memberId, roles);
+      setMembers((prev) => prev.map((m) => m.id === memberId ? { ...m, role: roles[0], roles } : m));
       setEditingRole(null);
-      toast.success("Role updated successfully");
+      toast.success("Roles updated successfully");
     } catch (err) {
       toast.error(err?.response?.data?.message || "Failed to update role");
     }
@@ -1658,18 +1675,13 @@ function TeamTab() {
                     className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" required />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Role</label>
-                  <Select value={form.role} onValueChange={(v) => setForm((p) => ({ ...p, role: v }))}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="admin">Admin - Full access</SelectItem>
-                      <SelectItem value="editor">Editor - Manage tours and bookings</SelectItem>
-                      <SelectItem value="finance">Finance - View earnings and payouts</SelectItem>
-                      <SelectItem value="support">Support - Handle chat and reviews</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Roles <span className="font-normal text-slate-400">(up to 2)</span>
+                  </label>
+                  <TeamRolePicker
+                    value={form.roles}
+                    onChange={(roles) => setForm((p) => ({ ...p, roles }))}
+                  />
                 </div>
                 <div className="flex items-center gap-2 pt-1">
                   <label className="flex items-center gap-2 text-xs text-slate-500 cursor-pointer select-none">
@@ -1722,25 +1734,35 @@ function TeamTab() {
                     <span className="text-xs font-bold text-emerald-700">{m.email.charAt(0).toUpperCase()}</span>
                   </div>
                   <span className="flex-1 text-sm text-slate-700">{m.email}</span>
-                  <div className="w-24 relative">
+                  <div className="w-56 relative">
                     {editingRole === m.id ? (
-                      <Select value={m.role} onValueChange={(v) => handleRoleChange(m.id, v)} onOpenChange={(open) => !open && setEditingRole(null)}>
-                        <SelectTrigger className="h-7 text-[10px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="admin">Admin</SelectItem>
-                          <SelectItem value="editor">Editor</SelectItem>
-                          <SelectItem value="finance">Finance</SelectItem>
-                          <SelectItem value="support">Support</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <div className="rounded-xl border border-slate-200 bg-white p-2.5">
+                        <TeamRolePicker
+                          compact
+                          value={memberRoles(m)}
+                          onChange={(roles) => handleRoleChange(m.id, roles)}
+                        />
+                        <button
+                          onClick={() => setEditingRole(null)}
+                          className="mt-2 text-[10px] font-medium text-slate-400 hover:text-slate-600"
+                        >
+                          Done
+                        </button>
+                      </div>
                     ) : (
                       <button
                         onClick={() => setEditingRole(m.id)}
-                        className={cn("text-[10px] font-medium px-2 py-1 rounded cursor-pointer hover:opacity-80 transition-opacity", TEAM_ROLE_COLORS[m.role] || "bg-slate-100 text-slate-600")}
+                        className="flex flex-wrap items-center gap-1 text-left"
+                        title="Change roles"
                       >
-                        {TEAM_ROLE_LABELS[m.role] || m.role}
+                        {memberRoles(m).map((role) => (
+                          <span
+                            key={role}
+                            className={cn("text-[10px] font-medium px-2 py-1 rounded hover:opacity-80 transition-opacity", TEAM_ROLE_COLORS[role] || "bg-slate-100 text-slate-600")}
+                          >
+                            {TEAM_ROLE_LABELS[role] || role}
+                          </span>
+                        ))}
                       </button>
                     )}
                   </div>
