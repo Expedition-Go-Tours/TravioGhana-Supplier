@@ -27,17 +27,36 @@ export const TEAM_ROLE_SUMMARIES = {
   [TEAM_ROLES.SUPPORT]: 'Handle customer chat and reviews',
 };
 
+/**
+ * Permission keys the API enforces but grants to no non-admin role.
+ *
+ * `settings.manage` covers team management, notification routing and the KYC
+ * documents — owner territory, reachable for an admin member through admin's
+ * `*` (and for the owner, who is treated as an admin). Naming them here keeps
+ * the dashboards honest: a key that is neither in a role's list nor in this
+ * list does not exist, which is exactly how the sidebar ended up asking for
+ * `tours.manage` and hiding Special Offers from every editor.
+ */
+export const ADMIN_ONLY_PERMISSIONS = ['settings.manage'];
+
+/**
+ * Mirror of the API's permission model (config/teamPermissions.js on the
+ * backend). Used for optimistic UI before `/my-role` responds and for the
+ * invite/role pickers; the server stays authoritative.
+ */
 export const TEAM_ROLE_PERMISSIONS = {
   [TEAM_ROLES.ADMIN]: ['*'],
   [TEAM_ROLES.EDITOR]: [
     'tours.view', 'tours.create', 'tours.update', 'tours.delete',
     'bookings.view', 'bookings.manage',
     'products.view', 'products.create', 'products.update', 'products.delete',
+    'analytics.view', 'settings.business',
   ],
   [TEAM_ROLES.FINANCE]: [
     'earnings.view',
     'payouts.view', 'payouts.request',
     'payout-methods.view', 'payout-methods.manage',
+    'analytics.view', 'settings.tax',
   ],
   [TEAM_ROLES.SUPPORT]: [
     'chat.view', 'chat.respond',

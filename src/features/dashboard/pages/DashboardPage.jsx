@@ -9,6 +9,8 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { fetchSupplierDashboard, fetchMonthlyRevenue } from "../api";
+import { canOpenPath } from "@/config/pageAccess";
+import { useTeamRole } from "@/hooks/useTeamRole";
 import { fetchCancellationSummary } from "@/features/cancellation/api";
 import { getAuthToken, useAuthStore } from "@/stores/authStore";
 import { fetchSupplierBookings } from "@/features/bookings/api";
@@ -74,6 +76,16 @@ export default function DashboardPage() {
   const [cancellationSummary, setCancellationSummary] = useState(null);
   const [revenueData, setRevenueData] = useState([]);
   const user = useAuthStore((s) => s.user);
+  const { hasPermission } = useTeamRole();
+
+  // Dashboard cards point at the pages behind them, and those pages are
+  // role-gated: a support member's "Total Earnings" card targets Finance, which
+  // they cannot open. Rather than bouncing them off the route guard with a
+  // refusal, a card this role cannot follow simply is not a link.
+  const canOpen = (path) => canOpenPath(hasPermission, path);
+  const goTo = (path, options) => {
+    if (canOpen(path)) navigate(path, options);
+  };
 
   const { data: notificationsData, refetch: refetchNotifications } =
     useNotifications({ limit: 5 });
@@ -169,8 +181,15 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {STATS_CONFIG.map((s, i) => {
           const Icon = s.icon;
+          const openable = canOpen(s.path);
           return (
-            <div key={s.label} onClick={() => navigate(s.path, s.state ? { state: s.state } : undefined)} className={`bg-white border border-emerald-100/60 rounded-xl p-4 hover:shadow-md hover:shadow-emerald-900/5 hover:border-emerald-200 transition-all border-l-4 cursor-pointer ${s.accent}`}>
+            <div
+              key={s.label}
+              onClick={openable ? () => navigate(s.path, s.state ? { state: s.state } : undefined) : undefined}
+              className={`bg-white border border-emerald-100/60 rounded-xl p-4 transition-all border-l-4 ${s.accent} ${
+                openable ? "hover:shadow-md hover:shadow-emerald-900/5 hover:border-emerald-200 cursor-pointer" : ""
+              }`}
+            >
               <div className="flex items-center justify-between mb-2.5">
                 <div className={`w-9 h-9 rounded-lg ${s.iconBg} border ${s.iconBorder} flex items-center justify-center`}>
                   <Icon size={16} className={s.iconColor} />
@@ -198,9 +217,11 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 bg-white border border-emerald-100/60 rounded-xl p-5 flex flex-col hover:border-emerald-200 transition-all">
           <div className="flex items-center justify-between mb-4 shrink-0">
             <h3 className="text-sm font-semibold text-slate-800">Bookings Overview</h3>
-            <button onClick={() => navigate("/bookings")} className="text-xs font-medium text-emerald-600 hover:text-emerald-700 flex items-center gap-1 transition-colors">
-              View all <ArrowUpRight size={11} />
-            </button>
+            {canOpen("/bookings") && (
+              <button onClick={() => navigate("/bookings")} className="text-xs font-medium text-emerald-600 hover:text-emerald-700 flex items-center gap-1 transition-colors">
+                View all <ArrowUpRight size={11} />
+              </button>
+            )}
           </div>
           <div className="flex-1 min-h-[240px]">
             {loading ? (
@@ -312,9 +333,9 @@ export default function DashboardPage() {
                               {n.data?.bookingId && (
                                 <span className="ml-auto text-[10px] font-medium text-[#059669]">View booking →</span>
                               )}
-                              {n.data?.payoutId && (
+                              {n.data?.payoutId && canOpen("/finance") && (
                                 <button
-                                  onClick={(e) => { e.stopPropagation(); navigate(`/finance?tab=payouts&payoutId=${n.data.payoutId}`); }}
+                                  onClick={(e) => { e.stopPropagation(); goTo(`/finance?tab=payouts&payoutId=${n.data.payoutId}`); }}
                                   className="ml-auto text-[10px] font-medium text-[#059669] hover:text-[#047857] transition-colors"
                                 >
                                   View payout →
@@ -393,9 +414,11 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 bg-white border border-emerald-100/60 rounded-xl p-5 hover:border-emerald-200 transition-all">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-slate-800">Recent Bookings</h3>
-            <button onClick={() => navigate("/bookings")} className="text-xs font-medium text-emerald-600 hover:text-emerald-700 flex items-center gap-1 transition-colors">
-              View all <ArrowUpRight size={11} />
-            </button>
+            {canOpen("/bookings") && (
+              <button onClick={() => navigate("/bookings")} className="text-xs font-medium text-emerald-600 hover:text-emerald-700 flex items-center gap-1 transition-colors">
+                View all <ArrowUpRight size={11} />
+              </button>
+            )}
           </div>
           {loading ? (
             <div className="space-y-3">
@@ -412,7 +435,13 @@ export default function DashboardPage() {
           ) : recentBookings.length > 0 ? (
             <div className="space-y-1">
               {recentBookings.slice(0, 4).map((b) => (
-                <div key={b.id} onClick={() => navigate(`/bookings?bookingId=${b.id}`)} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-emerald-50/40 transition-colors cursor-pointer border border-transparent hover:border-emerald-100">
+                <div
+                  key={b.id}
+                  onClick={canOpen("/bookings") ? () => navigate(`/bookings?bookingId=${b.id}`) : undefined}
+                  className={`flex items-center gap-3 p-2.5 rounded-lg transition-colors border border-transparent ${
+                    canOpen("/bookings") ? "hover:bg-emerald-50/40 cursor-pointer hover:border-emerald-100" : ""
+                  }`}
+                >
                   {b.tourPhoto ? (
                     <OptimizedImage src={b.tourPhoto} alt="" width={40} className="w-10 h-10 rounded-lg object-cover shrink-0 ring-1 ring-emerald-100" />
                   ) : (
@@ -445,9 +474,11 @@ export default function DashboardPage() {
         <div className="bg-white border border-emerald-100/60 rounded-xl p-5 hover:border-emerald-200 transition-all">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-slate-800">Top Products</h3>
-            <button onClick={() => navigate("/products")} className="text-xs font-medium text-emerald-600 hover:text-emerald-700 flex items-center gap-1 transition-colors">
-              View all <ArrowUpRight size={11} />
-            </button>
+            {canOpen("/products") && (
+              <button onClick={() => navigate("/products")} className="text-xs font-medium text-emerald-600 hover:text-emerald-700 flex items-center gap-1 transition-colors">
+                View all <ArrowUpRight size={11} />
+              </button>
+            )}
           </div>
           {loading ? (
             <div className="space-y-3">
@@ -458,7 +489,7 @@ export default function DashboardPage() {
               {topProducts.map((product, i) => (
                 <button
                   key={product.id}
-                  onClick={() => navigate(`/products/${product.id}`)}
+                  onClick={canOpen(`/products/${product.id}`) ? () => navigate(`/products/${product.id}`) : undefined}
                   className="w-full flex items-center gap-3 rounded-lg border border-transparent hover:border-emerald-200 hover:bg-emerald-50/30 p-2 text-left transition-all"
                 >
                   <span className="w-5 shrink-0 text-xs font-semibold text-slate-400 tabular-nums">{i + 1}</span>

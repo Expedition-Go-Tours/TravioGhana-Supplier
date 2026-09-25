@@ -29,6 +29,7 @@ import { getAuthToken, useAuthStore } from "@/stores/authStore";
 import { cn, formatCurrency } from "@/lib/utils";
 import { config } from "@/config";
 import { useTeamRole } from "@/hooks/useTeamRole";
+import { canOpenSettingsTab } from "@/config/pageAccess";
 import { TEAM_ROLE_LABELS, TEAM_ROLE_COLORS, describeRoles, sortTeamRoles } from "@/config/teamRoles";
 import TeamRolePicker from "@/features/settings/components/TeamRolePicker";
 import SocialMediaManager from "../components/SocialMediaManager";
@@ -63,16 +64,17 @@ const FADE_UP = {
 export default function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab") || "profile";
-  const { canManageTeam, canManageFinance, isOwner, teamRole, teamRoles } = useTeamRole();
+  const { hasPermission, isOwner, teamRoles } = useTeamRole();
 
-  const filteredTabs = TABS.filter((tab) => {
-    if (tab.key === "team") return canManageTeam();
-    if (tab.key === "payouts") return canManageFinance() || isOwner;
-    if (tab.key === "notifications") return isOwner;
-    return true;
-  });
-  // Guard against a stale/removed tab in the URL (e.g. the removed booking-rules tab).
-  const activeTab = filteredTabs.some((t) => t.key === requestedTab) ? requestedTab : "profile";
+  // One rule per tab, shared with the search palette (config/pageAccess.js): a
+  // tab is only offered to a role whose API calls on it will actually succeed.
+  const filteredTabs = TABS.filter((tab) => canOpenSettingsTab(hasPermission, tab.key));
+  // Guard against a stale, removed or forbidden tab in the URL — including a
+  // tab this role cannot open. A member with no business rights lands on the
+  // first tab they do have (Security for support, and so on).
+  const activeTab = filteredTabs.some((t) => t.key === requestedTab)
+    ? requestedTab
+    : (filteredTabs[0]?.key || "security");
 
   return (
     <div className="max-w-5xl">
@@ -83,9 +85,9 @@ export default function SettingsPage() {
           <h1 className="text-xl md:text-2xl font-bold text-slate-800">Settings</h1>
           <p className="text-sm text-slate-500 mt-0.5">Manage your account and business settings</p>
         </div>
-        {!isOwner && teamRole && (
+        {!isOwner && teamRoles.length > 0 && (
           <span className={cn("text-[10px] font-medium px-2 py-1 rounded-full bg-slate-100 text-slate-600")}>
-            {teamRoles?.length ? describeRoles(teamRoles) : TEAM_ROLE_LABELS[teamRole]} Access
+            {describeRoles(teamRoles)} Access
           </span>
         )}
       </div>

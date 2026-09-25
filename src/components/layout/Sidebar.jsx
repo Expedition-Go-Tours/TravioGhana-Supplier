@@ -8,22 +8,26 @@ import api from "@/lib/axios";
 import { LogOut, ChevronLeft, LayoutDashboard, Package, Ticket, CalendarDays, Users, DollarSign, Star, Bell, BarChart3, BadgeCheck, Settings, CalendarX2, BadgePercent, MapPinned, ShieldCheck, Calendar } from "lucide-react";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { useTeamRole } from "@/hooks/useTeamRole";
+import { PAGE_ACCESS } from "@/config/pageAccess";
+import { describeRoles } from "@/config/teamRoles";
 
+// `permission` comes from PAGE_ACCESS so the sidebar, the search palette and
+// the route guards can never disagree about who sees what.
 const allNavItems = [
-  { label: "Dashboard", path: "/", icon: <LayoutDashboard size={20} />, permission: null },
-  { label: "Products", path: "/products", icon: <Package size={20} />, permission: "tours.view" },
-  { label: "Bookings", path: "/bookings", icon: <Ticket size={20} />, permission: "bookings.view" },
-  { label: "Pickup Planner", path: "/pickup-planner", icon: <MapPinned size={20} />, permission: "bookings.view" },
-  { label: "Special Offers", path: "/special-offers", icon: <BadgePercent size={20} />, permission: "tours.manage" },
-  { label: "Cancellation", path: "/cancellation-rate", icon: <CalendarX2 size={20} />, permission: null },
-  { label: "Availability", path: "/availability", icon: <CalendarDays size={20} />, permission: "tours.view" },
-  { label: "Customers", path: "/chat", icon: <Users size={20} />, permission: "chat.view" },
-  { label: "Finance", path: "/finance", icon: <DollarSign size={20} />, permission: "earnings.view" },
-  { label: "Reviews", path: "/reviews", icon: <Star size={20} />, permission: "reviews.view" },
-{ label: "Notifications", path: "/notifications", icon: <Bell size={20} />, permission: null },
-{ label: "Verification", path: "/verification", icon: <ShieldCheck size={20} />, permission: null },
-{ label: "Analytics", path: "/analytics", icon: <BarChart3 size={20} />, permission: null },
-  { label: "Settings", path: "/settings", icon: <Settings size={20} />, permission: null },
+  { label: "Dashboard", path: "/", icon: <LayoutDashboard size={20} />, permission: PAGE_ACCESS["/"] },
+  { label: "Products", path: "/products", icon: <Package size={20} />, permission: PAGE_ACCESS["/products"] },
+  { label: "Bookings", path: "/bookings", icon: <Ticket size={20} />, permission: PAGE_ACCESS["/bookings"] },
+  { label: "Pickup Planner", path: "/pickup-planner", icon: <MapPinned size={20} />, permission: PAGE_ACCESS["/pickup-planner"] },
+  { label: "Special Offers", path: "/special-offers", icon: <BadgePercent size={20} />, permission: PAGE_ACCESS["/special-offers"] },
+  { label: "Cancellation", path: "/cancellation-rate", icon: <CalendarX2 size={20} />, permission: PAGE_ACCESS["/cancellation-rate"] },
+  { label: "Availability", path: "/availability", icon: <CalendarDays size={20} />, permission: PAGE_ACCESS["/availability"] },
+  { label: "Customers", path: "/chat", icon: <Users size={20} />, permission: PAGE_ACCESS["/chat"] },
+  { label: "Finance", path: "/finance", icon: <DollarSign size={20} />, permission: PAGE_ACCESS["/finance"] },
+  { label: "Reviews", path: "/reviews", icon: <Star size={20} />, permission: PAGE_ACCESS["/reviews"] },
+  { label: "Notifications", path: "/notifications", icon: <Bell size={20} />, permission: PAGE_ACCESS["/notifications"] },
+  { label: "Verification", path: "/verification", icon: <ShieldCheck size={20} />, permission: PAGE_ACCESS["/verification"] },
+  { label: "Analytics", path: "/analytics", icon: <BarChart3 size={20} />, permission: PAGE_ACCESS["/analytics"] },
+  { label: "Settings", path: "/settings", icon: <Settings size={20} />, permission: PAGE_ACCESS["/settings"] },
 ];
 
 function extractBusinessName(businessInfo) {
@@ -52,25 +56,34 @@ export default function Sidebar() {
   const logoUrl = user?.logoUrl;
   const [fetchedLogoUrl, setFetchedLogoUrl] = useState(null);
   const [logoLoaded, setLogoLoaded] = useState(false);
-  const [businessName, setBusinessName] = useState(null);
+  const [business, setBusiness] = useState(null);
 const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
   // Derived state: a collapsed sidebar can never show the confirm dialog.
   // Expressing the reset during render avoids a setState-from-effect cascade.
   const showLogoutConfirm = logoutConfirmOpen && !isCollapsed;
-  const { hasPermission } = useTeamRole();
+  const { hasPermission, isOwner, teamRoles } = useTeamRole();
+
+  // A member without business-profile rights still gets their own Security tab,
+  // so the card falls back to the settings root instead of a hidden tab.
+  const canEditBusiness = hasPermission("settings.business");
 
   const navItems = allNavItems.filter((item) => {
     if (!item.permission) return true;
     return hasPermission(item.permission);
   });
 
+  // This card is the BUSINESS, so it must show the business whoever is signed
+  // in. `/suppliers/application/status` is resolved server-side through the
+  // supplier membership, which means a team member receives the owner's name,
+  // logo, verification status and join date — their own account is a different
+  // person with (usually) no supplier profile at all.
   useEffect(() => {
     if (!user?.roles?.includes("supplier")) return;
-    loadSupplierProfile().then((profile) => {
-      if (!profile) return;
-      const name = extractBusinessName(profile.businessInfo);
-      if (name) setBusinessName(name);
-    });
+    let cancelled = false;
+    loadSupplierProfile()
+      .then((profile) => { if (!cancelled) setBusiness(profile || null); })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, [user?.roles]);
 
   // Company logo is fetched directly from the backend on mount so it always
@@ -95,9 +108,18 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
     return () => { cancelled = true; };
   }, [user?.roles]);
 
-  const effectiveLogoUrl = logoLoaded ? fetchedLogoUrl : logoUrl;
+  const businessName =
+    extractBusinessName(business?.businessInfo) || business?.businessName || null;
 
-  const statusStyle = SIDEBAR_STATUS_STYLES[supplierProfile?.status] || null;
+  // The business logo wins over the viewer's own avatar: a team member has
+  // never uploaded one, so falling back keeps the owner unchanged.
+  const effectiveLogoUrl = business?.logoUrl || (logoLoaded ? fetchedLogoUrl : logoUrl);
+
+  const statusStyle =
+    SIDEBAR_STATUS_STYLES[business?.status || supplierProfile?.status] || null;
+
+  // "Member since" is when the business joined Travio, for every viewer.
+  const memberSince = business?.supplierSince || user?.createdAt;
 
   const handleLogout = async () => {
     await useAuthStore.getState().logout();
@@ -171,7 +193,7 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
 
         {/* Profile — Glassmorphism card */}
         <div
-          onClick={() => navigate("/settings?tab=profile")}
+          onClick={() => navigate(canEditBusiness ? "/settings?tab=profile" : "/settings")}
           className={`shrink-0 cursor-pointer ${
             isCollapsed
               ? "py-3 px-2"
@@ -209,10 +231,18 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
                 ) : (
                   <span className="text-[11px] text-white/40 block mt-1">Administrator</span>
                 )}
-                {user?.createdAt && (
+                {/* A member still needs to see what they can do: the badge above
+                    describes the business, this line describes the person. The
+                    owner keeps the single "Administrator" line. */}
+                {!isOwner && (
+                  <span className="text-[11px] text-white/40 block mt-1" title="Your team role">
+                    {describeRoles(teamRoles) || "Team member"}
+                  </span>
+                )}
+                {memberSince && (
                   <div className="flex items-center justify-center gap-1 mt-2 text-xs font-normal tracking-tight text-white/50 hover:text-white/65 transition-colors duration-200">
                     <Calendar size={14} className="opacity-60 shrink-0" />
-                    <span>Member since {new Date(user.createdAt).getFullYear()}</span>
+                    <span>Member since {new Date(memberSince).getFullYear()}</span>
                   </div>
                 )}
               </div>

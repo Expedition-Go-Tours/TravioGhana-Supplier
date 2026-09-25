@@ -91,10 +91,15 @@ export function TeamRoleProvider({ children }) {
     return permissions.some((p) => p.endsWith("*") && p.startsWith(prefix));
   };
 
-  const canManageTeam = () => teamRole === "admin" || isOwner;
+  // Permission-based, never role-name based: an ADMIN-role member who is not the
+  // account owner must be treated exactly like the owner, and the key used here
+  // is the same one the API enforces on the matching route.
+  const canManageTeam = () => hasPermission("settings.manage");
   const canManageTours = () => hasPermission("tours.view");
-  const canManageFinance = () => hasPermission("earnings.view");
+  const canManageFinance = () => hasPermission("payouts.view");
   const canManageChat = () => hasPermission("chat.view");
+  const canManageAnalytics = () => hasPermission("analytics.view");
+  const canManageBusinessProfile = () => hasPermission("settings.business");
 
   return (
     <TeamRoleContext.Provider
@@ -110,6 +115,8 @@ export function TeamRoleProvider({ children }) {
         canManageTours,
         canManageFinance,
         canManageChat,
+        canManageAnalytics,
+        canManageBusinessProfile,
       }}
     >
       {children}

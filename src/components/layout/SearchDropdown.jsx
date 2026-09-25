@@ -4,23 +4,26 @@ import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Clock, X, CornerDownLeft, Package, Loader2 } from "lucide-react";
 import { useTeamRole } from "@/hooks/useTeamRole";
+import { PAGE_ACCESS, canOpenSettingsTab } from "@/config/pageAccess";
 import { cn } from "@/lib/utils";
 import { productsListQuery } from "@/features/products/api";
 import { searchTours, tourSubtitle } from "@/features/products/tourSearch";
 import { getAuthToken } from "@/stores/authStore";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 
+// Same rules as the sidebar (PAGE_ACCESS) so search can never offer a page the
+// sidebar hides, nor a settings tab the page would refuse to open.
 const allNavItems = [
-  { label: "Dashboard", path: "/", iconName: "LayoutDashboard", permission: null, keywords: ["home", "overview"] },
-  { label: "Products", path: "/products", iconName: "Package", permission: "tours.view", keywords: ["tour", "listing", "package"] },
-  { label: "Bookings", path: "/bookings", iconName: "Ticket", permission: "bookings.view", keywords: ["reservation", "order", "customer booking"] },
-  { label: "Pickup Planner", path: "/pickup-planner", iconName: "MapPinned", permission: "bookings.view", keywords: ["pickup", "map", "transport"] },
-  { label: "Special Offers", path: "/special-offers", iconName: "BadgePercent", permission: "tours.manage", keywords: ["discount", "deal", "promo", "offer"] },
-  { label: "Cancellation", path: "/cancellation-rate", iconName: "CalendarX2", permission: null, keywords: ["cancel", "refund", "rate"] },
-  { label: "Availability", path: "/availability", iconName: "CalendarDays", permission: "tours.view", keywords: ["calendar", "slots", "schedule"] },
-  { label: "Customers", path: "/chat", iconName: "Users", permission: "chat.view", keywords: ["chat", "messages", "inbox"] },
+  { label: "Dashboard", path: "/", iconName: "LayoutDashboard", permission: PAGE_ACCESS["/"], keywords: ["home", "overview"] },
+  { label: "Products", path: "/products", iconName: "Package", permission: PAGE_ACCESS["/products"], keywords: ["tour", "listing", "package"] },
+  { label: "Bookings", path: "/bookings", iconName: "Ticket", permission: PAGE_ACCESS["/bookings"], keywords: ["reservation", "order", "customer booking"] },
+  { label: "Pickup Planner", path: "/pickup-planner", iconName: "MapPinned", permission: PAGE_ACCESS["/pickup-planner"], keywords: ["pickup", "map", "transport"] },
+  { label: "Special Offers", path: "/special-offers", iconName: "BadgePercent", permission: PAGE_ACCESS["/special-offers"], keywords: ["discount", "deal", "promo", "offer"] },
+  { label: "Cancellation", path: "/cancellation-rate", iconName: "CalendarX2", permission: PAGE_ACCESS["/cancellation-rate"], keywords: ["cancel", "refund", "rate"] },
+  { label: "Availability", path: "/availability", iconName: "CalendarDays", permission: PAGE_ACCESS["/availability"], keywords: ["calendar", "slots", "schedule"] },
+  { label: "Customers", path: "/chat", iconName: "Users", permission: PAGE_ACCESS["/chat"], keywords: ["chat", "messages", "inbox"] },
   {
-    label: "Finance", path: "/finance", iconName: "DollarSign", permission: "earnings.view",
+    label: "Finance", path: "/finance", iconName: "DollarSign", permission: PAGE_ACCESS["/finance"],
     keywords: ["money", "payout", "bank", "paypal", "withdraw", "earnings"],
     children: [
       { label: "Earnings", tab: "earnings", keywords: ["revenue", "income", "commission"] },
@@ -28,12 +31,12 @@ const allNavItems = [
       { label: "Payout Methods", tab: "methods", keywords: ["bank", "paypal", "account", "withdraw"] },
     ],
   },
-  { label: "Reviews", path: "/reviews", iconName: "Star", permission: "reviews.view", keywords: ["rating", "feedback"] },
-  { label: "Notifications", path: "/notifications", iconName: "Bell", permission: null, keywords: ["alerts", "updates"] },
-  { label: "Verification", path: "/verification", iconName: "ShieldCheck", permission: null, keywords: ["verify", "identity", "badge"] },
-  { label: "Analytics", path: "/analytics", iconName: "BarChart3", permission: null, keywords: ["stats", "reports", "insights"] },
+  { label: "Reviews", path: "/reviews", iconName: "Star", permission: PAGE_ACCESS["/reviews"], keywords: ["rating", "feedback"] },
+  { label: "Notifications", path: "/notifications", iconName: "Bell", permission: PAGE_ACCESS["/notifications"], keywords: ["alerts", "updates"] },
+  { label: "Verification", path: "/verification", iconName: "ShieldCheck", permission: PAGE_ACCESS["/verification"], keywords: ["verify", "identity", "badge"] },
+  { label: "Analytics", path: "/analytics", iconName: "BarChart3", permission: PAGE_ACCESS["/analytics"], keywords: ["stats", "reports", "insights"] },
   {
-    label: "Settings", path: "/settings", iconName: "Settings", permission: null,
+    label: "Settings", path: "/settings", iconName: "Settings", permission: PAGE_ACCESS["/settings"],
     keywords: ["account", "preferences", "configuration"],
     children: [
       { label: "Profile", tab: "profile", keywords: ["business", "contact", "info"] },
@@ -41,7 +44,6 @@ const allNavItems = [
       { label: "Payout Settings", tab: "payouts", keywords: ["bank", "paypal", "payout", "withdraw"] },
       { label: "Security", tab: "security", keywords: ["password", "two factor", "login"] },
       { label: "Tax Information", tab: "tax", keywords: ["vat", "tin", "registration"] },
-      { label: "Booking Rules", tab: "booking-rules", keywords: ["policies", "cancellation"] },
       { label: "Team", tab: "team", keywords: ["members", "roles", "invite", "staff"] },
     ],
   },
@@ -161,10 +163,16 @@ export default function SearchDropdown() {
   });
 
   const navItems = useMemo(() => {
-    const filtered = allNavItems.filter((item) => {
-      if (!item.permission) return true;
-      return hasPermission(item.permission);
-    });
+    // Pages first, then the settings tabs this role can actually open.
+    const filtered = allNavItems
+      .filter((item) => {
+        if (!item.permission) return true;
+        return hasPermission(item.permission);
+      })
+      .map((item) => (item.children
+        ? { ...item, children: item.children.filter((child) => canOpenSettingsTab(hasPermission, child.tab)) }
+        : item))
+      .filter((item) => !item.children || item.children.length > 0);
     return flattenNavItems(filtered);
   }, [hasPermission]);
 

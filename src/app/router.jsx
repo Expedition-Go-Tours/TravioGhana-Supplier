@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import AppShell from "@/components/layout/AppShell";
 import ProtectedRoute from "@/components/shared/ProtectedRoute";
+import RequirePageAccess from "@/components/shared/RequirePageAccess";
 import AuthOnlyRoute from "@/components/shared/AuthOnlyRoute";
 import GuestRoute from "@/components/shared/GuestRoute";
 import RootLayout, { ProductBuilderRedirect } from "./RootLayout";
@@ -61,28 +62,33 @@ export const router = createBrowserRouter([
           {
             element: <AppShell />,
             children: [
-              { index: true, element: <DashboardPage /> },
-              { path: "bookings", element: <BookingsPage /> },
-              { path: "pickup-planner", element: <PickupPlannerPage /> },
-              { path: "availability", element: <AvailabilityPage /> },
-              { path: "products", element: <ProductsListPage /> },
-              // `handle.bleed` opts a route out of the shared PageContainer —
-              // see components/layout/shell.js. Use it only for routes that
-              // own their full-viewport layout (and import SHELL_GUTTER).
-              { path: "products/:id", element: <ProductDetailPage />, handle: { bleed: true } },
-              { path: "products/build/:id/:step", element: <ProductBuilderRedirect />, handle: { bleed: true } },
-              { path: "products/build/:id?", element: <ProductBuilderPage />, handle: { bleed: true } },
-              { path: "reviews", element: <ReviewsPage /> },
-              { path: "finance", element: <FinancePage /> },
-              { path: "notifications", element: <NotificationsPage /> },
-              { path: "verification", element: <VerificationPage /> },
-              { path: "settings", element: <SettingsPage /> },
-              { path: "chat", element: <ChatPage />, handle: { bleed: true } },
-              { path: "customers", element: <Navigate to="/chat" replace /> },
-              { path: "analytics", element: <AnalyticsPage /> },
-              { path: "cancellation-rate", element: <CancellationRatePage /> },
-              { path: "special-offers", element: <SpecialOffersListPage /> },
-              { path: "special-offers/build/:id?/:step?", element: <SpecialOfferBuilderPage /> },
+              // Everything below is filtered by PAGE_ACCESS (config/pageAccess.js):
+              // a team member without the page's permission is sent back to the
+              // dashboard instead of landing on a page whose requests all fail.
+              { element: <RequirePageAccess />, children: [
+                { index: true, element: <DashboardPage /> },
+                { path: "bookings", element: <BookingsPage /> },
+                { path: "pickup-planner", element: <PickupPlannerPage /> },
+                { path: "availability", element: <AvailabilityPage /> },
+                { path: "products", element: <ProductsListPage /> },
+                // `handle.bleed` opts a route out of the shared PageContainer —
+                // see components/layout/shell.js. Use it only for routes that
+                // own their full-viewport layout (and import SHELL_GUTTER).
+                { path: "products/:id", element: <ProductDetailPage />, handle: { bleed: true } },
+                { path: "products/build/:id/:step", element: <ProductBuilderRedirect />, handle: { bleed: true } },
+                { path: "products/build/:id?", element: <ProductBuilderPage />, handle: { bleed: true } },
+                { path: "reviews", element: <ReviewsPage /> },
+                { path: "finance", element: <FinancePage /> },
+                { path: "notifications", element: <NotificationsPage /> },
+                { path: "verification", element: <VerificationPage /> },
+                { path: "settings", element: <SettingsPage /> },
+                { path: "chat", element: <ChatPage />, handle: { bleed: true } },
+                { path: "customers", element: <Navigate to="/chat" replace /> },
+                { path: "analytics", element: <AnalyticsPage /> },
+                { path: "cancellation-rate", element: <CancellationRatePage /> },
+                { path: "special-offers", element: <SpecialOffersListPage /> },
+                { path: "special-offers/build/:id?/:step?", element: <SpecialOfferBuilderPage /> },
+              ] },
               // The 404 owns its own full-screen centred layout.
               { path: "*", element: <NotFoundPage />, handle: { bleed: true } },
             ],
