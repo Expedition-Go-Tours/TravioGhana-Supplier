@@ -139,6 +139,7 @@ function ProfileTab() {
   const [form, setForm] = useState({
     name: "", phone: "", language: "en", timezone: "UTC", email: "",
     description: "", address: "", city: "", country: "", region: "",
+    legalBusinessName: "", businessType: "", registrationNumber: "", tin: "", yearEstablished: "",
     website: "", operatingHours: emptyWeeklyHours(),
     instagram: "", facebook: "", twitter: "",
     tiktok: "", youtube: "", linkedin: "", whatsapp: "", pinterest: "",
@@ -162,12 +163,17 @@ function ProfileTab() {
         if (user) {
           const bi = biz?.businessInfo || {};
           const loaded = {
-            name: user.name || "", phone: user.phone || "",
+            name: user.name || "", phone: user.phone || bi.phoneNumber || "",
             language: user.language || "en", timezone: user.timezone || "UTC",
             email: user.email || "",
             description: bi.description || "", address: bi.address || "",
             city: bi.city || "", country: bi.country || "",
             region: bi.region || "", website: bi.website || "",
+            legalBusinessName: bi.legalBusinessName || "",
+            businessType: bi.businessType || "",
+            registrationNumber: bi.registrationNumber || "",
+            tin: bi.tin || "",
+            yearEstablished: bi.yearEstablished != null ? String(bi.yearEstablished) : "",
             instagram: bi.instagram || "", facebook: bi.facebook || "",
             twitter: bi.twitter || "", operatingHours: normalizeWeeklyHours(bi.operatingHours),
             tiktok: bi.tiktok || "", youtube: bi.youtube || "",
@@ -214,6 +220,9 @@ function ProfileTab() {
           description: form.description, address: form.address,
           city: form.city, country: form.country, region: form.region,
           website: form.website, operatingHours: form.operatingHours,
+          legalBusinessName: form.legalBusinessName, businessType: form.businessType,
+          registrationNumber: form.registrationNumber, tin: form.tin,
+          yearEstablished: form.yearEstablished,
           instagram: form.instagram, facebook: form.facebook, twitter: form.twitter,
           tiktok: form.tiktok, youtube: form.youtube, linkedin: form.linkedin,
           whatsapp: form.whatsapp, pinterest: form.pinterest,
@@ -279,6 +288,9 @@ function ProfileTab() {
     description: form.description, address: form.address, city: form.city,
     country: form.country, region: form.region, website: form.website,
     operatingHours: form.operatingHours,
+    legalBusinessName: form.legalBusinessName, businessType: form.businessType,
+    registrationNumber: form.registrationNumber, tin: form.tin,
+    yearEstablished: form.yearEstablished,
     instagram: form.instagram, facebook: form.facebook, twitter: form.twitter,
     tiktok: form.tiktok, youtube: form.youtube, linkedin: form.linkedin,
     whatsapp: form.whatsapp, pinterest: form.pinterest,
@@ -286,6 +298,9 @@ function ProfileTab() {
     description: initialForm.description, address: initialForm.address, city: initialForm.city,
     country: initialForm.country, region: initialForm.region, website: initialForm.website,
     operatingHours: initialForm.operatingHours,
+    legalBusinessName: initialForm.legalBusinessName, businessType: initialForm.businessType,
+    registrationNumber: initialForm.registrationNumber, tin: initialForm.tin,
+    yearEstablished: initialForm.yearEstablished,
     instagram: initialForm.instagram, facebook: initialForm.facebook, twitter: initialForm.twitter,
     tiktok: initialForm.tiktok, youtube: initialForm.youtube, linkedin: initialForm.linkedin,
     whatsapp: initialForm.whatsapp, pinterest: initialForm.pinterest,
@@ -449,6 +464,57 @@ function ProfileTab() {
           </div>
         </div>
         <div className="px-6 py-5 space-y-5">
+          <div>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Business details</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Legal Business Name</label>
+                <input type="text" value={form.legalBusinessName}
+                  onChange={(e) => setForm((p) => ({ ...p, legalBusinessName: e.target.value }))}
+                  placeholder="As registered with the Registrar General"
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Business Type</label>
+                <Select value={form.businessType || "individual"}
+                  onValueChange={(v) => setForm((p) => ({ ...p, businessType: v }))}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select business type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="individual">Individual</SelectItem>
+                    <SelectItem value="company">Registered Company</SelectItem>
+                    <SelectItem value="non_profit">Non-profit</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Registration Number</label>
+                <input type="text" value={form.registrationNumber}
+                  onChange={(e) => setForm((p) => ({ ...p, registrationNumber: e.target.value }))}
+                  placeholder="e.g. CS123456789"
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Tax Identification Number (TIN)</label>
+                <input type="text" value={form.tin}
+                  onChange={(e) => setForm((p) => ({ ...p, tin: e.target.value }))}
+                  placeholder="e.g. C0012345678"
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Year Established</label>
+                <input type="text" inputMode="numeric" value={form.yearEstablished}
+                  onChange={(e) => setForm((p) => ({ ...p, yearEstablished: e.target.value.replace(/[^0-9]/g, "").slice(0, 4) }))}
+                  placeholder="e.g. 2019"
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
+              </div>
+            </div>
+            <p className="mt-2 text-xs text-slate-400">
+              Taken from your supplier application. Update anything that has changed since you applied.
+            </p>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Business Description</label>
             <textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
