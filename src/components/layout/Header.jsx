@@ -3,6 +3,8 @@ import NotificationBell from "@/features/notifications/components/NotificationBe
 import SearchDropdown from "@/components/layout/SearchDropdown";
 import { useSidebarStore } from "@/stores/sidebarStore";
 import { useAuthStore } from "@/stores/authStore";
+import { useTeamRole } from "@/hooks/useTeamRole";
+import { describeRoles } from "@/config/teamRoles";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -23,7 +25,14 @@ export default function Header() {
   const [logoutLoading, setLogoutLoading] = useState(false);
 
   const displayName = user?.name || "Admin User";
-  const displayRole = user?.roles?.includes("admin") ? "Administrator" : user?.roles?.[0] || "User";
+  // A team member's own account carries `roles: ["customer"]` — the role they hold
+  // in the business comes through the membership, not through their own roles, so
+  // reading `user.roles` labelled every member "Customer" (and the owner
+  // "supplier"). Say what the person can do, as the sidebar card already does.
+  const { isOwner, teamRoles } = useTeamRole();
+  const displayRole = isOwner
+    ? "Administrator"
+    : describeRoles(teamRoles) || "Team member";
   const avatarLetter = displayName?.charAt(0)?.toUpperCase() || "A";
 
   const handleLogout = async () => {
