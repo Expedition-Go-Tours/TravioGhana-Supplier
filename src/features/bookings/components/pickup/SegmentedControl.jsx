@@ -33,7 +33,7 @@ export default function SegmentedControl({ options, value, onChange, ariaLabel, 
             {typeof option.count === "number" && (
               <span
                 className={cn(
-                  "rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums",
+                  "hidden rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums sm:inline-block",
                   active ? "bg-[#044b3b] text-white" : "bg-white text-slate-500"
                 )}
               >
