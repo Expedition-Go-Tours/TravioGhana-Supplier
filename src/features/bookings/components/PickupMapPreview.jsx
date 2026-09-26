@@ -92,7 +92,9 @@ export default function PickupMapPreview({ lat, lng, address, className = "" }) 
 
   return (
     <div className={`${box} border-slate-200/70`}>
-      <div ref={containerRef} className="absolute inset-0" />
+      {/* MapLibre forces `position: relative` on its container, so the size must
+          come from the box (h-full/w-full) — `absolute inset-0` collapses it. */}
+      <div ref={containerRef} className="h-full w-full" />
       {!loaded && (
         <div className="absolute inset-0 flex items-center justify-center bg-emerald-50/50">
           <div className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />

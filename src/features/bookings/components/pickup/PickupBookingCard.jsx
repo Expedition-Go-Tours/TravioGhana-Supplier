@@ -129,45 +129,49 @@ export default function PickupBookingCard({ booking, onEdit, onTogglePicked, pic
       </div>
 
       {expanded && (
-        <div className="space-y-4 border-t border-slate-100 px-4 py-4">
+        <div className="border-t border-slate-100 px-4 py-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-            <div className="min-w-0 flex-1 space-y-1.5">
-              {time ? (
-                <p className="inline-flex items-center gap-1.5 text-xs text-slate-600">
-                  <Clock size={12} className="text-slate-400" /> Pickup at {formatTime(time)}
-                </p>
-              ) : (
-                <p className="inline-flex items-center gap-1.5 text-xs font-medium text-red-600">
-                  <Clock size={12} /> Pickup time not set
-                </p>
-              )}
-              <p className="inline-flex items-center gap-1.5 text-xs text-slate-600">
-                <Phone size={12} className="text-slate-400" />
-                {booking.customerName}
-                {booking.customerPhone ? <span className="text-slate-400">{booking.customerPhone}</span> : null}
-              </p>
-              <p className="inline-flex items-start gap-1.5 text-xs text-slate-600">
-                <MessageSquareText size={12} className="mt-0.5 shrink-0 text-slate-400" />
-                {pickup.instructions ? (
-                  <span className="leading-relaxed">{pickup.instructions}</span>
+            <div className="min-w-0 flex-1 space-y-3">
+              <div className="space-y-1.5">
+                {time ? (
+                  <p className="flex items-center gap-1.5 text-xs text-slate-600">
+                    <Clock size={12} className="text-slate-400" /> Pickup at {formatTime(time)}
+                  </p>
                 ) : (
-                  <span className="font-medium text-red-600">Pickup instructions not set</span>
+                  <p className="flex items-center gap-1.5 text-xs font-medium text-red-600">
+                    <Clock size={12} /> Pickup time not set
+                  </p>
                 )}
-              </p>
+                <p className="flex items-center gap-1.5 text-xs text-slate-600">
+                  <Phone size={12} className="text-slate-400" />
+                  {booking.customerName}
+                  {booking.customerPhone ? <span className="text-slate-400">{booking.customerPhone}</span> : null}
+                </p>
+                <p className="flex items-start gap-1.5 text-xs text-slate-600">
+                  <MessageSquareText size={12} className="mt-0.5 shrink-0 text-slate-400" />
+                  {pickup.instructions ? (
+                    <span className="leading-relaxed">{pickup.instructions}</span>
+                  ) : (
+                    <span className="font-medium text-red-600">Pickup instructions not set</span>
+                  )}
+                </p>
+              </div>
+
+              {booking.travelersRaw && (
+                <div className="border-t border-slate-100 pt-3">
+                  <TravelerManifest travelers={booking.travelersRaw} />
+                </div>
+              )}
             </div>
+
+            {/* Square map — left of the details on desktop, above on mobile. */}
             <PickupMapPreview
               lat={previewLat}
               lng={previewLng}
               address={address}
-              className="h-36 w-36 self-start"
+              className="h-36 w-36 sm:order-first"
             />
           </div>
-
-          {booking.travelersRaw && (
-            <div className="border-t border-slate-100 pt-3">
-              <TravelerManifest travelers={booking.travelersRaw} />
-            </div>
-          )}
         </div>
       )}
     </div>
