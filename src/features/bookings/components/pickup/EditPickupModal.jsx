@@ -206,7 +206,7 @@ export default function EditPickupModal({ booking, onClose, onSaved }) {
                 className={`rounded-lg border px-3.5 py-3 ${
                   confirmedBySupplier
                     ? "bg-emerald-50/50 border-emerald-200/50"
-                    : "bg-amber-50/60 border-amber-200/60"
+                    : "bg-sky-50/60 border-sky-200/60"
                 }`}
               >
                 <div className="flex items-start gap-2.5">
@@ -214,19 +214,19 @@ export default function EditPickupModal({ booking, onClose, onSaved }) {
                     className={`p-1.5 rounded-md border shrink-0 ${
                       confirmedBySupplier
                         ? "bg-white border-emerald-200/60"
-                        : "bg-white border-amber-200/60"
+                        : "bg-white border-sky-200/60"
                     }`}
                   >
                     <MapPinned
                       size={14}
-                      className={confirmedBySupplier ? "text-emerald-600" : "text-amber-600"}
+                      className={confirmedBySupplier ? "text-emerald-600" : "text-sky-600"}
                     />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                       {storedLocationSource}
                       {!confirmedBySupplier && (
-                        <span className="text-amber-600"> · set by customer</span>
+                        <span className="text-sky-600"> · set by customer</span>
                       )}
                     </p>
                     <p className="text-sm font-medium text-slate-800 mt-0.5 break-words">
@@ -257,7 +257,7 @@ export default function EditPickupModal({ booking, onClose, onSaved }) {
                 Pickup place <span className="font-normal text-slate-400">(optional)</span>
               </label>
               <textarea
-                className="w-full rounded-lg border border-emerald-100/60 bg-emerald-50/30 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#044b3b]/20 focus:border-[#044b3b] focus:bg-white resize-vertical transition-all"
+                className="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#044b3b]/15 focus:border-[#044b3b] resize-vertical transition-all"
                 rows={2}
                 value={pickupPlace}
                 onChange={(e) => { setPickupPlace(e.target.value); markDirty(); }}
@@ -276,7 +276,7 @@ export default function EditPickupModal({ booking, onClose, onSaved }) {
                 <select
                   value={currentPoint}
                   onChange={(e) => handleConfigPointChange(e.target.value)}
-                  className="w-full rounded-lg border border-emerald-100/60 bg-emerald-50/30 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#044b3b]/20 focus:border-[#044b3b] focus:bg-white transition-all"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#044b3b]/15 focus:border-[#044b3b] transition-all"
                 >
                   <option value="">Custom / not listed</option>
                   {currentPointMissing && <option value={currentPoint}>{currentPoint}</option>}
@@ -313,7 +313,7 @@ export default function EditPickupModal({ booking, onClose, onSaved }) {
                 <span className="font-normal text-slate-400">(optional)</span>
               </label>
               <textarea
-                className="w-full rounded-lg border border-emerald-100/60 bg-emerald-50/30 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#044b3b]/20 focus:border-[#044b3b] focus:bg-white resize-vertical transition-all"
+                className="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#044b3b]/15 focus:border-[#044b3b] resize-vertical transition-all"
                 rows={3}
                 value={instructions}
                 onChange={(e) => { setInstructions(e.target.value); markDirty(); }}
@@ -326,7 +326,7 @@ export default function EditPickupModal({ booking, onClose, onSaved }) {
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-emerald-100/40">
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-100">
           <button
             type="button"
             onClick={onClose}

@@ -143,8 +143,8 @@ export default function ExportMenu({ bookings, dateRange }) {
         className={cn(
           "inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl border transition-all",
           open
-            ? "bg-emerald-50 border-emerald-300 text-emerald-700"
-            : "bg-white border-emerald-200/60 text-slate-600 hover:bg-emerald-50 hover:border-emerald-300"
+            ? "bg-slate-100 border-slate-300 text-slate-800"
+            : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300"
         )}
       >
         <Download size={14} />

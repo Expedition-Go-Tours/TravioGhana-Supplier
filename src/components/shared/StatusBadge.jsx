@@ -2,10 +2,10 @@ import { cn } from "@/lib/utils";
 
 const STATUS_STYLES = {
   AWAITING_CONFIRMATION: {
-    bg: "bg-[#fffbeb]",
-    text: "text-[#b45309]",
-    border: "border-[#fcd34d]",
-    dot: "bg-[#ffc400]",
+    bg: "bg-[#f1f5f9]",
+    text: "text-[#475569]",
+    border: "border-[#e2e8f0]",
+    dot: "bg-[#94a3b8]",
   },
   CONFIRMED: {
     bg: "bg-[#eff6ff]",
@@ -62,10 +62,10 @@ const STATUS_STYLES = {
     dot: "bg-[#00d67f]",
   },
   PENDING: {
-    bg: "bg-[#fffbeb]",
-    text: "text-[#b45309]",
-    border: "border-[#fcd34d]",
-    dot: "bg-[#ffc400]",
+    bg: "bg-[#f1f5f9]",
+    text: "text-[#475569]",
+    border: "border-[#e2e8f0]",
+    dot: "bg-[#94a3b8]",
   },
   FAILED: {
     bg: "bg-[#ffebeb]",
@@ -86,10 +86,10 @@ const STATUS_STYLES = {
     dot: "bg-[#9e9e9e]",
   },
   DRAFT: {
-    bg: "bg-[#fffbeb]",
-    text: "text-[#b45309]",
-    border: "border-[#fcd34d]",
-    dot: "bg-[#ffc400]",
+    bg: "bg-[#f1f5f9]",
+    text: "text-[#475569]",
+    border: "border-[#e2e8f0]",
+    dot: "bg-[#94a3b8]",
   },
   PENDING_APPROVAL: {
     bg: "bg-[#eff6ff]",

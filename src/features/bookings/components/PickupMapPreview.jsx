@@ -72,16 +72,16 @@ export default function PickupMapPreview({ lat, lng, address, className = "" }) 
   if (error) {
     return (
       <div
-        className={`flex items-center gap-2 bg-amber-50 border border-amber-200/60 rounded-lg p-3 ${className}`}
+        className={`flex items-center gap-2 bg-red-50 border border-red-200/60 rounded-lg p-3 ${className}`}
       >
-        <div className="p-1.5 bg-amber-100 rounded-md">
-          <MapPin size={12} className="text-amber-600" />
+        <div className="p-1.5 bg-red-100 rounded-md">
+          <MapPin size={12} className="text-red-600" />
         </div>
         <div className="min-w-0">
-          <p className="text-[11px] font-medium text-amber-800 truncate">
+          <p className="text-[11px] font-medium text-red-700 truncate">
             {address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`}
           </p>
-          <p className="text-[9px] text-amber-500 mt-0.5">Map unavailable</p>
+          <p className="text-[9px] text-red-500 mt-0.5">Map unavailable</p>
         </div>
       </div>
     );

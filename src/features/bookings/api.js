@@ -43,6 +43,11 @@ export function mapBookingRow(booking) {
     pickupStatus: booking.pickupStatus || null,
     pickupDeferred: !!booking.pickupDeferred,
     isIncomplete: booking.isIncomplete != null ? booking.isIncomplete : null,
+    // Server-derived planner state: 'deferred' | 'incomplete' | 'confirmed'.
+    pickupState: booking.pickupState || null,
+    // Supplier stop order within the day + "picked up" marker.
+    pickupOrder: booking.pickupOrder ?? null,
+    pickedUpAt: booking.pickedUpAt || null,
     pickupConfig: typeof booking.tour?.bookingAndTickets === 'string'
       ? (() => { try { return JSON.parse(booking.tour.bookingAndTickets); } catch { return null; } })()
       : booking.tour?.bookingAndTickets || null,
@@ -183,8 +188,18 @@ export async function fetchPickupPlanner(params = {}) {
   const payload = response.data?.data || {};
   return {
     bookings: (payload.bookings || []).map(mapBookingRow),
+    counts: payload.counts || null,
     pagination: payload.pagination || null,
   };
+}
+
+/** Persist the supplier's stop order for one service day. */
+export function reorderPickupStops(date, order) {
+  return api.patch(
+    `/bookings/supplier/pickup-planner/reorder`,
+    { date, order },
+    { skipGlobalErrorHandler: true }
+  );
 }
 
 export function updateBookingPickup(id, payload) {
