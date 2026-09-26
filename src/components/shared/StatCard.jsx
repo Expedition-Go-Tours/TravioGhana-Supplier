@@ -49,7 +49,7 @@ export default function StatCard({
     >
       <div className="flex items-start justify-between">
         <div className="space-y-1.5 min-w-0">
-          <p className="text-sm font-medium text-slate-500 truncate">{label}</p>
+          <p className="text-sm font-medium leading-snug text-slate-500">{label}</p>
           {loading ? (
             <div className="h-8 w-24 bg-slate-200 rounded animate-pulse" />
           ) : (
@@ -63,7 +63,7 @@ export default function StatCard({
                   {trend.isPositive ? "+" : ""}{trend.value.toFixed(1)}%
                 </span>
               )}
-              {subtitle && <span className="text-[11px] text-slate-400 truncate">{subtitle}</span>}
+              {subtitle && <span className="text-[11px] leading-snug text-slate-400">{subtitle}</span>}
             </div>
           )}
         </div>
