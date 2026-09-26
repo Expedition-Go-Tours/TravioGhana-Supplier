@@ -18,7 +18,7 @@ import {
   Eye,
   UserCheck,
 } from "lucide-react";
-import { loadSupplierProfile } from "@/features/auth/api";
+import { loadSupplierVerification } from "@/features/auth/api";
 import { replaceDocument, addDocument, addVehicle, removeVehicle, addGuide, removeGuide } from "@/features/supplier/api";
 import { formatDate } from "@/lib/utils";
 
@@ -31,7 +31,10 @@ const DOC_STATUS = {
   REPLACEMENT_REQUESTED: { label: "Replacement requested", icon: AlertTriangle, cls: "bg-amber-50 text-amber-700" },
   EXPIRED: { label: "Expired", icon: XCircle, cls: "bg-rose-50 text-rose-600" },
   PENDING: { label: "Pending review", icon: Clock, cls: "bg-sky-50 text-sky-700" },
+  MISSING: { label: "Not uploaded", icon: Upload, cls: "bg-slate-100 text-slate-500" },
 };
+
+const NEEDS_REUPLOAD = ["REJECTED", "REPLACEMENT_REQUESTED", "EXPIRED"];
 
 const VEHICLE_DOC_TYPES = [
   { type: "VEHICLE_REGISTRATION", label: "Vehicle registration" },
@@ -74,6 +77,19 @@ function StatusPill({ status }) {
     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${config.cls}`}>
       <Icon size={12} />
       {config.label}
+    </span>
+  );
+}
+
+function LevelBadge({ level }) {
+  if (level !== "required" && level !== "optional") return null;
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+        level === "required" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+      }`}
+    >
+      {level === "required" ? "Required" : "Optional"}
     </span>
   );
 }
@@ -131,9 +147,83 @@ const inputCls =
 const fileLabelCls =
   "block rounded-lg border border-dashed border-slate-200 bg-slate-50/50 p-3 text-center text-xs text-slate-500 transition-colors hover:border-emerald-300 hover:bg-emerald-50/40";
 
+/**
+ * One line of the verification checklist: a document the operator's type needs,
+ * its review status, and an upload action when it is missing or needs replacing.
+ */
+function RequirementRow({ requirement, doc, onUpload }) {
+  const inputRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+  const status = doc ? doc.status : "MISSING";
+  const needsUpload = !doc || NEEDS_REUPLOAD.includes(doc.status);
+
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      await onUpload(file);
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-4 rounded-xl border border-slate-100 bg-white p-4 transition-colors hover:border-emerald-200">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-400">
+        <FileText size={18} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm font-semibold text-slate-800">{requirement.label}</p>
+          <StatusPill status={status} />
+          {!requirement.required && <LevelBadge level="optional" />}
+        </div>
+        {doc?.expiryDate && (
+          <p className="mt-1 inline-flex items-center gap-1 text-xs text-slate-500">
+            <CalendarClock size={12} className="text-slate-400" /> expires {formatDate(doc.expiryDate)}
+          </p>
+        )}
+        {doc?.reviewNote && (
+          <p className="mt-1 inline-flex items-center gap-1 text-xs text-rose-500">
+            <AlertTriangle size={12} /> {doc.reviewNote}
+          </p>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        {doc?.url && (
+          <a
+            href={doc.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 transition-colors hover:border-emerald-300 hover:bg-emerald-50/40 hover:text-emerald-700"
+          >
+            <Eye size={14} /> View
+          </a>
+        )}
+        {needsUpload && (
+          <>
+            <input ref={inputRef} type="file" className="hidden" accept="image/*,.pdf" onChange={handleFile} />
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              disabled={uploading}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 hover:shadow-md hover:shadow-emerald-900/10 active:scale-[0.98] disabled:opacity-60"
+            >
+              {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+              {uploading ? "Uploading…" : doc ? "Upload replacement" : "Upload"}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function DocumentRow({ doc, onReplace }) {
   const inputRef = useRef(null);
-  const replaceable = ["REJECTED", "REPLACEMENT_REQUESTED", "EXPIRED"].includes(doc.status);
+  const replaceable = NEEDS_REUPLOAD.includes(doc.status);
   const [uploading, setUploading] = useState(false);
 
   const handleFile = async (e) => {
@@ -246,10 +336,13 @@ export default function VerificationPage() {
   const [guideSaving, setGuideSaving] = useState(false);
   const [docSaving, setDocSaving] = useState(false);
 
-  const { data: profile, isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["supplier", "application-status"],
-    queryFn: () => loadSupplierProfile(),
+    queryFn: () => loadSupplierVerification(),
   });
+
+  const profile = data?.profile || null;
+  const requirements = data?.requirements || null;
 
   const refresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["supplier", "application-status"] });
@@ -265,6 +358,25 @@ export default function VerificationPage() {
   });
 
   const handleReplace = (doc, file) => replaceMutation.mutate({ doc, file });
+
+  /** Upload for a checklist row: a replacement when the doc exists, else a new one. */
+  const handleRequirementUpload = async (requirement, file) => {
+    const existing = (profile?.documents || []).find(
+      (d) => d.ownerType === "SUPPLIER" && d.type === requirement.type
+    );
+    try {
+      if (existing && NEEDS_REUPLOAD.includes(existing.status)) {
+        await replaceDocument(existing.id, file);
+        toast.success("Document re-uploaded — it's back under review");
+      } else {
+        await addDocument({ type: requirement.type, file });
+        toast.success("Document uploaded — it's now under review");
+      }
+      refresh();
+    } catch {
+      toast.error("Failed to upload document");
+    }
+  };
 
   const handleAddDocument = async () => {
     if (!docForm.type) {
@@ -371,9 +483,29 @@ export default function VerificationPage() {
   const vehicles = profile?.vehicles || [];
   const guides = profile?.guides || [];
 
+  // Checklist built from the operator's requirements, matched to uploaded docs.
+  const requirementRows = (requirements?.documents || []).map((requirement) => ({
+    requirement,
+    doc: documents.find((d) => d.ownerType === "SUPPLIER" && d.type === requirement.type) || null,
+  }));
+  const requiredTypes = new Set((requirements?.documents || []).map((r) => r.type));
+  const additionalDocs = documents.filter((d) => d.ownerType !== "SUPPLIER" || !requiredTypes.has(d.type));
+
+  const missingRequired = requirementRows.filter(({ requirement, doc }) => requirement.required && !doc).length;
   const pendingDocs = documents.filter((d) => d.status === "PENDING").length;
   const approvedDocs = documents.filter((d) => d.status === "APPROVED").length;
-  const actionDocs = documents.filter((d) => ["REJECTED", "REPLACEMENT_REQUESTED", "EXPIRED"].includes(d.status)).length;
+  const actionDocs =
+    documents.filter((d) => NEEDS_REUPLOAD.includes(d.status)).length + missingRequired;
+
+  // Older status payloads have no requirements — fall back to showing everything.
+  const showVehicles = requirements ? requirements.vehicles !== "hidden" : true;
+  const showGuides = requirements ? requirements.guides !== "hidden" : true;
+  const typeLabel = SUPPLIER_TYPE_LABEL[profile?.supplierType] || profile?.supplierType;
+
+  const addableTypes = requirements
+    ? ADDABLE_DOC_TYPES.filter((t) => requiredTypes.has(t.value) || t.value === "OTHER")
+    : ADDABLE_DOC_TYPES;
+
   const pendingFleet = vehicles.filter((v) => v.status !== "VERIFIED").length + guides.filter((g) => g.status !== "VERIFIED").length;
 
   return (
@@ -387,7 +519,9 @@ export default function VerificationPage() {
           <div>
             <h1 className="text-lg font-bold tracking-tight text-slate-800">Verification</h1>
             <p className="mt-0.5 text-sm text-slate-500">
-              Track every document, vehicle and guide. Nothing goes live until it's approved.
+              {requirements
+                ? `Everything a ${typeLabel} needs to verify. Nothing goes live until it's approved.`
+                : "Track every document, vehicle and guide. Nothing goes live until it's approved."}
             </p>
           </div>
         </div>
@@ -406,199 +540,303 @@ export default function VerificationPage() {
       ) : (
         <>
           {/* Summary strip */}
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className={`grid grid-cols-2 gap-3 ${showVehicles || showGuides ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
             <SummaryCard icon={FileText} label="Documents pending review" value={pendingDocs} accent="sky" hint="Awaiting our team" />
             <SummaryCard icon={CheckCircle2} label="Documents approved" value={approvedDocs} accent="emerald" hint="Good to go" />
-            <SummaryCard icon={AlertTriangle} label="Actions needed" value={actionDocs} accent={actionDocs > 0 ? "rose" : "emerald"} hint={actionDocs > 0 ? "Rejected or expired" : "All clear"} />
-            <SummaryCard icon={Car} label="Fleet & guides pending" value={pendingFleet} accent={pendingFleet > 0 ? "amber" : "emerald"} hint="Awaiting verification" />
+            <SummaryCard icon={AlertTriangle} label="Actions needed" value={actionDocs} accent={actionDocs > 0 ? "rose" : "emerald"} hint={actionDocs > 0 ? "Upload or replace" : "All clear"} />
+            {(showVehicles || showGuides) && (
+              <SummaryCard icon={Car} label="Fleet & guides pending" value={pendingFleet} accent={pendingFleet > 0 ? "amber" : "emerald"} hint="Awaiting verification" />
+            )}
           </div>
 
-          {/* Documents */}
-          <section className="space-y-4 rounded-xl border border-emerald-100/60 bg-white p-5">
-            <div className="flex items-center justify-between gap-3">
-              <SectionHeader icon={FileText} title="Documents" subtitle="Each document is reviewed individually" badge={documents.length} />
-              <AddButton onClick={() => setShowDocForm((v) => !v)} label="Add document" />
-            </div>
-
-            {showDocForm && (
-              <div className="space-y-3 rounded-xl border border-emerald-100 bg-emerald-50/40 p-4">
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <select
-                    value={docForm.type}
-                    onChange={(e) => setDocForm((f) => ({ ...f, type: e.target.value }))}
-                    className={`${inputCls} sm:col-span-1`}
-                  >
-                    <option value="">Select document type…</option>
-                    {ADDABLE_DOC_TYPES.map((t) => (
-                      <option key={t.value} value={t.value}>{t.label}</option>
+          {/* Verification checklist (type-aware) */}
+          {requirements ? (
+            <>
+              <section className="space-y-4 rounded-xl border border-emerald-100/60 bg-white p-5">
+                <SectionHeader
+                  icon={ShieldCheck}
+                  title="Verification checklist"
+                  subtitle="What your operator type needs to provide"
+                  badge={requirementRows.length}
+                />
+                {requirementRows.length === 0 ? (
+                  <EmptyState icon={ShieldCheck} text="No documents required for your type." />
+                ) : (
+                  <div className="space-y-2.5">
+                    {requirementRows.map(({ requirement, doc }) => (
+                      <RequirementRow
+                        key={requirement.type}
+                        requirement={requirement}
+                        doc={doc}
+                        onUpload={(file) => handleRequirementUpload(requirement, file)}
+                      />
                     ))}
-                  </select>
-                  <label className={fileLabelCls}>
-                    <span className="mb-1.5 block font-medium text-slate-600">{docForm.file ? docForm.file.name : "Choose document file"}</span>
-                    <input
-                      type="file"
-                      className="block w-full text-[11px]"
-                      accept="image/*,.pdf"
-                      onChange={(e) => setDocForm((f) => ({ ...f, file: e.target.files?.[0] || null }))}
-                    />
-                  </label>
-                  <input
-                    type="date"
-                    value={docForm.expiryDate}
-                    onChange={(e) => setDocForm((f) => ({ ...f, expiryDate: e.target.value }))}
-                    placeholder="Expiry date (optional)"
-                    className={`${inputCls} sm:col-span-1`}
-                    title="Expiry date (optional)"
-                  />
-                </div>
-                <div className="flex justify-end gap-2 pt-1">
-                  <OutlineButton onClick={() => setShowDocForm(false)}>Cancel</OutlineButton>
-                  <button type="button" onClick={handleAddDocument} disabled={docSaving} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 disabled:opacity-60">
-                    {docSaving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Add document
-                  </button>
-                </div>
-              </div>
-            )}
+                  </div>
+                )}
+              </section>
 
-            {documents.length === 0 ? (
-              <EmptyState icon={FileText} text="No documents on file yet." />
-            ) : (
-              <div className="space-y-2.5">
-                {documents.map((doc) => (
-                  <DocumentRow key={doc.id} doc={doc} onReplace={handleReplace} />
-                ))}
+              {/* Extra documents the supplier chose to add */}
+              <section className="space-y-4 rounded-xl border border-emerald-100/60 bg-white p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <SectionHeader
+                    icon={FileText}
+                    title="Additional documents"
+                    subtitle="Anything else we should have on file"
+                    badge={additionalDocs.length}
+                  />
+                  <AddButton onClick={() => setShowDocForm((v) => !v)} label="Add document" />
+                </div>
+
+                {showDocForm && (
+                  <div className="space-y-3 rounded-xl border border-emerald-100 bg-emerald-50/40 p-4">
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <select
+                        value={docForm.type}
+                        onChange={(e) => setDocForm((f) => ({ ...f, type: e.target.value }))}
+                        className={`${inputCls} sm:col-span-1`}
+                      >
+                        <option value="">Select document type…</option>
+                        {addableTypes.map((t) => (
+                          <option key={t.value} value={t.value}>{t.label}</option>
+                        ))}
+                      </select>
+                      <label className={fileLabelCls}>
+                        <span className="mb-1.5 block font-medium text-slate-600">{docForm.file ? docForm.file.name : "Choose document file"}</span>
+                        <input
+                          type="file"
+                          className="block w-full text-[11px]"
+                          accept="image/*,.pdf"
+                          onChange={(e) => setDocForm((f) => ({ ...f, file: e.target.files?.[0] || null }))}
+                        />
+                      </label>
+                      <input
+                        type="date"
+                        value={docForm.expiryDate}
+                        onChange={(e) => setDocForm((f) => ({ ...f, expiryDate: e.target.value }))}
+                        placeholder="Expiry date (optional)"
+                        className={`${inputCls} sm:col-span-1`}
+                        title="Expiry date (optional)"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2 pt-1">
+                      <OutlineButton onClick={() => setShowDocForm(false)}>Cancel</OutlineButton>
+                      <button type="button" onClick={handleAddDocument} disabled={docSaving} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 disabled:opacity-60">
+                        {docSaving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Add document
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {additionalDocs.length === 0 ? (
+                  <EmptyState icon={FileText} text="Nothing extra on file." />
+                ) : (
+                  <div className="space-y-2.5">
+                    {additionalDocs.map((doc) => (
+                      <DocumentRow key={doc.id} doc={doc} onReplace={handleReplace} />
+                    ))}
+                  </div>
+                )}
+              </section>
+            </>
+          ) : (
+            /* Fallback for an older status payload (no requirements). */
+            <section className="space-y-4 rounded-xl border border-emerald-100/60 bg-white p-5">
+              <div className="flex items-center justify-between gap-3">
+                <SectionHeader icon={FileText} title="Documents" subtitle="Each document is reviewed individually" badge={documents.length} />
+                <AddButton onClick={() => setShowDocForm((v) => !v)} label="Add document" />
               </div>
-            )}
-          </section>
+
+              {showDocForm && (
+                <div className="space-y-3 rounded-xl border border-emerald-100 bg-emerald-50/40 p-4">
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <select
+                      value={docForm.type}
+                      onChange={(e) => setDocForm((f) => ({ ...f, type: e.target.value }))}
+                      className={`${inputCls} sm:col-span-1`}
+                    >
+                      <option value="">Select document type…</option>
+                      {addableTypes.map((t) => (
+                        <option key={t.value} value={t.value}>{t.label}</option>
+                      ))}
+                    </select>
+                    <label className={fileLabelCls}>
+                      <span className="mb-1.5 block font-medium text-slate-600">{docForm.file ? docForm.file.name : "Choose document file"}</span>
+                      <input
+                        type="file"
+                        className="block w-full text-[11px]"
+                        accept="image/*,.pdf"
+                        onChange={(e) => setDocForm((f) => ({ ...f, file: e.target.files?.[0] || null }))}
+                      />
+                    </label>
+                    <input
+                      type="date"
+                      value={docForm.expiryDate}
+                      onChange={(e) => setDocForm((f) => ({ ...f, expiryDate: e.target.value }))}
+                      className={`${inputCls} sm:col-span-1`}
+                      title="Expiry date (optional)"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <OutlineButton onClick={() => setShowDocForm(false)}>Cancel</OutlineButton>
+                    <button type="button" onClick={handleAddDocument} disabled={docSaving} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 disabled:opacity-60">
+                      {docSaving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Add document
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {documents.length === 0 ? (
+                <EmptyState icon={FileText} text="No documents on file yet." />
+              ) : (
+                <div className="space-y-2.5">
+                  {documents.map((doc) => (
+                    <DocumentRow key={doc.id} doc={doc} onReplace={handleReplace} />
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
 
           {/* Vehicles */}
-          <section className="space-y-4 rounded-xl border border-emerald-100/60 bg-white p-5">
-            <div className="flex items-center justify-between gap-3">
-              <SectionHeader icon={Car} title="Vehicles" subtitle="Each vehicle needs its own verified documents" badge={vehicles.length} />
-              <AddButton onClick={() => setShowVehicleForm((v) => !v)} label="Add vehicle" />
-            </div>
+          {showVehicles && (
+            <section className="space-y-4 rounded-xl border border-emerald-100/60 bg-white p-5">
+              <div className="flex items-center justify-between gap-3">
+                {requirements?.vehicles === "required" ? (
+                  <SectionHeader icon={Car} title="Vehicles" subtitle="Required for your operator type — each vehicle needs its own documents" badge={vehicles.length} />
+                ) : (
+                  <SectionHeader icon={Car} title="Vehicles" subtitle="Add any vehicle you use to fulfil bookings" badge={vehicles.length} />
+                )}
+                <AddButton onClick={() => setShowVehicleForm((v) => !v)} label="Add vehicle" />
+              </div>
 
-            {showVehicleForm && (
-              <div className="space-y-3 rounded-xl border border-emerald-100 bg-emerald-50/40 p-4">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <input value={vehicleForm.make} onChange={(e) => setVehicleForm((f) => ({ ...f, make: e.target.value }))} placeholder="Make (e.g. Toyota)" className={inputCls} />
-                  <input value={vehicleForm.model} onChange={(e) => setVehicleForm((f) => ({ ...f, model: e.target.value }))} placeholder="Model (e.g. Hiace)" className={inputCls} />
-                  <input value={vehicleForm.year} onChange={(e) => setVehicleForm((f) => ({ ...f, year: e.target.value }))} placeholder="Year" className={inputCls} />
-                  <input value={vehicleForm.registrationNumber} onChange={(e) => setVehicleForm((f) => ({ ...f, registrationNumber: e.target.value }))} placeholder="Registration number" className={inputCls} />
+              {showVehicleForm && (
+                <div className="space-y-3 rounded-xl border border-emerald-100 bg-emerald-50/40 p-4">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <input value={vehicleForm.make} onChange={(e) => setVehicleForm((f) => ({ ...f, make: e.target.value }))} placeholder="Make (e.g. Toyota)" className={inputCls} />
+                    <input value={vehicleForm.model} onChange={(e) => setVehicleForm((f) => ({ ...f, model: e.target.value }))} placeholder="Model (e.g. Hiace)" className={inputCls} />
+                    <input value={vehicleForm.year} onChange={(e) => setVehicleForm((f) => ({ ...f, year: e.target.value }))} placeholder="Year" className={inputCls} />
+                    <input value={vehicleForm.registrationNumber} onChange={(e) => setVehicleForm((f) => ({ ...f, registrationNumber: e.target.value }))} placeholder="Registration number" className={inputCls} />
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {VEHICLE_DOC_TYPES.map((dt) => (
+                      <label key={dt.type} className={fileLabelCls}>
+                        <span className="mb-1.5 block font-medium text-slate-600">{dt.label}</span>
+                        <input
+                          type="file"
+                          className="block w-full text-[11px]"
+                          accept="image/*,.pdf"
+                          onChange={(e) => setVehicleForm((f) => ({ ...f, docs: { ...f.docs, [dt.type]: e.target.files?.[0] || null } }))}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                  <label className={fileLabelCls}>
+                    <span className="mb-1.5 block font-medium text-slate-600">Vehicle photos</span>
+                    <input
+                      type="file"
+                      multiple
+                      className="block w-full text-[11px]"
+                      accept="image/*"
+                      onChange={(e) => setVehicleForm((f) => ({ ...f, photos: Array.from(e.target.files || []) }))}
+                    />
+                  </label>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <OutlineButton onClick={() => setShowVehicleForm(false)}>Cancel</OutlineButton>
+                    <button type="button" onClick={handleAddVehicle} disabled={vehicleSaving} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 disabled:opacity-60">
+                      {vehicleSaving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Save vehicle
+                    </button>
+                  </div>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {VEHICLE_DOC_TYPES.map((dt) => (
-                    <label key={dt.type} className={fileLabelCls}>
-                      <span className="mb-1.5 block font-medium text-slate-600">{dt.label}</span>
-                      <input
-                        type="file"
-                        className="block w-full text-[11px]"
-                        accept="image/*,.pdf"
-                        onChange={(e) => setVehicleForm((f) => ({ ...f, docs: { ...f.docs, [dt.type]: e.target.files?.[0] || null } }))}
-                      />
-                    </label>
+              )}
+
+              {vehicles.length === 0 ? (
+                <EmptyState icon={Car} text="No vehicles listed yet." />
+              ) : (
+                <div className="space-y-2.5">
+                  {vehicles.map((v) => (
+                    <div key={v.id} className="flex flex-wrap items-center gap-4 rounded-xl border border-slate-100 bg-white p-4 transition-colors hover:border-emerald-200">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-400">
+                        <Car size={18} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-semibold text-slate-800">{v.make} {v.model}{v.year ? ` · ${v.year}` : ""}</p>
+                          <StatusPill status={v.status} />
+                        </div>
+                        <p className="mt-0.5 text-xs text-slate-500">Reg: {v.registrationNumber}</p>
+                      </div>
+                      <OutlineButton danger onClick={() => handleRemoveVehicle(v.id)}><Trash2 size={13} /> Remove</OutlineButton>
+                    </div>
                   ))}
                 </div>
-                <label className={fileLabelCls}>
-                  <span className="mb-1.5 block font-medium text-slate-600">Vehicle photos</span>
-                  <input
-                    type="file"
-                    multiple
-                    className="block w-full text-[11px]"
-                    accept="image/*"
-                    onChange={(e) => setVehicleForm((f) => ({ ...f, photos: Array.from(e.target.files || []) }))}
-                  />
-                </label>
-                <div className="flex justify-end gap-2 pt-1">
-                  <OutlineButton onClick={() => setShowVehicleForm(false)}>Cancel</OutlineButton>
-                  <button type="button" onClick={handleAddVehicle} disabled={vehicleSaving} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 disabled:opacity-60">
-                    {vehicleSaving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Save vehicle
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {vehicles.length === 0 ? (
-              <EmptyState icon={Car} text="No vehicles listed yet." />
-            ) : (
-              <div className="space-y-2.5">
-                {vehicles.map((v) => (
-                  <div key={v.id} className="flex flex-wrap items-center gap-4 rounded-xl border border-slate-100 bg-white p-4 transition-colors hover:border-emerald-200">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-400">
-                      <Car size={18} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-semibold text-slate-800">{v.make} {v.model}{v.year ? ` · ${v.year}` : ""}</p>
-                        <StatusPill status={v.status} />
-                      </div>
-                      <p className="mt-0.5 text-xs text-slate-500">Reg: {v.registrationNumber}</p>
-                    </div>
-                    <OutlineButton danger onClick={() => handleRemoveVehicle(v.id)}><Trash2 size={13} /> Remove</OutlineButton>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
+              )}
+            </section>
+          )}
 
           {/* Guides */}
-          <section className="space-y-4 rounded-xl border border-emerald-100/60 bg-white p-5">
-            <div className="flex items-center justify-between gap-3">
-              <SectionHeader icon={Users} title="Guides" subtitle="Each guide gets their own verified profile" badge={guides.length} />
-              <AddButton onClick={() => setShowGuideForm((v) => !v)} label="Add guide" />
-            </div>
+          {showGuides && (
+            <section className="space-y-4 rounded-xl border border-emerald-100/60 bg-white p-5">
+              <div className="flex items-center justify-between gap-3">
+                {requirements?.guides === "required" ? (
+                  <SectionHeader icon={Users} title="Guides" subtitle="Required for your operator type — each guide gets their own verified profile" badge={guides.length} />
+                ) : (
+                  <SectionHeader icon={Users} title="Guides" subtitle="Add the guides who work with you" badge={guides.length} />
+                )}
+                <AddButton onClick={() => setShowGuideForm((v) => !v)} label="Add guide" />
+              </div>
 
-            {showGuideForm && (
-              <div className="space-y-3 rounded-xl border border-emerald-100 bg-emerald-50/40 p-4">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <input value={guideForm.fullName} onChange={(e) => setGuideForm((f) => ({ ...f, fullName: e.target.value }))} placeholder="Full name" className={inputCls} />
-                  <input value={guideForm.phone} onChange={(e) => setGuideForm((f) => ({ ...f, phone: e.target.value }))} placeholder="Phone" className={inputCls} />
-                  <input value={guideForm.email} onChange={(e) => setGuideForm((f) => ({ ...f, email: e.target.value }))} placeholder="Email" className={`${inputCls} sm:col-span-2`} />
+              {showGuideForm && (
+                <div className="space-y-3 rounded-xl border border-emerald-100 bg-emerald-50/40 p-4">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <input value={guideForm.fullName} onChange={(e) => setGuideForm((f) => ({ ...f, fullName: e.target.value }))} placeholder="Full name" className={inputCls} />
+                    <input value={guideForm.phone} onChange={(e) => setGuideForm((f) => ({ ...f, phone: e.target.value }))} placeholder="Phone" className={inputCls} />
+                    <input value={guideForm.email} onChange={(e) => setGuideForm((f) => ({ ...f, email: e.target.value }))} placeholder="Email" className={`${inputCls} sm:col-span-2`} />
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {GUIDE_DOC_TYPES.map((dt) => (
+                      <label key={dt.type} className={fileLabelCls}>
+                        <span className="mb-1.5 block font-medium text-slate-600">{dt.label}</span>
+                        <input
+                          type="file"
+                          className="block w-full text-[11px]"
+                          accept="image/*,.pdf"
+                          onChange={(e) => setGuideForm((f) => ({ ...f, docs: { ...f.docs, [dt.type]: e.target.files?.[0] || null } }))}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <OutlineButton onClick={() => setShowGuideForm(false)}>Cancel</OutlineButton>
+                    <button type="button" onClick={handleAddGuide} disabled={guideSaving} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 disabled:opacity-60">
+                      {guideSaving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Save guide
+                    </button>
+                  </div>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {GUIDE_DOC_TYPES.map((dt) => (
-                    <label key={dt.type} className={fileLabelCls}>
-                      <span className="mb-1.5 block font-medium text-slate-600">{dt.label}</span>
-                      <input
-                        type="file"
-                        className="block w-full text-[11px]"
-                        accept="image/*,.pdf"
-                        onChange={(e) => setGuideForm((f) => ({ ...f, docs: { ...f.docs, [dt.type]: e.target.files?.[0] || null } }))}
-                      />
-                    </label>
+              )}
+
+              {guides.length === 0 ? (
+                <EmptyState icon={Users} text="No guides added yet." />
+              ) : (
+                <div className="space-y-2.5">
+                  {guides.map((g) => (
+                    <div key={g.id} className="flex flex-wrap items-center gap-4 rounded-xl border border-slate-100 bg-white p-4 transition-colors hover:border-emerald-200">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-400">
+                        <Users size={18} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-semibold text-slate-800">{g.fullName}</p>
+                          <StatusPill status={g.status} />
+                        </div>
+                        <p className="mt-0.5 text-xs text-slate-500">{[g.phone, g.email].filter(Boolean).join(" · ") || "No contact details"}</p>
+                      </div>
+                      <OutlineButton danger onClick={() => handleRemoveGuide(g.id)}><Trash2 size={13} /> Remove</OutlineButton>
+                    </div>
                   ))}
                 </div>
-                <div className="flex justify-end gap-2 pt-1">
-                  <OutlineButton onClick={() => setShowGuideForm(false)}>Cancel</OutlineButton>
-                  <button type="button" onClick={handleAddGuide} disabled={guideSaving} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 disabled:opacity-60">
-                    {guideSaving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Save guide
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {guides.length === 0 ? (
-              <EmptyState icon={Users} text="No guides added yet." />
-            ) : (
-              <div className="space-y-2.5">
-                {guides.map((g) => (
-                  <div key={g.id} className="flex flex-wrap items-center gap-4 rounded-xl border border-slate-100 bg-white p-4 transition-colors hover:border-emerald-200">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-400">
-                      <Users size={18} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-semibold text-slate-800">{g.fullName}</p>
-                        <StatusPill status={g.status} />
-                      </div>
-                      <p className="mt-0.5 text-xs text-slate-500">{[g.phone, g.email].filter(Boolean).join(" · ") || "No contact details"}</p>
-                    </div>
-                    <OutlineButton danger onClick={() => handleRemoveGuide(g.id)}><Trash2 size={13} /> Remove</OutlineButton>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
+              )}
+            </section>
+          )}
         </>
       )}
     </div>

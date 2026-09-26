@@ -6,7 +6,7 @@ const AUTH_REQUEST_OPTIONS = {
   skipGlobalErrorHandler: true,
 };
 
-async function fetchSupplierProfile(authToken) {
+async function fetchSupplierStatusPayload(authToken) {
   if (!authToken) {
     return null;
   }
@@ -18,14 +18,27 @@ async function fetchSupplierProfile(authToken) {
         Authorization: `Bearer ${authToken}`,
       },
     });
-    return response.data?.data?.supplierProfile || response.data?.data || null;
+    return response.data?.data || null;
   } catch {
     return null;
   }
 }
 
 export async function loadSupplierProfile(authToken = getAuthToken()) {
-  return fetchSupplierProfile(authToken);
+  const data = await fetchSupplierStatusPayload(authToken);
+  return data?.supplierProfile || data || null;
+}
+
+/**
+ * The supplier profile plus the per-operator verification requirements
+ * (`verificationRequirements`), which drive the dynamic Verification page.
+ */
+export async function loadSupplierVerification(authToken = getAuthToken()) {
+  const data = await fetchSupplierStatusPayload(authToken);
+  return {
+    profile: data?.supplierProfile || null,
+    requirements: data?.verificationRequirements || null,
+  };
 }
 
 export async function loginWithEmail(email, password) {
