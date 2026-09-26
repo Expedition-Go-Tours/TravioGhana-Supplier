@@ -8,8 +8,7 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { getAuthToken } from "@/stores/authStore";
-import { fetchSupplierAnalytics, fetchMonthlyRevenue } from "../api";
-import { fetchSupplierBookings } from "@/features/bookings/api";
+import { fetchSupplierAnalytics, fetchMonthlyRevenue, fetchProductAnalytics } from "../api";
 
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -46,9 +45,9 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 /**
- * Best Selling Products thumbnail. Tours carry a cover photo (the bookings
- * endpoint selects it), so show the real image — with a neutral placeholder if
- * a tour has none or the image fails to load, never an initial.
+ * Best Selling Products thumbnail. The products endpoint carries the tour's cover
+ * photo, so show the real image — with a neutral placeholder if a tour has none
+ * or the image fails to load, never an initial.
  */
 function ProductThumb({ src, alt }) {
   const [failed, setFailed] = useState(false);
@@ -77,7 +76,7 @@ const PIE_COLORS = ["#044b3b", "#0f766e", "#0891b2", "#ca8a04", "#94a3b8"];
 export default function AnalyticsPage() {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
-  const [bookings, setBookings] = useState([]);
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [monthlyRevenueData, setMonthlyRevenueData] = useState([]);
@@ -87,10 +86,10 @@ export default function AnalyticsPage() {
     setLoading(true); setError(null);
     Promise.all([
       fetchSupplierAnalytics(),
-      fetchSupplierBookings({ page: 1, limit: 50 }).then(r => r.bookings).catch(() => []),
+      fetchProductAnalytics().catch(() => []),
       fetchMonthlyRevenue(12).catch(() => []),
     ])
-      .then(([d, b, monthly]) => { setData(d); setBookings(b); setMonthlyRevenueData(monthly); })
+      .then(([d, p, monthly]) => { setData(d); setProducts(p); setMonthlyRevenueData(monthly); })
       .catch((err) => {
         if (err.code === "AUTH_REQUIRED") return;
         setError(err.response?.data?.message || err.message || "Failed to load analytics");
@@ -123,28 +122,28 @@ export default function AnalyticsPage() {
 
   const productBookings = useMemo(() => {
     const map = {};
-    bookings.forEach(b => {
-      const name = b.tourName || "Unknown";
-      map[name] = (map[name] || 0) + 1;
+    products.forEach(p => {
+      const name = p.name || "Unknown";
+      map[name] = (map[name] || 0) + (p.bookings || 0);
     });
     return Object.entries(map)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(([name, value], i) => ({ name: name.length > 12 ? name.slice(0, 12) + "…" : name, value, color: PIE_COLORS[i] }));
-  }, [bookings]);
+  }, [products]);
 
   const productRevenue = useMemo(() => {
-    // One pass over the bookings: revenue, booking count and the tour's cover
-    // photo (the previous version re-filtered the whole list per product, and
-    // dropped the photo the bookings endpoint already sends).
+    // Grouped by name so a name shared by two tours reads as one product, and
+    // ranked by revenue: the best sellers, over every booking rather than only
+    // the 50 most recent this page used to walk.
     const map = {};
-    bookings.forEach(b => {
-      const name = b.tourName || "Unknown";
+    products.forEach(p => {
+      const name = p.name || "Unknown";
       if (!map[name]) map[name] = { revenue: 0, bookings: 0, photo: "", tourId: "" };
-      map[name].revenue += (b.total || 0);
-      map[name].bookings += 1;
-      if (!map[name].photo && b.tourPhoto) map[name].photo = b.tourPhoto;
-      if (!map[name].tourId && b.tourId) map[name].tourId = b.tourId;
+      map[name].revenue += (p.revenue || 0);
+      map[name].bookings += p.bookings || 0;
+      if (!map[name].photo && p.photo) map[name].photo = p.photo;
+      if (!map[name].tourId && p.tourId) map[name].tourId = p.tourId;
     });
 
     return Object.entries(map)
@@ -158,7 +157,7 @@ export default function AnalyticsPage() {
         tourId: agg.tourId,
         rating: avgRating,
       }));
-  }, [bookings, avgRating]);
+  }, [products, avgRating]);
 
   // The endpoint returns a continuous month window (zeros included), so an
   // "empty" trend means every bucket is zero — show that state instead of a

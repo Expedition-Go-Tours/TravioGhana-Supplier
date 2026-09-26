@@ -96,9 +96,16 @@ export default function DashboardPage() {
   const fetchDashboard = () => {
     if (!getAuthToken()) { setLoading(false); return; }
     setLoading(true); setError(null);
+    // Recent bookings is the Bookings page's own data, and that page is not every
+    // role's to open (bookings.view: admin + editor). Asking anyway cost a finance
+    // member a permission toast on every dashboard load, and left this panel
+    // permanently saying "No recent bookings" — so the request follows the page,
+    // exactly as the links on this page do.
     Promise.all([
       fetchSupplierDashboard(),
-      fetchSupplierBookings({ page: 1, limit: 4 }).then(r => r.bookings).catch(() => []),
+      canOpen("/bookings")
+        ? fetchSupplierBookings({ page: 1, limit: 4 }).then(r => r.bookings).catch(() => [])
+        : Promise.resolve([]),
       fetchCancellationSummary(undefined, 30).catch(() => null),
       fetchMonthlyRevenue(12).catch(() => []),
     ])
@@ -410,7 +417,8 @@ export default function DashboardPage() {
 
       {/* Bottom Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Recent Bookings */}
+        {/* Recent Bookings — shown only to the roles the Bookings page is for */}
+        {canOpen("/bookings") && (
         <div className="lg:col-span-2 bg-white border border-emerald-100/60 rounded-xl p-5 hover:border-emerald-200 transition-all">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-slate-800">Recent Bookings</h3>
@@ -469,9 +477,10 @@ export default function DashboardPage() {
             <div className="flex items-center justify-center py-8 text-xs font-medium text-slate-400">No recent bookings</div>
           )}
         </div>
+        )}
 
         {/* Top Products */}
-        <div className="bg-white border border-emerald-100/60 rounded-xl p-5 hover:border-emerald-200 transition-all">
+        <div className={`bg-white border border-emerald-100/60 rounded-xl p-5 hover:border-emerald-200 transition-all ${canOpen("/bookings") ? "" : "lg:col-span-2"}`}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-slate-800">Top Products</h3>
             {canOpen("/products") && (
@@ -534,11 +543,13 @@ export default function DashboardPage() {
       {/* Loading skeleton */}
       {loading && !error && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2 bg-white border border-emerald-100/60 rounded-xl p-5">
-            <div className="h-4 w-32 bg-emerald-100/40 rounded animate-pulse mb-4" />
-            <div className="h-[220px] bg-emerald-50/40 rounded-lg animate-pulse" />
-          </div>
-          <div className="bg-white border border-emerald-100/60 rounded-xl p-5">
+          {canOpen("/bookings") && (
+            <div className="lg:col-span-2 bg-white border border-emerald-100/60 rounded-xl p-5">
+              <div className="h-4 w-32 bg-emerald-100/40 rounded animate-pulse mb-4" />
+              <div className="h-[220px] bg-emerald-50/40 rounded-lg animate-pulse" />
+            </div>
+          )}
+          <div className={`bg-white border border-emerald-100/60 rounded-xl p-5 ${canOpen("/bookings") ? "" : "lg:col-span-2"}`}>
             <div className="h-4 w-24 bg-emerald-100/40 rounded animate-pulse mb-4" />
             <div className="space-y-3">
               {[1, 2, 3, 4, 5].map((i) => <div key={i} className="h-8 bg-emerald-50/40 rounded animate-pulse" />)}
