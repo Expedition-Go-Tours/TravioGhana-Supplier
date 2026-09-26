@@ -5,7 +5,15 @@
  * the supplier fails fast on malformed input (e.g. a bad IBAN or short account
  * number) instead of round-tripping to the server. The backend remains the
  * source of truth — these are convenience checks only.
+ *
+ * `validatePayoutForm` layers the country-driven requirements on top: the sheet
+ * asks for whichever identifiers the chosen bank country actually uses, so the
+ * required set depends on `form.bankCountry`.
  */
+
+import { COUNTRIES, fieldCopy, getCountryBankSpec } from "../config/payoutMethodForm";
+
+const countryName = (code) => COUNTRIES.find((c) => c.code === code)?.name || code;
 
 export const BIC_REGEX = /^[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}([A-Z0-9]{3})?$/;
 
@@ -79,8 +87,10 @@ export function validatePayoutMethod(form) {
     if (!hasValue(accountName)) errors.accountName = "Account name is required"
     else if (accountName.trim().length > 100) errors.accountName = "Account name is too long"
 
-    if (!hasValue(bankName)) errors.bankName = "Bank name is required"
-    else if (bankName.trim().length > 150) errors.bankName = "Bank name is too long"
+    // A SEPA supplier never sees a "bank name" box — the IBAN already carries
+    // the bank — so only require the name when there is nothing else to go on.
+    if (!hasValue(iban) && !hasValue(bankName)) errors.bankName = "Bank name is required"
+    else if (hasValue(bankName) && bankName.trim().length > 150) errors.bankName = "Bank name is too long"
 
     // At least one of account number or IBAN is required.
     if (!hasValue(accountNumber) && !hasValue(iban)) {
@@ -138,6 +148,42 @@ export function validatePayoutMethod(form) {
   }
 
   return { ok: Object.keys(errors).length === 0, errors }
+}
+
+/**
+ * Validate the form the sheet actually renders.
+ *
+ * `validatePayoutMethod` checks the shape of whatever it is given;
+ * `validatePayoutForm` additionally enforces the country-driven requirements,
+ * because the set of required identifiers depends on which country the supplier
+ * picked (a sort code in the UK, an IBAN in the eurozone, a branch code in
+ * Ghana). Those fields are exactly the ones the old form could not even ask for.
+ *
+ * @param {object} form
+ * @returns {{ ok: boolean, errors: Record<string, string> }}
+ */
+export function validatePayoutForm(form) {
+  const { errors } = validatePayoutMethod(form);
+  const next = { ...errors };
+
+  if (form.type === "BANK_TRANSFER") {
+    if (!hasValue(form.bankCountry)) {
+      next.bankCountry = "Choose the country your bank account is held in";
+    } else {
+      const spec = getCountryBankSpec(form.bankCountry);
+      for (const field of spec.identifiers) {
+        if (hasValue(form[field]) || next[field]) continue;
+        const { label } = fieldCopy(field, spec);
+        next[field] = `${label} is required${spec.countryCode ? ` for ${countryName(spec.countryCode)}` : ""}`;
+      }
+    }
+  }
+
+  if (!/^[A-Z]{3}$/.test((form.currency || "").toUpperCase())) {
+    next.currency = "Choose the currency you want to be paid in";
+  }
+
+  return { ok: Object.keys(next).length === 0, errors: next };
 }
 
 export const validators = {

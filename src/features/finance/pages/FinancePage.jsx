@@ -5,7 +5,7 @@ import RefundClaimsPage from "@/features/refund-claims/pages/RefundClaimsPage";
 import { useSearchParams } from "react-router-dom";
 import {
   DollarSign, Wallet, CreditCard, Loader2, RefreshCw, Plus, Trash2,
-  TrendingUp, Building2, Landmark, Smartphone,
+  TrendingUp, Landmark, Smartphone, Eye, EyeOff,
   CheckCircle2, AlertTriangle, X, ChevronDown, ChevronLeft, ChevronRight, Banknote,
   Calendar, Info, Search, Lock, XCircle, Undo2,
 } from "lucide-react";
@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { PayoutScheduleSummary } from "../components/PayoutScheduleCard";
+import PayoutMethodFormSheet from "../components/PayoutMethodFormSheet";
 import {
   cancelPayoutRequest, createPayoutMethod, createPayoutRequest, createRefundRequest, deletePayoutMethod,
   fetchFinanceDisputes, fetchFinanceEarnings, fetchFinanceSummary, fetchPayoutMethods, fetchPayoutRequests,
@@ -20,7 +21,7 @@ import {
   withdrawRefundRequest,
 } from "../api";
 import { getAuthToken } from "@/stores/authStore";
-import { validatePayoutMethod } from "../utils/validatePayoutMethod";
+import { COUNTRIES, PAYOUT_METHOD_TYPES, maskTail } from "../config/payoutMethodForm";
 
 const TABS = [
   { key: "earnings", label: "Earnings", icon: DollarSign },
@@ -54,21 +55,6 @@ const REFUND_REASONS = [
 ];
 
 const INITIAL_REFUND_FORM = { bookingId: "", reason: "", description: "" };
-
-const METHOD_TYPES = [
-  { value: "BANK_TRANSFER", label: "Bank Transfer", icon: Building2, desc: "Direct bank deposit" },
-  { value: "MOBILE_MONEY", label: "Mobile Money", icon: Smartphone, desc: "MTN, Telecel or AT wallet" },
-  { value: "PAYPAL", label: "PayPal", icon: Wallet, desc: "Online payment platform" },
-];
-
-/** Ghana mobile money providers (mirrors the payout options used at sign-up). */
-const MOBILE_MONEY_PROVIDERS = ["MTN Mobile Money", "Telecel Cash", "AT Money"];
-
-const INITIAL_METHOD_FORM = {
-  type: "BANK_TRANSFER", accountName: "", accountNumber: "", bankName: "", bankCountry: "",
-  branchName: "", branchCode: "",
-  mobileProvider: "", mobileNumber: "", paypalEmail: "", currency: "USD",
-};
 
 const PAGE_SIZE = 20;
 
@@ -246,9 +232,6 @@ export default function FinancePage() {
   const [payoutRequests, setPayoutRequests] = useState([]);
   const [methods, setMethods] = useState([]);
   const [showMethodForm, setShowMethodForm] = useState(false);
-  const [methodForm, setMethodForm] = useState(INITIAL_METHOD_FORM);
-  const [formErrors, setFormErrors] = useState({});
-  const [savingMethod, setSavingMethod] = useState(false);
   const [expandedMethod, setExpandedMethod] = useState(null);
   const [filterPill, setFilterPill] = useState("ELIGIBLE");
   const [showRequestModal, setShowRequestModal] = useState(false);
@@ -343,39 +326,6 @@ export default function FinancePage() {
     loadCharges();
   }, [loadCharges]);
 
-  const handleAddMethod = async (e) => {
-    e.preventDefault(); setSavingMethod(true);
-    try {
-      const { ok, errors } = validatePayoutMethod(methodForm);
-      if (!ok) {
-        setFormErrors(errors);
-        const firstField = Object.keys(errors)[0];
-        toast.error(errors[firstField]);
-        return;
-      }
-      const payload = { type: methodForm.type, currency: methodForm.currency };
-      if (methodForm.type === "BANK_TRANSFER") {
-        Object.assign(payload, { accountName: methodForm.accountName, accountNumber: methodForm.accountNumber, bankName: methodForm.bankName, bankCountry: methodForm.bankCountry, branchName: methodForm.branchName || null, branchCode: methodForm.branchCode || null });
-      } else if (methodForm.type === "MOBILE_MONEY") {
-        Object.assign(payload, { accountName: methodForm.accountName, mobileProvider: methodForm.mobileProvider, mobileNumber: methodForm.mobileNumber });
-      } else { payload.paypalEmail = methodForm.paypalEmail; }
-      await createPayoutMethod(payload);
-      toast.success("Payout method added");
-      setShowMethodForm(false);
-      setMethodForm(INITIAL_METHOD_FORM);
-      setFormErrors({});
-      await loadData();
-    } catch (err) {
-      const serverMessage = err.response?.data?.message || "Failed to add payout method";
-      const match = String(serverMessage).match(/^body\.(\w+):\s*(.*)$/);
-      if (match && match[1] !== "type") {
-        setFormErrors((prev) => ({ ...prev, [match[1]]: match[2] }));
-      } else {
-        toast.error(serverMessage);
-      }
-    } finally { setSavingMethod(false); }
-  };
-
   const handleDeleteMethod = async (id) => {
     if (!confirm("Delete this payout method?")) return;
     try {
@@ -386,8 +336,6 @@ export default function FinancePage() {
       toast.error(err.response?.data?.message || "Failed to delete payout method");
     }
   };
-
-  const clearError = (field) => setFormErrors((p) => ({ ...p, [field]: undefined }));
 
   // Compute stats from the finance v2 summary endpoint
   const stats = useMemo(() => {
@@ -1347,157 +1295,27 @@ export default function FinancePage() {
               {/* Add Method Button */}
               <div className="flex items-center justify-end">
                 <button
-                  onClick={() => { setShowMethodForm((v) => !v); if (showMethodForm) setExpandedMethod(null); }}
+                  onClick={() => setShowMethodForm((v) => !v)}
                   className={cn(
                     "flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all",
-                    showMethodForm
-                      ? "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
-                      : "bg-emerald-500 text-white hover:bg-emerald-600"
+                    "bg-emerald-500 text-white hover:bg-emerald-600"
                   )}
                 >
-                  {showMethodForm ? <X size={16} /> : <Plus size={16} />}
-                  {showMethodForm ? "Cancel" : "Add Method"}
+                  <Plus size={16} />
+                  Add method
                 </button>
               </div>
 
-              {/* Method Form */}
-              <AnimatePresence>
-                {showMethodForm && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.3, ease: "easeInOut" }}
-                    className="overflow-hidden"
-                  >
-                    <form onSubmit={handleAddMethod} className="bg-white border border-gray-200 rounded-xl p-6 space-y-5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
-                          <CreditCard size={20} className="text-emerald-600" />
-                        </div>
-                        <div>
-                          <h3 className="text-base font-semibold text-gray-900">New Payout Method</h3>
-                          <p className="text-sm text-gray-500">Choose your preferred payout type</p>
-                        </div>
-                      </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {METHOD_TYPES.map((t) => {
-                          const Icon = t.icon;
-                          return (
-                            <button
-                              key={t.value}
-                              type="button"
-                              onClick={() => setMethodForm((prev) => ({ ...prev, type: t.value }))}
-                              className={cn(
-                                "flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all",
-                                methodForm.type === t.value
-                                  ? "border-emerald-500 bg-emerald-50"
-                                  : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
-                              )}
-                            >
-                              <div className={cn(
-                                "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
-                                methodForm.type === t.value ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"
-                              )}>
-                                <Icon size={20} />
-                              </div>
-                              <div>
-                                <p className={cn(
-                                  "text-sm font-semibold",
-                                  methodForm.type === t.value ? "text-emerald-800" : "text-gray-700"
-                                )}>{t.label}</p>
-                                <p className="text-xs text-gray-500 mt-0.5">{t.desc}</p>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                  {methodForm.type === "BANK_TRANSFER" ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div className="col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Account Name</label>
-                            <input placeholder="e.g. John Doe" value={methodForm.accountName} onChange={(e) => { setMethodForm((p) => ({ ...p, accountName: e.target.value })); clearError("accountName"); }}
-                              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all" required />
-                            {formErrors.accountName && <p className="mt-1 text-xs text-red-600">{formErrors.accountName}</p>}
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Account Number</label>
-                            <input placeholder="e.g. 1234567890" value={methodForm.accountNumber} onChange={(e) => { setMethodForm((p) => ({ ...p, accountNumber: e.target.value })); clearError("accountNumber"); }}
-                              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all" required />
-                            {formErrors.accountNumber && <p className="mt-1 text-xs text-red-600">{formErrors.accountNumber}</p>}
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Bank Name</label>
-                            <input placeholder="e.g. Barclays" value={methodForm.bankName} onChange={(e) => { setMethodForm((p) => ({ ...p, bankName: e.target.value })); clearError("bankName"); }}
-                              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all" required />
-                            {formErrors.bankName && <p className="mt-1 text-xs text-red-600">{formErrors.bankName}</p>}
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Bank Branch <span className="font-normal text-gray-400">(optional)</span></label>
-                            <input placeholder="e.g. Oxford Circus" value={methodForm.branchName} onChange={(e) => { setMethodForm((p) => ({ ...p, branchName: e.target.value })); clearError("branchName"); }}
-                              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all" />
-                            {formErrors.branchName && <p className="mt-1 text-xs text-red-600">{formErrors.branchName}</p>}
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Branch Code <span className="font-normal text-gray-400">(optional)</span></label>
-                            <input placeholder="e.g. 20-33-44" value={methodForm.branchCode} onChange={(e) => { setMethodForm((p) => ({ ...p, branchCode: e.target.value })); clearError("branchCode"); }}
-                              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all" />
-                            {formErrors.branchCode && <p className="mt-1 text-xs text-red-600">{formErrors.branchCode}</p>}
-                          </div>
-                          <div className="col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Country</label>
-                            <input placeholder="e.g. GH" value={methodForm.bankCountry} onChange={(e) => { setMethodForm((p) => ({ ...p, bankCountry: e.target.value })); clearError("bankCountry"); }}
-                              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all" required />
-                            {formErrors.bankCountry && <p className="mt-1 text-xs text-red-600">{formErrors.bankCountry}</p>}
-                          </div>
-                        </div>
-                      ) : methodForm.type === "MOBILE_MONEY" ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div className="col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Wallet Holder Name</label>
-                            <input placeholder="e.g. John Doe" value={methodForm.accountName} onChange={(e) => { setMethodForm((p) => ({ ...p, accountName: e.target.value })); clearError("accountName"); }}
-                              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all" required />
-                            {formErrors.accountName && <p className="mt-1 text-xs text-red-600">{formErrors.accountName}</p>}
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Mobile Money Provider</label>
-                            <select value={methodForm.mobileProvider} onChange={(e) => { setMethodForm((p) => ({ ...p, mobileProvider: e.target.value })); clearError("mobileProvider"); }}
-                              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all" required>
-                              <option value="">Select provider</option>
-                              {MOBILE_MONEY_PROVIDERS.map((provider) => (
-                                <option key={provider} value={provider}>{provider}</option>
-                              ))}
-                            </select>
-                            {formErrors.mobileProvider && <p className="mt-1 text-xs text-red-600">{formErrors.mobileProvider}</p>}
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Mobile Money Number</label>
-                            <input placeholder="e.g. 0244000000" value={methodForm.mobileNumber} onChange={(e) => { setMethodForm((p) => ({ ...p, mobileNumber: e.target.value })); clearError("mobileNumber"); }}
-                              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all" required />
-                            {formErrors.mobileNumber && <p className="mt-1 text-xs text-red-600">{formErrors.mobileNumber}</p>}
-                          </div>
-                        </div>
-                      ) : (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">PayPal Email</label>
-                          <input type="email" placeholder="e.g. name@example.com" value={methodForm.paypalEmail} onChange={(e) => { setMethodForm((p) => ({ ...p, paypalEmail: e.target.value })); clearError("paypalEmail"); }}
-                            className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all" required />
-                          {formErrors.paypalEmail && <p className="mt-1 text-xs text-red-600">{formErrors.paypalEmail}</p>}
-                        </div>
-                      )}
-
-                      <button type="submit" disabled={savingMethod}
-                        className="w-full py-3 bg-emerald-500 text-white rounded-lg text-sm font-semibold hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
-                      >
-                        {savingMethod ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-                        {savingMethod ? "Saving..." : "Save Payout Method"}
-                      </button>
-                    </form>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              <PayoutMethodFormSheet
+                open={showMethodForm}
+                onClose={() => setShowMethodForm(false)}
+                onSubmit={async (payload) => {
+                  await createPayoutMethod(payload);
+                  toast.success("Payout method added — we'll check it before your first payout.");
+                  setShowMethodForm(false);
+                  await loadData();
+                }}
+              />
 
               {/* Methods List */}
               {loading ? (
@@ -1550,7 +1368,10 @@ export default function FinancePage() {
                               </div>
                               <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <p className="text-sm font-semibold text-gray-900 truncate">{method.type?.replace(/_/g, " ")}</p>
+                                  <p className="text-sm font-semibold text-gray-900 truncate">
+                                    {payoutTypeLabel(method.type)}
+                                    <span className="font-normal text-gray-400"> · {method.currency || "USD"}</span>
+                                  </p>
                                   {method.isDefault && (
                                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
                                       Default
@@ -1559,6 +1380,9 @@ export default function FinancePage() {
                                 </div>
                                 <p className="text-sm text-gray-500 mt-0.5 truncate">
                                   {method.accountName || method.paypalEmail || method.mobileProvider || "—"}
+                                  {methodIdentifier(method) && (
+                                    <span className="font-mono text-xs"> {methodIdentifier(method)}</span>
+                                  )}
                                 </p>
                               </div>
                             </div>
@@ -1588,63 +1412,34 @@ export default function FinancePage() {
                                 <div className="pt-4 pb-5 grid grid-cols-2 gap-y-4 gap-x-6">
                                   {method.type === "BANK_TRANSFER" && (
                                     <>
-                                      <div>
-                                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Account Name</p>
-                                        <p className="text-sm font-medium text-gray-700 mt-1">{method.accountName || "—"}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Account Number</p>
-                                        <p className="text-sm font-medium text-gray-700 mt-1 font-mono">{method.accountNumber || "—"}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Bank Name</p>
-                                        <p className="text-sm font-medium text-gray-700 mt-1">{method.bankName || "—"}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Bank Branch</p>
-                                        <p className="text-sm font-medium text-gray-700 mt-1">{method.branchName || "—"}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Branch Code</p>
-                                        <p className="text-sm font-medium text-gray-700 mt-1">{method.branchCode || "—"}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Country</p>
-                                        <p className="text-sm font-medium text-gray-700 mt-1">{method.bankCountry || method.country || "—"}</p>
-                                      </div>
+                                      <DetailRow label="Account Name" value={method.accountName} />
+                                      {method.iban && <DetailRow label="IBAN" value={method.iban} mono />}
+                                      {method.sortCode && <DetailRow label="Sort Code" value={method.sortCode} mono />}
+                                      {method.routingNumber && <DetailRow label="Routing Number" value={method.routingNumber} mono />}
+                                      {!method.iban && !method.sortCode && !method.routingNumber && (
+                                        <DetailRow label="Account Number" value={method.accountNumber} mono masked />
+                                      )}
+                                      {method.swiftCode && <DetailRow label="SWIFT / BIC" value={method.swiftCode} mono />}
+                                      <DetailRow label="Bank Name" value={method.bankName} />
+                                      {method.branchName && <DetailRow label="Bank Branch" value={method.branchName} />}
+                                      {method.branchCode && <DetailRow label="Branch Code" value={method.branchCode} mono />}
+                                      {method.bankAddress && <DetailRow label="Bank Address" value={method.bankAddress} />}
+                                      <DetailRow label="Country" value={countryNameFor(method.bankCountry)} />
                                     </>
                                   )}
                                   {method.type === "MOBILE_MONEY" && (
                                     <>
-                                      <div>
-                                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Wallet Holder</p>
-                                        <p className="text-sm font-medium text-gray-700 mt-1">{method.accountName || "—"}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Provider</p>
-                                        <p className="text-sm font-medium text-gray-700 mt-1">{method.mobileProvider || "—"}</p>
-                                      </div>
-                                      <div className="col-span-2">
-                                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Wallet Number</p>
-                                        <p className="text-sm font-medium text-gray-700 mt-1 font-mono">{method.mobileNumber || "—"}</p>
-                                      </div>
+                                      <DetailRow label="Wallet Holder" value={method.accountName} />
+                                      <DetailRow label="Provider" value={method.mobileProvider} />
+                                      <DetailRow label="Wallet Number" value={method.mobileNumber} mono />
                                     </>
                                   )}
                                   {method.type === "PAYPAL" && (
-                                    <div className="col-span-2">
-                                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">PayPal Email</p>
-                                      <p className="text-sm font-medium text-gray-700 mt-1">{method.paypalEmail || "—"}</p>
-                                    </div>
+                                    <DetailRow label="PayPal Email" value={method.paypalEmail} />
                                   )}
-                                  <div>
-                                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Currency</p>
-                                    <p className="text-sm font-medium text-gray-700 mt-1">{method.currency || "USD"}</p>
-                                  </div>
+                                  <DetailRow label="Currency" value={method.currency || "USD"} />
                                   {method.createdAt && (
-                                    <div>
-                                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Added</p>
-                                      <p className="text-sm font-medium text-gray-700 mt-1">{formatDate(method.createdAt)}</p>
-                                    </div>
+                                    <DetailRow label="Added" value={formatDate(method.createdAt)} />
                                   )}
                                   <div className="col-span-2 flex justify-end pt-2 border-t border-gray-100">
                                     <button
@@ -1669,6 +1464,59 @@ export default function FinancePage() {
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+/** "GH" → "Ghana", falling back to whatever was stored. */
+function countryNameFor(code) {
+  if (!code) return "—";
+  return COUNTRIES.find((c) => c.code === code)?.name || code;
+}
+
+/** "BANK_TRANSFER" → "Bank transfer", not "BANK TRANSFER". */
+function payoutTypeLabel(type) {
+  return PAYOUT_METHOD_TYPES.find((t) => t.value === type)?.label || String(type || "—").replace(/_/g, " ").toLowerCase();
+}
+
+/**
+ * The masked identifier for a saved method, so the collapsed row says *which*
+ * account it is without printing the account number.
+ */
+function methodIdentifier(method) {
+  if (method.type === "PAYPAL") return "";
+  const identifier = method.iban || method.sortCode || method.routingNumber
+    || method.accountNumber || method.mobileNumber;
+  return maskTail(identifier);
+}
+
+/**
+ * One label/value pair in the expanded method panel. Identifiers are masked by
+ * default with a reveal on click — a saved bank number is not something that
+ * should be readable over someone's shoulder.
+ */
+function DetailRow({ label, value, mono, masked }) {
+  const [revealed, setRevealed] = useState(false);
+  if (!value) return null;
+
+  const display = masked && !revealed ? maskTail(value) : value;
+
+  return (
+    <div className="min-w-0">
+      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
+      {masked ? (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setRevealed((v) => !v); }}
+          aria-label={revealed ? `Hide ${label}` : `Show full ${label}`}
+          className="mt-1 flex items-center gap-1.5 text-left font-mono text-sm font-medium text-gray-700 hover:text-emerald-700"
+        >
+          <span className="truncate">{display}</span>
+          {revealed ? <EyeOff size={13} className="shrink-0 text-gray-400" /> : <Eye size={13} className="shrink-0 text-gray-400" />}
+        </button>
+      ) : (
+        <p className={cn("mt-1 truncate text-sm font-medium text-gray-700", mono && "font-mono")}>{value}</p>
+      )}
     </div>
   );
 }

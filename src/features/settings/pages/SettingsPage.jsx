@@ -30,6 +30,8 @@ import { cn, formatCurrency } from "@/lib/utils";
 import { config } from "@/config";
 import { useTeamRole } from "@/hooks/useTeamRole";
 import { canOpenSettingsTab } from "@/config/pageAccess";
+import PayoutMethodFormSheet from "@/features/finance/components/PayoutMethodFormSheet";
+import { maskTail } from "@/features/finance/config/payoutMethodForm";
 import { TEAM_ROLE_LABELS, TEAM_ROLE_COLORS, MAX_TEAM_ROLES, describeRoles, sortTeamRoles } from "@/config/teamRoles";
 import TeamRolePicker from "@/features/settings/components/TeamRolePicker";
 import SocialMediaManager from "../components/SocialMediaManager";
@@ -46,20 +48,20 @@ const TABS = [
   { key: "team", label: "Team", icon: Users },
 ];
 
-const METHOD_TYPES = [
-  { value: "BANK_TRANSFER", label: "Bank Transfer", icon: Building2, desc: "Direct bank deposit" },
-  { value: "MOBILE_MONEY", label: "Mobile Money", icon: Smartphone, desc: "MTN, Telecel or AT wallet" },
-  { value: "PAYPAL", label: "PayPal", icon: Wallet, desc: "Online payment platform" },
-];
-
-/** Ghana mobile money providers (mirrors the payout options used at sign-up). */
-const MOBILE_MONEY_PROVIDERS = ["MTN Mobile Money", "Telecel Cash", "AT Money"];
-
 const FADE_UP = {
   initial: { opacity: 0, y: 16 },
   animate: { opacity: 1, y: 0, transition: { duration: 0.3, ease: "easeOut" } },
   exit: { opacity: 0, y: -8, transition: { duration: 0.2, ease: "easeIn" } },
 };
+
+/**
+ * The masked identifier for a saved method. Picks whichever identifier that
+ * method actually has — a SEPA account only has an IBAN, so falling back to
+ * `accountNumber` alone used to render a bare "****" with nothing after it.
+ */
+function settingsMethodIdentifier(method) {
+  return maskTail(method.iban || method.sortCode || method.routingNumber || method.accountNumber || method.mobileNumber);
+}
 
 export default function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1001,11 +1003,6 @@ function PayoutsTab() {
   const [payouts, setPayouts] = useState([]);
   const [payoutsSummary, setPayoutsSummary] = useState({});
   const [showMethodForm, setShowMethodForm] = useState(false);
-  const [methodForm, setMethodForm] = useState({
-    type: "BANK_TRANSFER", accountName: "", accountNumber: "", bankName: "",
-    bankCountry: "", mobileProvider: "", mobileNumber: "", paypalEmail: "", currency: "USD",
-  });
-  const [savingMethod, setSavingMethod] = useState(false);
   const [plan, setPlan] = useState(null);
   const [available, setAvailable] = useState(0);
 
@@ -1028,34 +1025,6 @@ function PayoutsTab() {
   };
 
   useEffect(() => { Promise.resolve().then(() => loadData()); }, []);
-
-  const handleAddMethod = async (e) => {
-    e.preventDefault();
-    setSavingMethod(true);
-    try {
-      const payload = { type: methodForm.type, currency: methodForm.currency };
-      if (methodForm.type === "BANK_TRANSFER") {
-        Object.assign(payload, {
-          accountName: methodForm.accountName, accountNumber: methodForm.accountNumber,
-          bankName: methodForm.bankName, bankCountry: methodForm.bankCountry,
-        });
-      } else if (methodForm.type === "MOBILE_MONEY") {
-        Object.assign(payload, {
-          accountName: methodForm.accountName, mobileProvider: methodForm.mobileProvider,
-          mobileNumber: methodForm.mobileNumber,
-        });
-      } else {
-        payload.paypalEmail = methodForm.paypalEmail;
-      }
-      await createPayoutMethod(payload);
-      toast.success("Payout method added");
-      setShowMethodForm(false);
-      setMethodForm({ type: "BANK_TRANSFER", accountName: "", accountNumber: "", bankName: "", bankCountry: "", mobileProvider: "", mobileNumber: "", paypalEmail: "", currency: "USD" });
-      await loadData();
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to add payout method");
-    } finally { setSavingMethod(false); }
-  };
 
   const handleDeleteMethod = async (id) => {
     try {
@@ -1106,133 +1075,26 @@ function PayoutsTab() {
               <p className="text-xs text-slate-500">Manage how you receive payments</p>
             </div>
           </div>
-          <button onClick={() => setShowMethodForm((v) => !v)}
-            className={cn(
-              "flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all shadow-sm",
-              showMethodForm ? "bg-white text-slate-600 border border-slate-200" : "bg-emerald-600 text-white hover:bg-emerald-700"
-            )}>
-            {showMethodForm ? <X size={14} /> : <Plus size={14} />}
-            {showMethodForm ? "Cancel" : "Add Method"}
+          <button onClick={() => setShowMethodForm(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all shadow-sm bg-emerald-600 text-white hover:bg-emerald-700">
+            <Plus size={14} />
+            Add method
           </button>
         </div>
 
         <div className="px-6 py-4">
-          <AnimatePresence>
-            {showMethodForm && (
-              <motion.form
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                onSubmit={handleAddMethod}
-                className="mb-6 bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-4 overflow-hidden"
-              >
-                <div className="grid grid-cols-2 gap-3">
-                  {METHOD_TYPES.map((t) => {
-                    const Icon = t.icon;
-                    return (
-                      <button key={t.value} type="button"
-                        onClick={() => setMethodForm((p) => ({ ...p, type: t.value }))}
-                        className={cn(
-                          "flex items-center gap-3 p-3.5 rounded-xl border-2 text-left transition-all",
-                          methodForm.type === t.value
-                            ? "border-emerald-500 bg-emerald-50/50"
-                            : "border-slate-200 bg-white hover:border-slate-300"
-                        )}>
-                        <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center shrink-0",
-                          methodForm.type === t.value ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500")}>
-                          <Icon size={18} />
-                        </div>
-                        <div>
-                          <p className={cn("text-sm font-semibold", methodForm.type === t.value ? "text-emerald-800" : "text-slate-700")}>{t.label}</p>
-                          <p className="text-[11px] text-slate-500">{t.desc}</p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {methodForm.type === "BANK_TRANSFER" ? (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="col-span-2">
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Account Name</label>
-                      <input value={methodForm.accountName} onChange={(e) => setMethodForm((p) => ({ ...p, accountName: e.target.value }))}
-                        className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" required />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Account Number</label>
-                      <input value={methodForm.accountNumber} onChange={(e) => setMethodForm((p) => ({ ...p, accountNumber: e.target.value }))}
-                        className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" required />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Bank Name</label>
-                      <input value={methodForm.bankName} onChange={(e) => setMethodForm((p) => ({ ...p, bankName: e.target.value }))}
-                        className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" required />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Bank Country</label>
-                      <input value={methodForm.bankCountry} onChange={(e) => setMethodForm((p) => ({ ...p, bankCountry: e.target.value }))}
-                        placeholder="e.g. GH, US, UK"
-                        className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Currency</label>
-                      <Select value={methodForm.currency} onValueChange={(v) => setMethodForm((p) => ({ ...p, currency: v }))}>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Currency" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="USD">USD</SelectItem>
-                          <SelectItem value="EUR">EUR</SelectItem>
-                          <SelectItem value="GBP">GBP</SelectItem>
-                          <SelectItem value="GHS">GHS</SelectItem>
-                          <SelectItem value="NGN">NGN</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                ) : methodForm.type === "MOBILE_MONEY" ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Wallet Holder Name</label>
-                      <input value={methodForm.accountName} onChange={(e) => setMethodForm((p) => ({ ...p, accountName: e.target.value }))}
-                        placeholder="e.g. John Doe"
-                        className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" required />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Mobile Money Provider</label>
-                      <select value={methodForm.mobileProvider} onChange={(e) => setMethodForm((p) => ({ ...p, mobileProvider: e.target.value }))}
-                        className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" required>
-                        <option value="">Select provider</option>
-                        {MOBILE_MONEY_PROVIDERS.map((provider) => (
-                          <option key={provider} value={provider}>{provider}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Mobile Money Number</label>
-                      <input value={methodForm.mobileNumber} onChange={(e) => setMethodForm((p) => ({ ...p, mobileNumber: e.target.value }))}
-                        placeholder="e.g. 0244000000"
-                        className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" required />
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">PayPal Email</label>
-                    <input type="email" value={methodForm.paypalEmail} onChange={(e) => setMethodForm((p) => ({ ...p, paypalEmail: e.target.value }))}
-                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" required />
-                  </div>
-                )}
-
-                <div className="flex justify-end pt-2">
-                  <button type="submit" disabled={savingMethod}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-medium hover:bg-emerald-700 transition-all disabled:opacity-50">
-                    {savingMethod ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
-                    Add Payout Method
-                  </button>
-                </div>
-              </motion.form>
-            )}
-          </AnimatePresence>
+          <PayoutMethodFormSheet
+            open={showMethodForm}
+            onClose={() => setShowMethodForm(false)}
+            onSubmit={async (payload) => {
+              await createPayoutMethod(payload);
+              toast.success("Payout method added — we'll check it before your first payout.");
+              setShowMethodForm(false);
+              await loadData();
+            }}
+            title="Add payout method"
+            submitLabel="Add payout method"
+          />
 
           {methods.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -1254,21 +1116,28 @@ function PayoutsTab() {
                           ? <Smartphone size={18} className="text-slate-600" />
                           : <Wallet size={18} className="text-slate-600" />}
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-700">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-700 truncate">
                         {method.type === "BANK_TRANSFER"
                           ? method.bankName || "Bank Account"
                           : method.type === "MOBILE_MONEY"
                             ? method.mobileProvider || "Mobile Money"
                             : "PayPal"}
+                        <span className="font-normal text-slate-400"> · {method.currency || "USD"}</span>
                         {method.isDefault && <span className="ml-2 text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md font-medium">Default</span>}
                       </p>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {method.type === "BANK_TRANSFER"
-                          ? `****${method.accountNumber?.slice(-4) || ""}`
-                          : method.type === "MOBILE_MONEY"
-                            ? `${method.accountName ? `${method.accountName} · ` : ""}${method.mobileNumber || ""}`
-                            : method.paypalEmail}
+                      <p className="text-xs text-slate-500 mt-0.5 truncate">
+                        {method.type === "PAYPAL"
+                          ? method.paypalEmail
+                          : [method.accountName, settingsMethodIdentifier(method)].filter(Boolean).join(" · ")}
+                        <span
+                          className={cn(
+                            "ml-2 align-middle text-[10px] font-medium",
+                            method.verified ? "text-emerald-600" : "text-amber-600"
+                          )}
+                        >
+                          {method.verified ? "Verified" : "Pending"}
+                        </span>
                       </p>
                     </div>
                   </div>

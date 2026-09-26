@@ -44,6 +44,18 @@ globalThis.ResizeObserver = class ResizeObserver {
   unobserve() {}
 };
 
+// Radix primitives (Select, Popover, Dialog) drive pointer capture and smooth
+// scrolling, none of which jsdom implements. Without these, interacting with a
+// Radix Select in a test throws `hasPointerCapture is not a function`.
+if (!Element.prototype.hasPointerCapture) {
+  Element.prototype.hasPointerCapture = () => false;
+  Element.prototype.setPointerCapture = () => {};
+  Element.prototype.releasePointerCapture = () => {};
+}
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => {};
+}
+
 // Suppress console errors in tests (optional)
 const originalError = console.error;
 beforeAll(() => {
