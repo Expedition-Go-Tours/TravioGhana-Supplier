@@ -30,7 +30,7 @@ import { cn, formatCurrency } from "@/lib/utils";
 import { config } from "@/config";
 import { useTeamRole } from "@/hooks/useTeamRole";
 import { canOpenSettingsTab } from "@/config/pageAccess";
-import { TEAM_ROLE_LABELS, TEAM_ROLE_COLORS, describeRoles, sortTeamRoles } from "@/config/teamRoles";
+import { TEAM_ROLE_LABELS, TEAM_ROLE_COLORS, MAX_TEAM_ROLES, describeRoles, sortTeamRoles } from "@/config/teamRoles";
 import TeamRolePicker from "@/features/settings/components/TeamRolePicker";
 import SocialMediaManager from "../components/SocialMediaManager";
 import OperatingHoursEditor from "../components/OperatingHoursEditor";
@@ -1620,6 +1620,25 @@ function memberRoles(member) {
   return roles.length ? roles : sortTeamRoles(member?.role);
 }
 
+/**
+ * One column template for the team list, shared by the header and every row.
+ *
+ * This was a flex row whose columns were hand-matched per element — the header
+ * said `w-24` where the row said `w-56`, so the labels never lined up with their
+ * columns, and on a phone the row overflowed its card. The avatar was a fixed
+ * 32px flex item with the default `flex-shrink: 1`, so it absorbed that overflow
+ * and got squeezed narrower than it was tall; `rounded-full` then drew a sliver
+ * instead of a circle. A grid track is not compressed by its content, so the
+ * avatar is now pinned to a fixed 2rem track, and sharing a single template
+ * string means the header and the rows cannot drift apart again.
+ *
+ * Below `sm` the row becomes two lines — email above, roles + status below —
+ * because 32 + 176 + 88 + 64px of fixed columns plus gaps does not fit a phone.
+ */
+const TEAM_LIST_COLS =
+  "grid-cols-[2rem_minmax(0,1fr)_auto] sm:grid-cols-[2rem_minmax(0,1fr)_9rem_5.5rem_3.5rem]";
+const TEAM_LIST_ROW = "items-center gap-x-3 gap-y-1.5";
+
 function TeamTab() {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1709,9 +1728,9 @@ function TeamTab() {
   return (
     <motion.div variants={FADE_UP} initial="initial" animate="animate" exit="exit" className="space-y-6">
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
+            <div className="w-9 h-9 shrink-0 rounded-lg bg-emerald-50 flex items-center justify-center">
               <Users size={16} className="text-emerald-600" />
             </div>
             <div>
@@ -1720,12 +1739,12 @@ function TeamTab() {
             </div>
           </div>
           <button onClick={() => setShowInvite((v) => !v)}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-700 transition-all shadow-sm">
+            className="flex items-center gap-1.5 shrink-0 px-3.5 py-2 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-700 transition-all shadow-sm">
             <Plus size={14} /> Invite Member
           </button>
         </div>
 
-        <div className="px-6 py-4">
+        <div className="px-4 sm:px-6 py-4">
           <AnimatePresence>
             {showInvite && (
               <motion.form
@@ -1751,9 +1770,9 @@ function TeamTab() {
                     onChange={(roles) => setForm((p) => ({ ...p, roles }))}
                   />
                 </div>
-                <div className="flex items-center gap-2 pt-1">
+                <div className="flex flex-wrap items-center gap-2 pt-1">
                   <label className="flex items-center gap-2 text-xs text-slate-500 cursor-pointer select-none">
-                    <div className="relative">
+                    <div className="relative shrink-0">
                       <input type="checkbox" checked={directAdd} onChange={(e) => setDirectAdd(e.target.checked)}
                         className="sr-only peer" />
                       <div className="w-8 h-4 bg-slate-200 rounded-full peer-checked:bg-emerald-500 transition-colors" />
@@ -1761,7 +1780,7 @@ function TeamTab() {
                     </div>
                     Add directly (no email)
                   </label>
-                  <div className="flex-1" />
+                  <div className="hidden flex-1 sm:block" />
                   <button type="button" onClick={() => setShowInvite(false)}
                     className="px-3 py-2 text-slate-600 rounded-xl text-xs font-medium hover:bg-slate-100 transition-all">
                     Cancel
@@ -1790,69 +1809,111 @@ function TeamTab() {
             </div>
           ) : (
             <div className="space-y-2">
-              <div className="flex items-center gap-3 px-3 py-3 text-xs font-semibold text-slate-400 border-b border-slate-100">
-                <span className="flex-1">Member</span>
-                <span className="w-24">Role</span>
-                <span className="w-20">Status</span>
-                <span className="w-10" />
+              <div className={cn("hidden sm:grid", TEAM_LIST_COLS, TEAM_LIST_ROW, "px-3 py-2.5 text-xs font-semibold text-slate-400 border-b border-slate-100")}>
+                <span className="col-start-2">Member</span>
+                <span className="col-start-3">Role</span>
+                <span className="col-start-4">Status</span>
+                <span className="col-start-5" />
               </div>
-              {members.map((m) => (
-                <div key={m.id} className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-slate-50 transition-colors">
-                  <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
-                    <span className="text-xs font-bold text-emerald-700">{m.email.charAt(0).toUpperCase()}</span>
-                  </div>
-                  <span className="flex-1 text-sm text-slate-700">{m.email}</span>
-                  <div className="w-56 relative">
-                    {editingRole === m.id ? (
-                      <div className="rounded-xl border border-slate-200 bg-white p-2.5">
-                        <TeamRolePicker
-                          compact
-                          value={memberRoles(m)}
-                          onChange={(roles) => handleRoleChange(m.id, roles)}
-                        />
+              {members.map((m) => {
+                const roles = memberRoles(m);
+                const isPending = m.status === "PENDING";
+                const isRevoked = m.status === "REVOKED";
+                return (
+                  <div
+                    key={m.id}
+                    className={cn(
+                      "rounded-lg transition-colors",
+                      editingRole === m.id ? "bg-slate-50" : "hover:bg-slate-50",
+                    )}
+                  >
+                    <div className={cn("grid", TEAM_LIST_COLS, TEAM_LIST_ROW, "px-3 py-3")}>
+                      <div className="col-start-1 row-start-1 row-span-2 sm:row-span-1 w-8 h-8 shrink-0 rounded-full bg-emerald-100 flex items-center justify-center select-none">
+                        <span className="text-xs font-bold text-emerald-700">{m.email.charAt(0).toUpperCase()}</span>
+                      </div>
+                      <span className="col-start-2 row-start-1 min-w-0 truncate text-sm text-slate-700" title={m.email}>
+                        {m.email}
+                      </span>
+                      {/* Phones: roles and status share one wrapped line under the
+                          email. From sm up this wrapper becomes display:contents, so
+                          each child is placed in its own column and lines up with the
+                          header above. */}
+                      <div className="col-start-2 row-start-2 flex flex-wrap items-center gap-1.5 sm:contents">
+                        <div className="min-w-0 sm:col-start-3 sm:row-start-1">
+                          <button
+                            onClick={() => setEditingRole(m.id)}
+                            className="flex flex-wrap items-center gap-1 text-left min-w-0"
+                            title="Change roles"
+                            aria-label={`Change roles for ${m.email}`}
+                          >
+                            {roles.length > 0 ? roles.map((role) => (
+                              <span
+                                key={role}
+                                className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap transition-opacity hover:opacity-80", TEAM_ROLE_COLORS[role] || "bg-slate-100 text-slate-600")}
+                              >
+                                {TEAM_ROLE_LABELS[role] || role}
+                              </span>
+                            )) : (
+                              <span className="inline-flex items-center rounded-full border border-dashed border-slate-300 px-2 py-0.5 text-[11px] font-medium text-slate-400">
+                                Set role
+                              </span>
+                            )}
+                          </button>
+                        </div>
+                        <div className="sm:col-start-4 sm:row-start-1">
+                          <span className={cn(
+                            "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap",
+                            isPending && "bg-amber-50 text-amber-700",
+                            isRevoked && "bg-slate-100 text-slate-500",
+                            !isPending && !isRevoked && "bg-emerald-50 text-emerald-700",
+                          )}>
+                            <span className={cn(
+                              "w-1.5 h-1.5 shrink-0 rounded-full",
+                              isPending ? "bg-amber-500" : isRevoked ? "bg-slate-400" : "bg-emerald-500",
+                            )} />
+                            {isPending ? "Pending" : isRevoked ? "Cancelled" : "Active"}
+                          </span>
+                        </div>
+                      </div>
+                      {/* justify-end pins the remove button to the same spot whether
+                          or not a pending member also shows the resend button. */}
+                      <div className="col-start-3 row-start-1 sm:col-start-5 flex items-center justify-end gap-0.5 shrink-0">
+                        {isPending && <ResendButton email={m.email} />}
                         <button
-                          onClick={() => setEditingRole(null)}
-                          className="mt-2 text-[10px] font-medium text-slate-400 hover:text-slate-600"
+                          onClick={() => setMemberToRemove(m)}
+                          aria-label={isPending ? `Cancel invitation to ${m.email}` : `Remove ${m.email}`}
+                          className="p-1.5 shrink-0 text-slate-300 hover:text-red-500 rounded-lg hover:bg-red-50 transition-all"
                         >
-                          Done
+                          <X size={14} />
                         </button>
                       </div>
-                    ) : (
-                      <button
-                        onClick={() => setEditingRole(m.id)}
-                        className="flex flex-wrap items-center gap-1 text-left"
-                        title="Change roles"
-                      >
-                        {memberRoles(m).map((role) => (
-                          <span
-                            key={role}
-                            className={cn("text-[10px] font-medium px-2 py-1 rounded hover:opacity-80 transition-opacity", TEAM_ROLE_COLORS[role] || "bg-slate-100 text-slate-600")}
-                          >
-                            {TEAM_ROLE_LABELS[role] || role}
-                          </span>
-                        ))}
-                      </button>
+                    </div>
+                    {/* The editor gets its own full-width panel instead of living in
+                        the 9rem role column, where it used to force the column wider
+                        and shove the row out of the card. */}
+                    {editingRole === m.id && (
+                      <div className="px-3 pb-3 sm:pl-11">
+                        <div className="rounded-xl border border-slate-200 bg-white p-3">
+                          <TeamRolePicker
+                            compact
+                            value={roles}
+                            onChange={(next) => handleRoleChange(m.id, next)}
+                          />
+                          <div className="mt-2.5 flex items-center justify-between gap-3">
+                            <p className="text-[10px] text-slate-400">Up to {MAX_TEAM_ROLES} roles per member.</p>
+                            <button
+                              onClick={() => setEditingRole(null)}
+                              className="shrink-0 px-2.5 py-1 rounded-lg bg-slate-100 text-[11px] font-semibold text-slate-600 hover:bg-slate-200 transition-colors"
+                            >
+                              Done
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     )}
                   </div>
-                  <span className="w-20">
-                    <span className={cn(
-                      "text-[10px] font-medium px-1.5 py-0.5 rounded",
-                      m.status === "PENDING" && "bg-amber-50 text-amber-700",
-                      m.status === "REVOKED" && "bg-slate-100 text-slate-500",
-                      m.status !== "PENDING" && m.status !== "REVOKED" && "bg-emerald-50 text-emerald-700",
-                    )}>
-                      {m.status === "PENDING" ? "Pending" : m.status === "REVOKED" ? "Cancelled" : "Active"}
-                    </span>
-                  </span>
-                  {m.status === "PENDING" && (
-                    <ResendButton email={m.email} />
-                  )}
-                  <button onClick={() => setMemberToRemove(m)}
-                    className="p-1.5 text-slate-300 hover:text-red-500 rounded-lg hover:bg-red-50 transition-all">
-                    <X size={14} />
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -1875,7 +1936,7 @@ function TeamTab() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <div className="w-10 h-10 shrink-0 rounded-full bg-red-100 flex items-center justify-center">
                   <AlertTriangle size={20} className="text-red-600" />
                 </div>
                 <div>
