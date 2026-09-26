@@ -221,48 +221,48 @@ export default function PickupPlannerPage() {
       {/* KPI strip (whole range, not just this page) */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div data-testid="kpi-deferred">
-        <StatCard
-          icon={<Clock size={16} />}
-          accent="cyan"
-          label="Awaiting customer"
-          value={counts?.deferred ?? 0}
-          subtitle="Customer hasn't chosen yet"
-          onClick={() => { setPickupFilter("deferred"); setPickedUpOnly(false); resetToFirstPage(); }}
-          className={cn("cursor-pointer", pickupFilter === "deferred" && "ring-2 ring-sky-200")}
-        />
+          <StatCard
+            icon={<Clock size={16} />}
+            accent="cyan"
+            label="Awaiting customer"
+            value={counts?.deferred ?? 0}
+            subtitle="Customer hasn't chosen yet"
+            onClick={() => { setPickupFilter("deferred"); setPickedUpOnly(false); resetToFirstPage(); }}
+            className={cn("cursor-pointer", pickupFilter === "deferred" && "ring-2 ring-sky-200")}
+          />
         </div>
         <div data-testid="kpi-incomplete">
-        <StatCard
-          icon={<AlertTriangle size={16} />}
-          accent="red"
-          label="Incomplete"
-          value={counts?.incomplete ?? 0}
-          subtitle="Missing time or instructions"
-          onClick={() => { setPickupFilter("incomplete"); setPickedUpOnly(false); resetToFirstPage(); }}
-          className={cn("cursor-pointer", pickupFilter === "incomplete" && "ring-2 ring-red-200")}
-        />
+          <StatCard
+            icon={<AlertTriangle size={16} />}
+            accent="red"
+            label="Incomplete"
+            value={counts?.incomplete ?? 0}
+            subtitle="Missing time or instructions"
+            onClick={() => { setPickupFilter("incomplete"); setPickedUpOnly(false); resetToFirstPage(); }}
+            className={cn("cursor-pointer", pickupFilter === "incomplete" && "ring-2 ring-red-200")}
+          />
         </div>
         <div data-testid="kpi-confirmed">
-        <StatCard
-          icon={<CheckCircle2 size={16} />}
-          accent="emerald"
-          label="Confirmed"
-          value={counts?.confirmed ?? 0}
-          subtitle="Ready for the run"
-          onClick={() => { setPickupFilter("confirmed"); setPickedUpOnly(false); resetToFirstPage(); }}
-          className={cn("cursor-pointer", pickupFilter === "confirmed" && "ring-2 ring-emerald-200")}
-        />
+          <StatCard
+            icon={<CheckCircle2 size={16} />}
+            accent="emerald"
+            label="Confirmed"
+            value={counts?.confirmed ?? 0}
+            subtitle="Ready for the run"
+            onClick={() => { setPickupFilter("confirmed"); setPickedUpOnly(false); resetToFirstPage(); }}
+            className={cn("cursor-pointer", pickupFilter === "confirmed" && "ring-2 ring-emerald-200")}
+          />
         </div>
         <div data-testid="kpi-pickedup">
-        <StatCard
-          icon={<Check size={16} />}
-          accent="blue"
-          label="Picked up"
-          value={counts?.pickedUp ?? 0}
-          subtitle="Completed on the day"
-          onClick={() => { setPickedUpOnly((v) => !v); resetToFirstPage(); }}
-          className={cn("cursor-pointer", pickedUpOnly && "ring-2 ring-blue-200")}
-        />
+          <StatCard
+            icon={<Check size={16} />}
+            accent="blue"
+            label="Picked up"
+            value={counts?.pickedUp ?? 0}
+            subtitle="Completed on the day"
+            onClick={() => { setPickedUpOnly((v) => !v); resetToFirstPage(); }}
+            className={cn("cursor-pointer", pickedUpOnly && "ring-2 ring-blue-200")}
+          />
         </div>
       </div>
 
