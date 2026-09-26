@@ -46,5 +46,8 @@ test.yml
 .vercel
 .playwright-mcp
 *.png
+# The favicon set copied from TravioGhana-Store is a deliberate asset, not a
+# screenshot or dump artefact, so it is tracked despite the blanket *.png above.
+!public/icons/v2/*.png
 *.txt
 start file
