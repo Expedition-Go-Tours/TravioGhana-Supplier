@@ -314,14 +314,16 @@ export default function PickupPlannerPage() {
           </div>
         </div>
 
-        <div className="mt-3 flex items-center gap-2 border-t border-slate-100 pt-3">
-          <span className="text-xs font-medium uppercase tracking-wide text-slate-400">Pickup state</span>
-          <SegmentedControl
-            options={stateOptions}
-            value={pickupFilter}
-            ariaLabel="Pickup state filter"
-            onChange={(next) => { setPickupFilter(next); resetToFirstPage(); }}
-          />
+        <div className="mt-3 flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:items-center">
+          <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-slate-400">Pickup state</span>
+          <div className="min-w-0">
+            <SegmentedControl
+              options={stateOptions}
+              value={pickupFilter}
+              ariaLabel="Pickup state filter"
+              onChange={(next) => { setPickupFilter(next); resetToFirstPage(); }}
+            />
+          </div>
         </div>
       </div>
 
@@ -375,10 +377,11 @@ export default function PickupPlannerPage() {
                 </div>
 
                 <div className="space-y-2.5">
-                  {dayBookings.map((booking) => (
+                  {dayBookings.map((booking, index) => (
                     <PickupBookingCard
                       key={booking.id}
                       booking={booking}
+                      index={index}
                       onEdit={setEditing}
                       onTogglePicked={handleTogglePicked}
                       pickedBusy={pickedBusy === booking.id}

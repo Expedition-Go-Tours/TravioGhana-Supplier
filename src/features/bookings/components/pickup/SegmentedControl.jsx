@@ -9,7 +9,10 @@ export default function SegmentedControl({ options, value, onChange, ariaLabel, 
     <div
       role="group"
       aria-label={ariaLabel}
-      className={cn("inline-flex items-center gap-1 rounded-xl bg-slate-100/80 p-1", className)}
+      className={cn(
+        "inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-xl bg-slate-100/80 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        className
+      )}
     >
       {options.map((option) => {
         const active = value === option.key;
@@ -20,7 +23,7 @@ export default function SegmentedControl({ options, value, onChange, ariaLabel, 
             aria-pressed={active}
             onClick={() => onChange(option.key)}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all",
+              "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-all",
               active
                 ? "bg-white text-slate-900 shadow-sm"
                 : "text-slate-500 hover:text-slate-700"

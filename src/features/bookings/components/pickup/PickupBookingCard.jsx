@@ -19,51 +19,76 @@ import { pickupLabel } from "../../lib/pickupHelpers";
 import { pickupStateMeta, resolvePickupState } from "../../lib/pickupState";
 
 /**
- * One pickup stop in the day's run: a compact, scannable ticket that expands
- * to the passenger manifest, instructions and map. Styled as an OTA dispatch
- * row — the state is a thin left accent + a small chip, never a tinted panel.
+ * One pickup stop as a two-tier card:
+ *   header  — stop number · time · who/where · expand
+ *   strip   — pickup state, booking status and the run actions
+ *   details — square map + timing/instructions + passenger manifest
+ *
+ * The layout is a stack (not a single cramped row) so it stays readable from a
+ * 360px phone up to a wide desktop.
  */
-export default function PickupBookingCard({ booking, onEdit, onTogglePicked, pickedBusy, dragHandlers, isDragging }) {
+export default function PickupBookingCard({
+  booking,
+  index,
+  onEdit,
+  onTogglePicked,
+  pickedBusy,
+  dragHandlers,
+  isDragging,
+}) {
   const [expanded, setExpanded] = useState(false);
   const pickup = booking.pickup || {};
   const state = resolvePickupState(booking);
   const meta = pickupStateMeta(state);
 
   const time = pickup.time || booking.selectedTime || "";
-  const placeLabel = pickupLabel(pickup) || (state === "deferred" ? "Customer will arrange pickup later" : "No pickup location set");
-  const address = pickup.place || pickup.areaName || pickup.locationName || pickup.address?.name || pickup.address?.address || "";
+  const placeLabel =
+    pickupLabel(pickup) ||
+    (state === "deferred" ? "Customer will arrange pickup later" : "No pickup location set");
+  const address =
+    pickup.place || pickup.areaName || pickup.locationName || pickup.address?.name || pickup.address?.address || "";
   const previewLat = pickup.lat ?? pickup.address?.lat ?? null;
   const previewLng = pickup.lng ?? pickup.address?.lng ?? null;
 
   return (
-    <div
+    <article
       {...(dragHandlers || {})}
       className={cn(
-        "rounded-xl border border-slate-200/70 border-l-[3px] bg-white transition-all",
+        "overflow-hidden rounded-2xl border border-l-[3px] border-slate-200/70 bg-white transition-shadow",
         meta.accent,
-        isDragging ? "opacity-60 shadow-lg" : "hover:border-slate-300 hover:shadow-sm"
+        isDragging ? "opacity-60 shadow-lg" : "hover:border-slate-300/80 hover:shadow-sm"
       )}
     >
-      <div className="flex items-center gap-2 p-3 sm:gap-3 sm:p-4">
+      {/* Header */}
+      <div className="flex items-start gap-3 px-3.5 py-3 sm:px-4">
         {dragHandlers && (
           <span
-            className="hidden shrink-0 cursor-grab text-slate-300 transition-colors hover:text-slate-500 sm:block"
-            aria-hidden="true"
+            className="mt-1 hidden shrink-0 cursor-grab text-slate-300 transition-colors hover:text-slate-500 sm:block"
             title="Drag to reorder"
+            aria-hidden="true"
           >
             <GripVertical size={16} />
           </span>
         )}
 
-        {/* Pickup time — the one number an operator scans for */}
-        <div className="w-14 shrink-0 text-right sm:w-16">
-          <div className="text-sm font-bold tabular-nums text-slate-900">
-            {time ? formatTime(time) : "—"}
+        {/* Stop number + time gutter */}
+        <div className="w-[68px] shrink-0 sm:w-[76px]">
+          <div className="flex items-baseline gap-1">
+            {typeof index === "number" && (
+              <span className="text-[10px] font-semibold text-slate-300 tabular-nums">{index + 1}</span>
+            )}
+            {time ? (
+              <span className="text-[15px] font-bold leading-none tracking-tight text-slate-900 tabular-nums">
+                {formatTime(time)}
+              </span>
+            ) : (
+              <span className="text-[11px] font-semibold leading-none text-red-600">No time</span>
+            )}
           </div>
-          <div className="text-[10px] text-slate-400">{formatDate(booking.travelDate)}</div>
+          <div className="mt-1 text-[10px] leading-none text-slate-400">{formatDate(booking.travelDate)}</div>
         </div>
 
-        {/* Main (click to expand) */}
+        {/* Main (toggles details) */}
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
@@ -73,27 +98,35 @@ export default function PickupBookingCard({ booking, onEdit, onTogglePicked, pic
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="truncate text-sm font-semibold text-slate-900">{booking.customerName}</span>
             <TravelerManifest travelers={booking.travelersRaw} compact />
-            <PickupStatePill state={state} />
-            {booking.pickedUpAt && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-semibold text-white">
-                <Check size={10} /> Picked up
-              </span>
-            )}
           </div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500">
-            <span className="truncate">{booking.tourName}</span>
-            <span className="inline-flex min-w-0 items-center gap-1">
-              <MapPinned size={11} className="shrink-0 text-slate-400" />
-              <span className="truncate">{placeLabel}</span>
-            </span>
-          </div>
+          <p className="mt-0.5 truncate text-xs text-slate-500">{booking.tourName}</p>
+          <p className="mt-0.5 flex items-start gap-1 text-xs text-slate-500">
+            <MapPinned size={12} className="mt-0.5 shrink-0 text-slate-400" />
+            <span className="line-clamp-1">{placeLabel}</span>
+          </p>
         </button>
 
-        {/* Actions */}
-        <div className="flex shrink-0 items-center gap-1.5">
-          <div className="hidden sm:block">
-            <StatusBadge status={booking.status} />
-          </div>
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-label={expanded ? "Hide stop details" : "Show stop details"}
+          className="-mr-1 -mt-1 shrink-0 rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600"
+        >
+          <ChevronDown size={18} className={cn("transition-transform", expanded && "rotate-180")} />
+        </button>
+      </div>
+
+      {/* Control strip */}
+      <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 px-3.5 py-2 sm:px-4">
+        <PickupStatePill state={state} />
+        <StatusBadge status={booking.status} />
+        {booking.pickedUpAt && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2 py-0.5 text-[11px] font-semibold text-white">
+            <Check size={11} /> Picked up
+          </span>
+        )}
+
+        <div className="ml-auto flex items-center gap-1.5">
           <button
             type="button"
             onClick={() => onTogglePicked(booking)}
@@ -107,30 +140,28 @@ export default function PickupBookingCard({ booking, onEdit, onTogglePicked, pic
             )}
           >
             {booking.pickedUpAt ? <Undo2 size={13} /> : <Check size={13} />}
-            <span className="hidden md:inline">{booking.pickedUpAt ? "Undo" : "Picked up"}</span>
+            {booking.pickedUpAt ? "Undo" : "Picked up"}
           </button>
           <button
             type="button"
             onClick={() => onEdit(booking)}
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:border-emerald-300 hover:bg-emerald-50/40 hover:text-emerald-700"
           >
-            <Pencil size={13} />
-            <span className="hidden md:inline">Edit</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            aria-label={expanded ? "Collapse" : "Expand"}
-            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600"
-          >
-            <ChevronDown size={16} className={cn("transition-transform", expanded && "rotate-180")} />
+            <Pencil size={13} /> Edit
           </button>
         </div>
       </div>
 
+      {/* Details */}
       {expanded && (
-        <div className="border-t border-slate-100 px-4 py-4">
+        <div className="border-t border-slate-100 px-3.5 py-4 sm:px-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+            <PickupMapPreview
+              lat={previewLat}
+              lng={previewLng}
+              address={address}
+              className="h-36 w-36 sm:order-first"
+            />
             <div className="min-w-0 flex-1 space-y-3">
               <div className="space-y-1.5">
                 {time ? (
@@ -163,17 +194,9 @@ export default function PickupBookingCard({ booking, onEdit, onTogglePicked, pic
                 </div>
               )}
             </div>
-
-            {/* Square map — left of the details on desktop, above on mobile. */}
-            <PickupMapPreview
-              lat={previewLat}
-              lng={previewLng}
-              address={address}
-              className="h-36 w-36 sm:order-first"
-            />
           </div>
         </div>
       )}
-    </div>
+    </article>
   );
 }
