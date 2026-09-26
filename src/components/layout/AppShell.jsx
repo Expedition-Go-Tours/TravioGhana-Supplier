@@ -4,6 +4,8 @@ import Header from "./Header";
 import PageContainer from "./PageContainer";
 import { useSidebarStore } from "@/stores/sidebarStore";
 import SupportFloating from "@/features/chat/components/SupportFloating";
+import { useTeamRole } from "@/hooks/useTeamRole";
+import { PAGE_ACCESS } from "@/config/pageAccess";
 import { useRealtimeNotifications } from "@/features/notifications/hooks/useRealtimeNotifications";
 
 export default function AppShell() {
@@ -16,6 +18,10 @@ export default function AppShell() {
   // with `handle.bleed` in router.jsx (they import SHELL_GUTTER themselves).
   const isBleed = matches.some((match) => match.handle?.bleed);
   useRealtimeNotifications();
+  // The floating support bubble is chat, and it polls the unread count on every
+  // page. Without this it asked for a thread the role may not read, and the API
+  // answered a visible "You do not have permission" toast on every page load.
+  const canChat = useTeamRole().hasPermission(PAGE_ACCESS["/chat"]);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -36,7 +42,7 @@ export default function AppShell() {
           <Outlet />
         </PageContainer>
       </main>
-      {!isProductBuilder && !isChatPage && <SupportFloating />}
+      {!isProductBuilder && !isChatPage && canChat && <SupportFloating />}
     </div>
   );
 }

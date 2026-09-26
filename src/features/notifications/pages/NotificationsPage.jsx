@@ -20,6 +20,8 @@ import {
   useNotifications,
 } from "../hooks/useNotifications";
 import { sendMessage } from "@/features/chat/api";
+import { useTeamRole } from "@/hooks/useTeamRole";
+import { PAGE_ACCESS } from "@/config/pageAccess";
 import { useChatFloatingStore } from "@/stores/chatFloatingStore";
 
 function groupByDate(notifications) {
@@ -47,6 +49,10 @@ function groupByDate(notifications) {
 }
 
 function ReplyBar({ notification }) {
+  // Replying and opening the thread are chat, and chat is `chat.view` (admin +
+  // support). The API refuses a member without it, so a role that cannot work
+  // the inbox must not be offered a reply box that can only fail.
+  const canChat = useTeamRole().hasPermission(PAGE_ACCESS["/chat"]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
@@ -80,6 +86,8 @@ function ReplyBar({ notification }) {
       useChatFloatingStore.getState().open(convId);
     }
   };
+
+  if (!canChat) return null;
 
   if (sent) {
     return (
