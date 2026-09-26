@@ -130,8 +130,8 @@ export default function PickupBookingCard({ booking, onEdit, onTogglePicked, pic
 
       {expanded && (
         <div className="space-y-4 border-t border-slate-100 px-4 py-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+            <div className="min-w-0 flex-1 space-y-1.5">
               {time ? (
                 <p className="inline-flex items-center gap-1.5 text-xs text-slate-600">
                   <Clock size={12} className="text-slate-400" /> Pickup at {formatTime(time)}
@@ -155,7 +155,12 @@ export default function PickupBookingCard({ booking, onEdit, onTogglePicked, pic
                 )}
               </p>
             </div>
-            <PickupMapPreview lat={previewLat} lng={previewLng} address={address} />
+            <PickupMapPreview
+              lat={previewLat}
+              lng={previewLng}
+              address={address}
+              className="h-36 w-36 self-start"
+            />
           </div>
 
           {booking.travelersRaw && (

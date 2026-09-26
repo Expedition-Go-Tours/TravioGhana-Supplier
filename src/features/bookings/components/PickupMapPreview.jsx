@@ -4,11 +4,22 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { MapPin } from "lucide-react";
 import { TILE_STYLE } from "@/lib/mapConfig";
 
+/**
+ * Small square map of a pickup point.
+ *
+ * The size is controlled by the caller (via `className`); it defaults to a
+ * 144px square so it never stretches to fill a column and unbalance the row.
+ * No-coordinates and error states render the same square, so the layout holds.
+ *
+ * @param {string} [className] sizing classes for the square (e.g. "h-40 w-40")
+ */
 export default function PickupMapPreview({ lat, lng, address, className = "" }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
+
+  const size = className || "h-36 w-36";
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -54,15 +65,13 @@ export default function PickupMapPreview({ lat, lng, address, className = "" }) 
     };
   }, [lat, lng]);
 
+  const box = `relative shrink-0 overflow-hidden rounded-xl border ${size}`;
+
   if (!lat || !lng) {
     return (
-      <div
-        className={`flex items-center gap-2 bg-white border border-slate-200 rounded-lg p-3 ${className}`}
-      >
-        <div className="p-1.5 bg-slate-100 rounded-md">
-          <MapPin size={12} className="text-slate-400" />
-        </div>
-        <p className="text-[11px] text-slate-400 truncate">
+      <div className={`${box} flex flex-col items-center justify-center gap-1.5 border-slate-200 bg-slate-50 px-3 text-center`}>
+        <MapPin size={16} className="text-slate-400" />
+        <p className="text-[10px] leading-tight text-slate-400 line-clamp-3">
           {address || "No location coordinates"}
         </p>
       </div>
@@ -71,28 +80,22 @@ export default function PickupMapPreview({ lat, lng, address, className = "" }) 
 
   if (error) {
     return (
-      <div
-        className={`flex items-center gap-2 bg-red-50 border border-red-200/60 rounded-lg p-3 ${className}`}
-      >
-        <div className="p-1.5 bg-red-100 rounded-md">
-          <MapPin size={12} className="text-red-600" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-[11px] font-medium text-red-700 truncate">
-            {address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`}
-          </p>
-          <p className="text-[9px] text-red-500 mt-0.5">Map unavailable</p>
-        </div>
+      <div className={`${box} flex flex-col items-center justify-center gap-1.5 border-red-200 bg-red-50 px-3 text-center`}>
+        <MapPin size={16} className="text-red-500" />
+        <p className="text-[10px] font-medium leading-tight text-red-700 line-clamp-3">
+          {address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`}
+        </p>
+        <p className="text-[9px] text-red-500">Map unavailable</p>
       </div>
     );
   }
 
   return (
-    <div className={`relative overflow-hidden rounded-lg border border-slate-200/60 ${className}`}>
-      <div ref={containerRef} className="w-full h-[120px]" />
+    <div className={`${box} border-slate-200/70`}>
+      <div ref={containerRef} className="absolute inset-0" />
       {!loaded && (
         <div className="absolute inset-0 flex items-center justify-center bg-emerald-50/50">
-          <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
         </div>
       )}
     </div>
