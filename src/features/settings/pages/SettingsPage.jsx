@@ -4,7 +4,8 @@ import {
   User, Bell, CreditCard, Shield, FileText, Users,
   Loader2, Upload, Trash2, X, Plus, Building2,
   Wallet, Globe, MapPin, Clock, Phone, Save, Key, Eye, EyeOff,
-  Landmark, Banknote, AlertTriangle, RefreshCw, Smartphone
+  Landmark, Banknote, AlertTriangle, RefreshCw, Smartphone,
+  IdCard, ShieldCheck
 } from "lucide-react";
 import { toast } from "sonner";
 import PhoneInput from "@/components/forms/PhoneInput";
@@ -38,6 +39,19 @@ import SocialMediaManager from "../components/SocialMediaManager";
 import OperatingHoursEditor from "../components/OperatingHoursEditor";
 import { emptyWeeklyHours, normalizeWeeklyHours, validateOperatingHours } from "../utils/operatingHours";
 import { PayoutScheduleEditor } from "@/features/finance/components/PayoutScheduleCard";
+import { GHANA_REGIONS } from "../utils/regions";
+import { isIndividualSupplier } from "../utils/supplierKind";
+
+/**
+ * Masks an ID number so verification data is visible without being exposed in
+ * full: "GA-123456789" -> "•••••••6789". Anything short of 5 chars hides
+ * entirely.
+ */
+function maskId(value) {
+  if (!value) return "";
+  if (String(value).length <= 4) return "••••";
+  return `${"•".repeat(String(value).length - 4)}${String(value).slice(-4)}`;
+}
 
 const TABS = [
   { key: "profile", label: "Profile", icon: User },
@@ -140,13 +154,22 @@ function ProfileTab() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     name: "", phone: "", language: "en", timezone: "UTC", email: "",
-    description: "", address: "", city: "", country: "", region: "",
+    brandName: "", description: "", address: "", city: "", country: "", region: "",
     legalBusinessName: "", businessType: "", registrationNumber: "", tin: "", yearEstablished: "",
     website: "", operatingHours: emptyWeeklyHours(),
     instagram: "", facebook: "", twitter: "",
     tiktok: "", youtube: "", linkedin: "", whatsapp: "", pinterest: "",
   });
   const [initialForm, setInitialForm] = useState(null);
+  const [operatingRegions, setOperatingRegions] = useState([]);
+  const [initialOperatingRegions, setInitialOperatingRegions] = useState([]);
+  const [operatingMeta, setOperatingMeta] = useState({ services: [], tourCategories: [] });
+  const [representativeInfo, setRepresentativeInfo] = useState({
+    fullName: "", email: "", phoneNumber: "", dateOfBirth: "", idType: "", idNumber: "",
+  });
+  const [supplierType, setSupplierType] = useState(null);
+  const [supplierChoice, setSupplierChoice] = useState(null);
+  const isIndividual = isIndividualSupplier({ supplierType, supplierChoice }) === true;
   const [logoFile, setLogoFile] = useState(null);
   const [logoPreview, setLogoPreview] = useState(null);
   const [currentLogoUrl, setCurrentLogoUrl] = useState(null);
@@ -164,13 +187,31 @@ function ProfileTab() {
         ]);
         if (user) {
           const bi = biz?.businessInfo || {};
+          const oi = biz?.operatingInfo || {};
+          const ri = biz?.representativeInfo || {};
+          const cached = useAuthStore.getState().supplierProfile;
+          // The application writes the address as { line1, city, state, ... };
+          // some legacy rows kept a flat string. Normalise either into the
+          // form so what the supplier submitted comes back into the inputs.
+          const addr =
+            bi.address && typeof bi.address === "object" && !Array.isArray(bi.address)
+              ? bi.address
+              : typeof bi.address === "string"
+                ? { line1: bi.address }
+                : {};
+          setSupplierType(biz?.supplierType || cached?.supplierType || null);
+          setSupplierChoice(bi?.supplierChoice || cached?.businessInfo?.supplierChoice || null);
           const loaded = {
             name: user.name || "", phone: user.phone || bi.phoneNumber || "",
             language: user.language || "en", timezone: user.timezone || "UTC",
             email: user.email || "",
-            description: bi.description || "", address: bi.address || "",
-            city: bi.city || "", country: bi.country || "",
-            region: bi.region || "", website: bi.website || "",
+            brandName: bi.displayName || (typeof bi.businessName === "string" ? bi.businessName : "") || "",
+            description: bi.description || "",
+            address: addr.line1 || "",
+            city: addr.city || bi.city || "",
+            country: bi.country || "",
+            region: addr.state || bi.region || "",
+            website: bi.website || "",
             legalBusinessName: bi.legalBusinessName || "",
             businessType: bi.businessType || "",
             registrationNumber: bi.registrationNumber || "",
@@ -184,6 +225,20 @@ function ProfileTab() {
           };
           setForm(loaded);
           setInitialForm(loaded);
+          setOperatingRegions(Array.isArray(oi.regions) ? oi.regions : []);
+          setInitialOperatingRegions(Array.isArray(oi.regions) ? [...oi.regions] : []);
+          setOperatingMeta({
+            services: Array.isArray(oi.services) ? oi.services : [],
+            tourCategories: Array.isArray(oi.tourCategories) ? oi.tourCategories : [],
+          });
+          setRepresentativeInfo({
+            fullName: ri.fullName || user.name || "",
+            email: ri.email || user.email || "",
+            phoneNumber: ri.phoneNumber || user.phone || "",
+            dateOfBirth: ri.dateOfBirth || "",
+            idType: ri.idType || "",
+            idNumber: ri.idNumber || "",
+          });
           setCurrentLogoUrl(user.logoUrl || null);
         }
       } catch { /* ignore */ }
@@ -206,6 +261,12 @@ function ProfileTab() {
   };
 
   const handleSaveBusiness = async () => {
+    // Operating regions are required in the application form ("Select at
+    // least one region") — the settings page must not let them save blank.
+    if (operatingRegions.length === 0) {
+      toast.error("Select at least one region you operate in");
+      return;
+    }
     // The schedule is optional, but a range that ends before it starts must not
     // be stored — surface it on the offending day instead of saving junk.
     const errorsFound = validateOperatingHours(form.operatingHours);
@@ -219,20 +280,37 @@ function ProfileTab() {
     try {
       await updateBusinessProfile({
         businessInfo: {
-          description: form.description, address: form.address,
-          city: form.city, country: form.country, region: form.region,
-          website: form.website, operatingHours: form.operatingHours,
-          legalBusinessName: form.legalBusinessName, businessType: form.businessType,
-          registrationNumber: form.registrationNumber, tin: form.tin,
+          // displayName is the "Business / Brand name" the application
+          // collects from everyone, including individual tour guides.
+          displayName: form.brandName,
+          legalBusinessName: form.legalBusinessName,
+          businessType: form.businessType,
+          registrationNumber: form.registrationNumber,
+          tin: form.tin,
           yearEstablished: form.yearEstablished,
+          description: form.description,
+          // The application stores the address as a nested object
+          // { line1, city, state, ... }. Keep that shape — writing a flat
+          // string here corrupts the public profile and re-validation.
+          address: { line1: form.address, line2: "", city: form.city, state: form.region, postalCode: "" },
+          country: form.country,
+          website: form.website,
+          operatingHours: form.operatingHours,
           instagram: form.instagram, facebook: form.facebook, twitter: form.twitter,
           tiktok: form.tiktok, youtube: form.youtube, linkedin: form.linkedin,
           whatsapp: form.whatsapp, pinterest: form.pinterest,
         },
+        operatingInfo: {
+          regions: operatingRegions,
+          services: operatingMeta.services,
+          tourCategories: operatingMeta.tourCategories,
+        },
       });
-      toast.success("Business profile updated");
+      setInitialForm((prev) => (prev ? { ...prev, brandName: form.brandName } : prev));
+      setInitialOperatingRegions([...operatingRegions]);
+      toast.success(isIndividual ? "Profile updated" : "Business profile updated");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to update business profile");
+      toast.error(err.response?.data?.message || (isIndividual ? "Failed to update profile" : "Failed to update business profile"));
     } finally { setSaving(false); }
   };
 
@@ -287,6 +365,7 @@ function ProfileTab() {
   });
 
   const hasBusinessChanges = initialForm && JSON.stringify({
+    brandName: form.brandName,
     description: form.description, address: form.address, city: form.city,
     country: form.country, region: form.region, website: form.website,
     operatingHours: form.operatingHours,
@@ -297,6 +376,7 @@ function ProfileTab() {
     tiktok: form.tiktok, youtube: form.youtube, linkedin: form.linkedin,
     whatsapp: form.whatsapp, pinterest: form.pinterest,
   }) !== JSON.stringify({
+    brandName: initialForm.brandName,
     description: initialForm.description, address: initialForm.address, city: initialForm.city,
     country: initialForm.country, region: initialForm.region, website: initialForm.website,
     operatingHours: initialForm.operatingHours,
@@ -307,6 +387,9 @@ function ProfileTab() {
     tiktok: initialForm.tiktok, youtube: initialForm.youtube, linkedin: initialForm.linkedin,
     whatsapp: initialForm.whatsapp, pinterest: initialForm.pinterest,
   });
+
+  const hasRegionsChanges = JSON.stringify(operatingRegions) !== JSON.stringify(initialOperatingRegions);
+  const hasProfileChanges = hasBusinessChanges || hasRegionsChanges;
 
   if (loading) return <LoadingSkeleton />;
 
@@ -397,11 +480,11 @@ function ProfileTab() {
         </form>
       </div>
 
-      {/* Company Logo */}
+      {/* Company Logo / Profile Logo */}
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
         <div className="px-6 py-5 border-b border-slate-100">
-          <h2 className="text-sm font-semibold text-slate-800">Company Logo</h2>
-          <p className="text-xs text-slate-500">Upload your business logo for public display</p>
+          <h2 className="text-sm font-semibold text-slate-800">{isIndividual ? "Profile Logo" : "Company Logo"}</h2>
+          <p className="text-xs text-slate-500">{isIndividual ? "Upload a profile image for public display" : "Upload your business logo for public display"}</p>
         </div>
         <div className="px-6 py-5">
           <div className="flex items-start gap-6">
@@ -454,68 +537,83 @@ function ProfileTab() {
         </div>
       </div>
 
-      {/* Business Profile */}
+      {/* Business Profile / Public Profile */}
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
         <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
             <Building2 size={16} className="text-emerald-600" />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-slate-800">Business Profile</h2>
-            <p className="text-xs text-slate-500">Information displayed to customers on your public profile</p>
+            <h2 className="text-sm font-semibold text-slate-800">{isIndividual ? "Public Profile" : "Business Profile"}</h2>
+            <p className="text-xs text-slate-500">
+              {isIndividual
+                ? "How you appear to travelers on your public profile"
+                : "Information displayed to customers on your public profile"}
+            </p>
           </div>
         </div>
         <div className="px-6 py-5 space-y-5">
           <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Business details</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Legal Business Name</label>
-                <input type="text" value={form.legalBusinessName}
-                  onChange={(e) => setForm((p) => ({ ...p, legalBusinessName: e.target.value }))}
-                  placeholder="As registered with the Registrar General"
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Business Type</label>
-                <Select value={form.businessType || "individual"}
-                  onValueChange={(v) => setForm((p) => ({ ...p, businessType: v }))}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select business type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="individual">Individual</SelectItem>
-                    <SelectItem value="company">Registered Company</SelectItem>
-                    <SelectItem value="non_profit">Non-profit</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Registration Number</label>
-                <input type="text" value={form.registrationNumber}
-                  onChange={(e) => setForm((p) => ({ ...p, registrationNumber: e.target.value }))}
-                  placeholder="e.g. CS123456789"
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Tax Identification Number (TIN)</label>
-                <input type="text" value={form.tin}
-                  onChange={(e) => setForm((p) => ({ ...p, tin: e.target.value }))}
-                  placeholder="e.g. C0012345678"
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Year Established</label>
-                <input type="text" inputMode="numeric" value={form.yearEstablished}
-                  onChange={(e) => setForm((p) => ({ ...p, yearEstablished: e.target.value.replace(/[^0-9]/g, "").slice(0, 4) }))}
-                  placeholder="e.g. 2019"
-                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
-              </div>
-            </div>
-            <p className="mt-2 text-xs text-slate-400">
-              Taken from your supplier application. Update anything that has changed since you applied.
-            </p>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Business / Brand name</label>
+            <input type="text" value={form.brandName}
+              onChange={(e) => setForm((p) => ({ ...p, brandName: e.target.value }))}
+              placeholder="Your public brand or business name"
+              className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
+            <p className="mt-1.5 text-xs text-slate-400">The name from your supplier application, shown to travelers on your public profile.</p>
           </div>
+
+          {!isIndividual && (
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Business details</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Legal Business Name</label>
+                  <input type="text" value={form.legalBusinessName}
+                    onChange={(e) => setForm((p) => ({ ...p, legalBusinessName: e.target.value }))}
+                    placeholder="As registered with the Registrar General"
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Business Type</label>
+                  <Select value={form.businessType || "individual"}
+                    onValueChange={(v) => setForm((p) => ({ ...p, businessType: v }))}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select business type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="individual">Individual</SelectItem>
+                      <SelectItem value="company">Registered Company</SelectItem>
+                      <SelectItem value="non_profit">Non-profit</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Registration Number</label>
+                  <input type="text" value={form.registrationNumber}
+                    onChange={(e) => setForm((p) => ({ ...p, registrationNumber: e.target.value }))}
+                    placeholder="e.g. CS123456789"
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Tax Identification Number (TIN)</label>
+                  <input type="text" value={form.tin}
+                    onChange={(e) => setForm((p) => ({ ...p, tin: e.target.value }))}
+                    placeholder="e.g. C0012345678"
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Year Established</label>
+                  <input type="text" inputMode="numeric" value={form.yearEstablished}
+                    onChange={(e) => setForm((p) => ({ ...p, yearEstablished: e.target.value.replace(/[^0-9]/g, "").slice(0, 4) }))}
+                    placeholder="e.g. 2019"
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-slate-400">
+                Taken from your supplier application. Update anything that has changed since you applied.
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Business Description</label>
@@ -562,6 +660,35 @@ function ProfileTab() {
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              <MapPin size={13} className="inline mr-1 text-slate-400" />Where do you mainly operate?
+            </label>
+            <p className="text-xs text-slate-400 mb-3">
+              Select at least one region — the choices you made when applying. Shown to travelers and used to match bookings.
+            </p>
+            <div className="flex flex-wrap gap-2" id="operatingRegions" data-field="operatingRegions">
+              {GHANA_REGIONS.map((region) => {
+                const selected = operatingRegions.includes(region);
+                return (
+                  <button key={region} type="button" aria-pressed={selected}
+                    onClick={() => setOperatingRegions((prev) => (selected ? prev.filter((r) => r !== region) : [...prev, region]))}
+                    className={cn(
+                      "px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all",
+                      selected
+                        ? "bg-emerald-600 text-white border-emerald-600"
+                        : "bg-white text-slate-600 border-slate-200 hover:border-emerald-300"
+                    )}>
+                    {region}
+                  </button>
+                );
+              })}
+            </div>
+            {operatingRegions.length === 0 && (
+              <p className="mt-2 text-xs text-amber-600">You have not selected any regions yet.</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">
               <Clock size={13} className="inline mr-1 text-slate-400" />Operating Hours
             </label>
             <p className="text-xs text-slate-400 mb-3">
@@ -594,14 +721,67 @@ function ProfileTab() {
           </div>
 
           <div className="pt-2">
-            <button onClick={handleSaveBusiness} disabled={saving || !hasBusinessChanges}
+            <button onClick={handleSaveBusiness} disabled={saving || !hasProfileChanges}
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
               {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-              Save Business Profile
+              {isIndividual ? "Save Profile" : "Save Business Profile"}
             </button>
           </div>
         </div>
       </div>
+
+      {/* Verification identity — read-only record of the application's identity details */}
+      {(representativeInfo.fullName || representativeInfo.dateOfBirth || representativeInfo.idType || representativeInfo.idNumber) && (
+        <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
+              <IdCard size={16} className="text-emerald-600" />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-slate-800">Verification Identity</h2>
+              <p className="text-xs text-slate-500">Submitted in your supplier application</p>
+            </div>
+          </div>
+          <div className="px-6 py-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Full name (as shown on ID)</label>
+                <input value={representativeInfo.fullName} disabled
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 text-slate-600 cursor-not-allowed" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Email</label>
+                <input value={representativeInfo.email} disabled
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 text-slate-600 cursor-not-allowed" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Phone</label>
+                <input value={representativeInfo.phoneNumber} disabled
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 text-slate-600 cursor-not-allowed" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Date of birth</label>
+                <input value={representativeInfo.dateOfBirth} disabled
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 text-slate-600 cursor-not-allowed" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">ID type</label>
+                <input value={representativeInfo.idType} disabled
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 text-slate-600 cursor-not-allowed" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">ID number</label>
+                <input value={maskId(representativeInfo.idNumber)} disabled
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 text-slate-600 cursor-not-allowed" />
+              </div>
+            </div>
+            <p className="mt-3 flex items-start gap-1.5 text-xs text-slate-400">
+              <ShieldCheck size={14} className="mt-0.5 shrink-0 text-emerald-500" />
+              Submitted during registration and used for identity verification. Contact support if any of these details have changed.
+            </p>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }

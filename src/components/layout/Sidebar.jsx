@@ -33,9 +33,9 @@ const allNavItems = [
 function extractBusinessName(businessInfo) {
   if (!businessInfo) return null;
   if (typeof businessInfo === "string") {
-    try { const p = JSON.parse(businessInfo); return p.businessName || p.legalBusinessName || null; } catch { return null; }
+    try { const p = JSON.parse(businessInfo); return p.businessName || p.displayName || p.legalBusinessName || null; } catch { return null; }
   }
-  return businessInfo.businessName || businessInfo.legalBusinessName || null;
+  return businessInfo.businessName || businessInfo.displayName || businessInfo.legalBusinessName || null;
 }
 
 // Dots keep the hues they always had. Only the label colours changed, and
