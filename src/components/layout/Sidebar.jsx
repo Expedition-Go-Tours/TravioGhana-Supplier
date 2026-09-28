@@ -38,13 +38,19 @@ function extractBusinessName(businessInfo) {
   return businessInfo.businessName || businessInfo.legalBusinessName || null;
 }
 
+// Dots keep the hues they always had. Only the label colours changed, and
+// that was forced rather than chosen: `text-white/70` on a white sidebar is
+// invisible. Each label now takes the hue of the dot beside it so the two
+// still read as one signal. ACTIVE's dot was `bg-white` — also invisible on
+// white, and unreachable in practice anyway since it renders the Verified
+// badge instead of a dot.
 const SIDEBAR_STATUS_STYLES = {
-  PENDING: { dot: "bg-amber-300", text: "text-white/70", label: "Pending" },
-  UNDER_REVIEW: { dot: "bg-blue-300", text: "text-white/70", label: "Under Review" },
-  APPROVED: { dot: "bg-blue-300", text: "text-white/70", label: "Approved" },
-  ACTIVE: { dot: "bg-white", text: "text-white", label: "Verified" },
-  SUSPENDED: { dot: "bg-red-300", text: "text-white/70", label: "Suspended" },
-  REJECTED: { dot: "bg-red-300", text: "text-white/70", label: "Rejected" },
+  PENDING: { dot: "bg-amber-400", text: "text-amber-700", label: "Pending" },
+  UNDER_REVIEW: { dot: "bg-blue-400", text: "text-blue-700", label: "Under Review" },
+  APPROVED: { dot: "bg-blue-400", text: "text-blue-700", label: "Approved" },
+  ACTIVE: { dot: "bg-emerald-500", text: "text-emerald-700", label: "Verified" },
+  SUSPENDED: { dot: "bg-red-400", text: "text-red-600", label: "Suspended" },
+  REJECTED: { dot: "bg-red-400", text: "text-red-600", label: "Rejected" },
 };
 
 export default function Sidebar() {
@@ -150,10 +156,10 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
       return (
         <button
           onClick={() => toast.info("Coming soon")}
-          className={`relative flex items-center gap-6 w-full text-left text-white/30 cursor-default select-none ${isCollapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"}`}
+          className={`relative flex items-center gap-6 w-full text-left text-slate-300 cursor-default select-none ${isCollapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"}`}
           title={isCollapsed ? item.label : undefined}
         >
-          <span className="shrink-0 opacity-30">{item.icon}</span>
+          <span className="shrink-0">{item.icon}</span>
           {!isCollapsed && <span className="text-sm font-medium truncate">{item.label}</span>}
         </button>
       );
@@ -166,14 +172,17 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
         className={({ isActive: navActive }) =>
           `relative flex items-center gap-6 w-full rounded-lg text-sm font-medium transition-all duration-200 group ${
             isActive || navActive
-              ? "bg-white/15 text-white font-semibold"
-              : "text-white/70 hover:bg-white/10 hover:text-white"
+              ? "bg-sidebar-hover text-sidebar-active"
+              : "text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-active"
           } ${isCollapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"}`
         }
         title={isCollapsed ? item.label : undefined}
       >
         {(isActive) && (
-          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[5px] h-[34px] bg-white rounded-r-full" />
+          /* Was `bg-white`, marking the current route with a 5px bar. On a
+             white sidebar that bar vanished, so the page you are on stopped
+             being identifiable — the one thing this row exists to do. */
+          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[5px] h-[34px] bg-sidebar-active rounded-r-full" />
         )}
         <span className="shrink-0 relative">{item.icon}</span>
         {!isCollapsed && (
@@ -191,7 +200,7 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
   return (
     <>
       <aside
-        className={`fixed left-0 top-0 h-screen bg-[#065f46] border-r border-white/10 transition-all duration-300 z-50 flex flex-col
+        className={`fixed left-0 top-0 h-screen bg-sidebar-bg border-r border-sidebar-border transition-all duration-300 z-50 flex flex-col
           ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
           ${isCollapsed ? "lg:w-[64px] lg:translate-x-0" : "lg:w-[270px] lg:translate-x-0"}
           w-[260px]`}
@@ -200,7 +209,7 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
         <div className={`flex shrink-0 ${isCollapsed ? "justify-center px-2 pt-2 pb-1" : "justify-end px-3 pt-2 pb-1"}`}>
           <button
             onClick={() => isMobileOpen ? closeMobile() : toggle()}
-            className="flex items-center gap-1.5 text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200 p-1.5"
+            className="flex items-center gap-1.5 text-sidebar-muted hover:text-sidebar-text hover:bg-slate-100 rounded-lg transition-all duration-200 p-1.5"
             title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             <ChevronLeft size={15} className={`transition-transform duration-200 ${isCollapsed ? "rotate-180" : ""}`} />
@@ -208,24 +217,27 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
           </button>
         </div>
 
-        {/* Profile — Glassmorphism card */}
+        {/* Profile — was a glassmorphism card: a translucent white fill over the
+            dark green. On white that reads as an empty white box, so it is a
+            plain tinted surface instead. The blur is gone deliberately — it was
+            only ever there to let the dark background show through. */}
         <div
           onClick={() => navigate(canEditBusiness ? "/settings?tab=profile" : "/settings")}
           className={`shrink-0 cursor-pointer ${
             isCollapsed
               ? "py-3 px-2"
-              : "bg-white/[0.06] backdrop-blur-[16px] border border-white/[0.1] rounded-[18px] p-6 mx-3 mb-3"
+              : "bg-slate-50 border border-sidebar-border rounded-[18px] p-6 mx-3 mb-3"
           }`}
         >
           <div className="flex flex-col items-center gap-2">
             <div className="relative shrink-0">
               {effectiveLogoUrl ? (
-                <div className={`${isCollapsed ? "w-9 h-9" : "w-20 h-20"} rounded-full overflow-hidden ring-[3px] ring-white/20 shadow-[0_4px_16px_rgba(0,0,0,0.2)]`}>
+                <div className={`${isCollapsed ? "w-9 h-9" : "w-20 h-20"} rounded-full overflow-hidden ring-[3px] ring-slate-200 shadow-[0_2px_8px_rgba(15,23,42,0.10)]`}>
                   <OptimizedImage src={effectiveLogoUrl} width={isCollapsed ? 36 : 80} className="w-full h-full object-cover" />
                 </div>
               ) : (
-                <div className={`${isCollapsed ? "w-9 h-9" : "w-20 h-20"} rounded-full bg-white/15 flex items-center justify-center ring-[3px] ring-white/20 shadow-[0_4px_16px_rgba(0,0,0,0.2)]`}>
-                  <span className={`${isCollapsed ? "text-sm" : "text-2xl"} font-bold text-white`}>
+                <div className={`${isCollapsed ? "w-9 h-9" : "w-20 h-20"} rounded-full bg-slate-200 flex items-center justify-center ring-[3px] ring-slate-200 shadow-[0_2px_8px_rgba(15,23,42,0.10)]`}>
+                  <span className={`${isCollapsed ? "text-sm" : "text-2xl"} font-bold text-slate-600`}>
                     {(businessName || user?.name || "S").charAt(0).toUpperCase()}
                   </span>
                 </div>
@@ -233,31 +245,31 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
             </div>
             {!isCollapsed && (
               <div className="min-w-0">
-                <p className="text-[15px] font-bold text-white truncate leading-tight" title={businessName || user?.name}>
+                <p className="text-[15px] font-bold text-sidebar-text truncate leading-tight" title={businessName || user?.name}>
                   {businessName || user?.name || "Supplier"}
                 </p>
                 {statusStyle ? (
                   <div className="flex items-center justify-center gap-1 mt-1">
                     {statusStyle.label === "Verified" ? (
-                      <BadgeCheck size={13} className="text-blue-400 shrink-0" />
+                      <BadgeCheck size={13} className="text-emerald-600 shrink-0" />
                     ) : (
                       <span className={`w-1.5 h-1.5 rounded-full ${statusStyle.dot}`} />
                     )}
                     <span className={`text-[11px] font-medium ${statusStyle.text}`}>{statusStyle.label}</span>
                   </div>
                 ) : (
-                  <span className="text-[11px] text-white/40 block mt-1">Administrator</span>
+                  <span className="text-[11px] text-sidebar-muted block mt-1">Administrator</span>
                 )}
                 {/* A member still needs to see what they can do: the badge above
                     describes the business, this line describes the person. The
                     owner keeps the single "Administrator" line. */}
                 {!isOwner && (
-                  <span className="text-[11px] text-white/40 block mt-1" title="Your team role">
+                  <span className="text-[11px] text-sidebar-muted block mt-1" title="Your team role">
                     {describeRoles(teamRoles) || "Team member"}
                   </span>
                 )}
                 {memberSince && (
-                  <div className="flex items-center justify-center gap-1 mt-2 text-xs font-normal tracking-tight text-white/50 hover:text-white/65 transition-colors duration-200">
+                  <div className="flex items-center justify-center gap-1 mt-2 text-xs font-normal tracking-tight text-sidebar-muted hover:text-sidebar-text transition-colors duration-200">
                     <Calendar size={14} className="opacity-60 shrink-0" />
                     <span>Member since {new Date(memberSince).getFullYear()}</span>
                   </div>
@@ -279,11 +291,11 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
         </nav>
 
         {/* Sign Out */}
-        <div className={`border-t border-white/10 shrink-0 relative ${isCollapsed ? "p-2" : "px-3 py-2"}`}>
+        <div className={`border-t border-sidebar-border shrink-0 relative ${isCollapsed ? "p-2" : "px-3 py-2"}`}>
           <button
             onClick={() => setShowLogoutConfirm(!showLogoutConfirm)}
             onBlur={() => setTimeout(() => setShowLogoutConfirm(false), 200)}
-            className={`flex items-center gap-3 w-full rounded-lg text-sm font-medium transition-all duration-200 text-white/50 hover:text-red-300 hover:bg-white/5 ${isCollapsed ? "justify-center p-2" : "px-3 py-2.5"}`}
+            className={`flex items-center gap-3 w-full rounded-lg text-sm font-medium transition-all duration-200 text-sidebar-muted hover:text-red-600 hover:bg-red-50 ${isCollapsed ? "justify-center p-2" : "px-3 py-2.5"}`}
           >
             <LogOut size={17} />
             {!isCollapsed && <span className="text-[15px]">Sign out</span>}
