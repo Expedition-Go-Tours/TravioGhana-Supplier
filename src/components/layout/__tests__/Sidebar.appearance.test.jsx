@@ -308,6 +308,94 @@ describe('no white-on-white survives the theme change', () => {
   });
 });
 
+describe('the profile card stacks on one centre line', () => {
+  /**
+   * The card is a `flex flex-col items-center` column, so the avatar and the two
+   * centred rows below the name were already on the card's centre line. The name
+   * was not: it is a block <p> with no `text-align`, inside a column that is
+   * itself a flex item, so it shrink-wrapped to the width of the widest child and
+   * then aligned to the LEFT edge of that box. The rows below, being flex with
+   * `justify-center`, sat on the real centre. The name therefore drifted left by
+   * exactly how much narrower it was than those rows — measured at 56px for
+   * "Hi" and 31px for "Accra Co", which is why it only looked wrong for short
+   * names and appeared fine for long ones.
+   *
+   * The same missing width constraint had a second effect: with the column
+   * shrink-wrapped, `truncate` had no width to truncate to, so a long name grew
+   * the box past the card's edge instead of ellipsising.
+   *
+   * These assert the mechanism, NOT geometry. `vitest.config.js` runs jsdom,
+   * which has no layout engine: every getBoundingClientRect() here returns
+   * zeros, so an assertion comparing centres would pass or fail for reasons
+   * unrelated to alignment. Pinning the two declarations that produce the
+   * alignment is the strongest thing a jsdom test can honestly do; the
+   * pixel-level proof was measured in a real browser against this box model
+   * (270px sidebar - 24px mx-3 - 48px p-6 = 198px content).
+   */
+  function nameColumn(name) {
+    const el = screen.getByText(name);
+    expect(el.tagName).toBe('P');
+    return el.parentElement;
+  }
+
+  it('centres the name on the same axis as the rows beneath it', async () => {
+    renderSidebar();
+    await waitFor(() => expect(screen.getByText('Verified')).toBeTruthy());
+
+    const column = nameColumn('Expedition Go Tours Ltd');
+    // Applies to every line in the column, including the bare <span> fallbacks
+    // ("Administrator", the team role) which are not flex rows and so do not
+    // centre themselves.
+    expect(column.className.split(/\s+/)).toContain('text-center');
+  });
+
+  it('stretches the column to the card width so `truncate` has a width to work with', async () => {
+    renderSidebar();
+    await waitFor(() => expect(screen.getByText('Verified')).toBeTruthy());
+
+    // `min-w-0` alone is inert in a column with align-items:center — there is no
+    // shrink pressure — which is what let the box outgrow the card.
+    const column = nameColumn('Expedition Go Tours Ltd');
+    expect(column.className.split(/\s+/)).toContain('w-full');
+  });
+
+  it('keeps the name inside the same card the avatar is in', async () => {
+    renderSidebar();
+    await waitFor(() => expect(screen.getByText('Verified')).toBeTruthy());
+
+    // The column must be a descendant of the flex column that also holds the
+    // avatar, or "centred" would be centred on the wrong thing entirely.
+    const column = nameColumn('Expedition Go Tours Ltd');
+    const stack = column.parentElement;
+    expect(stack.className).toContain('items-center');
+    expect(stack.className).toContain('flex-col');
+    expect(stack.querySelector('.rounded-full')).toBeTruthy();
+  });
+
+  it('still truncates rather than widening, and still carries the full name for hover', async () => {
+    renderSidebar();
+    await waitFor(() => expect(screen.getByText('Verified')).toBeTruthy());
+
+    const name = screen.getByText('Expedition Go Tours Ltd');
+    expect(name.className.split(/\s+/)).toContain('truncate');
+    // The visible name is clipped now, so the tooltip has to carry the full
+    // string or a long business name becomes unreadable outright.
+    expect(name.getAttribute('title')).toBe('Expedition Go Tours Ltd');
+  });
+
+  it('centres the non-flex fallback lines, which have no justify-center of their own', async () => {
+    // "Administrator" and the team role are plain <span>s, not flex rows, so
+    // nothing but the inherited text-align centres them. Checked in the member
+    // view because the owner's verified view renders neither.
+    await renderAsUnverifiedMember();
+
+    const column = nameColumn('Expedition Go Tours Ltd');
+    expect(column.className.split(/\s+/)).toContain('text-center');
+    expect(screen.getByText('Administrator')).toBeTruthy();
+    expect(screen.getByText('Editor')).toBeTruthy();
+  });
+});
+
 describe('the dormant branches of the sidebar', () => {
   /**
    * The DOM scans above only see what renders. No nav item currently sets

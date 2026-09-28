@@ -243,8 +243,18 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
                 </div>
               )}
             </div>
+            {/* w-full + text-center, not just min-w-0. This column is a flex item
+                in a `flex-col items-center` container, so its cross size is its own
+                content width: without w-full it shrink-wraps to the widest child and
+                the name, a left-aligned block, drifts left by however much narrower
+                it is than the rows below (measured -56px at "Hi", -31px at "Accra
+                Co"), while the status/member-since rows, which centre themselves,
+                stayed put. w-full gives `truncate` a real constraint too, so a long
+                name ellipsises instead of widening the box past the card edge, and
+                text-align centres every line in the column on the same axis as the
+                avatar. */}
             {!isCollapsed && (
-              <div className="min-w-0">
+              <div className="min-w-0 w-full text-center">
                 <p className="text-[15px] font-bold text-sidebar-text truncate leading-tight" title={businessName || user?.name}>
                   {businessName || user?.name || "Supplier"}
                 </p>
