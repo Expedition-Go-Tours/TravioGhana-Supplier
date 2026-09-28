@@ -16,12 +16,18 @@ export async function replaceDocument(docId, file) {
   return response.data?.data || null;
 }
 
-/** Upload an additional document for review. */
-export async function addDocument({ type, file, expiryDate }) {
+/**
+ * Upload a document for review. Pass `ownerType` + `ownerId` (VEHICLE or GUIDE)
+ * to attach it to an existing vehicle/guide instead of the supplier — the
+ * "repair" path that fixes a record created without a document.
+ */
+export async function addDocument({ type, file, expiryDate, ownerType, ownerId }) {
   const formData = new FormData();
   formData.append("document", file);
   formData.append("type", type);
   if (expiryDate) formData.append("expiryDate", expiryDate);
+  if (ownerType) formData.append("ownerType", ownerType);
+  if (ownerId) formData.append("ownerId", ownerId);
   const response = await api.post("/suppliers/documents", formData, {
     headers: { "Content-Type": "multipart/form-data" },
     skipGlobalErrorHandler: true,

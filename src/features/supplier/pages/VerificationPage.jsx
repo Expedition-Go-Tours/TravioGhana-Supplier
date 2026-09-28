@@ -81,17 +81,26 @@ function StatusPill({ status }) {
   );
 }
 
-function LevelBadge({ level }) {
-  if (level !== "required" && level !== "optional") return null;
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-        level === "required" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
-      }`}
-    >
-      {level === "required" ? "Required" : "Optional"}
-    </span>
-  );
+function TimingBadge({ requirement, graceDays = 30 }) {
+  // Backend sets `enforced` only for the up-front set collected at registration
+  // (a government ID, plus a business certificate for businesses). Everything
+  // else falls within the documentation grace period once the account is live —
+  // the same number the wizard promises at signup, served by the backend.
+  if (requirement.timing === "later") {
+    return (
+      <span className="inline-flex items-center rounded-full border border-dashed border-amber-300 bg-amber-50/50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+        Within {graceDays} days
+      </span>
+    );
+  }
+  if (requirement.enforced) {
+    return (
+      <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+        Required
+      </span>
+    );
+  }
+  return null;
 }
 
 function SectionHeader({ icon: Icon, title, subtitle, badge }) {
@@ -109,6 +118,62 @@ function SectionHeader({ icon: Icon, title, subtitle, badge }) {
           {badge}
         </span>
       )}
+    </div>
+  );
+}
+
+function ChecklistGroupHeader({ title, hint, count }) {
+  return (
+    <div className="mb-2 flex items-center justify-between gap-3">
+      <div>
+        <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">{title}</h3>
+        {hint && <p className="mt-0.5 text-xs text-slate-500">{hint}</p>}
+      </div>
+      {typeof count === "number" && <span className="text-[11px] font-medium text-slate-400">{count}</span>}
+    </div>
+  );
+}
+
+/** Whole remaining days until the documentation window closes (negative = overdue). */
+function documentationWindowInfo(deadline) {
+  if (!deadline) return null;
+  const due = new Date(deadline).getTime();
+  if (Number.isNaN(due)) return null;
+  const daysLeft = Math.ceil((due - Date.now()) / 86_400_000);
+  return { daysLeft, overdue: daysLeft < 0, dueDate: formatDate(deadline) };
+}
+
+/**
+ * The 30-day documentation window: only the enforced set (ID + business
+ * certificate) was required to go live — everything left on the checklist is
+ * due by the deadline shown here once the account is active.
+ */
+function DocumentationWindowBanner({ deadline }) {
+  const info = documentationWindowInfo(deadline);
+  if (!info) return null;
+  const count = Math.abs(info.daysLeft);
+  const plural = count === 1 ? "" : "s";
+  return (
+    <div
+      className={`flex items-start gap-2.5 rounded-xl border p-3.5 text-xs ${
+        info.overdue
+          ? "border-rose-200 bg-rose-50/60 text-rose-700"
+          : "border-amber-200 bg-amber-50/60 text-amber-800"
+      }`}
+    >
+      <Clock size={15} className={`mt-0.5 shrink-0 ${info.overdue ? "text-rose-500" : "text-amber-600"}`} />
+      <div className="min-w-0">
+        <p className="font-semibold">
+          {info.overdue
+            ? `The documents below were due ${info.dueDate} — ${count} day${plural} overdue`
+            : `The documents below are due ${info.dueDate} — ${count} day${plural} left`}
+        </p>
+        <p className="mt-0.5 opacity-80">
+          {info.overdue
+            ? "Provide them from this dashboard so nothing falls behind on your account."
+            : "Only your ID (and business certificate, if you're a business) was required to go live — this window covers the rest."}
+        </p>
+      </div>
     </div>
   );
 }
@@ -151,7 +216,7 @@ const fileLabelCls =
  * One line of the verification checklist: a document the operator's type needs,
  * its review status, and an upload action when it is missing or needs replacing.
  */
-function RequirementRow({ requirement, doc, onUpload }) {
+function RequirementRow({ requirement, doc, onUpload, graceDays }) {
   const inputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
   const status = doc ? doc.status : "MISSING";
@@ -178,8 +243,9 @@ function RequirementRow({ requirement, doc, onUpload }) {
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-sm font-semibold text-slate-800">{requirement.label}</p>
           <StatusPill status={status} />
-          {!requirement.required && <LevelBadge level="optional" />}
+          <TimingBadge requirement={requirement} graceDays={graceDays} />
         </div>
+        {requirement.detail && <p className="mt-0.5 text-xs text-slate-500">{requirement.detail}</p>}
         {doc?.expiryDate && (
           <p className="mt-1 inline-flex items-center gap-1 text-xs text-slate-500">
             <CalendarClock size={12} className="text-slate-400" /> expires {formatDate(doc.expiryDate)}
@@ -297,6 +363,53 @@ function DocumentRow({ doc, onReplace }) {
   );
 }
 
+/**
+ * One required document for a single vehicle or guide, with its status and an
+ * inline upload/replace action. This is the "repair" path — a record created
+ * without a document gets one attached (ownerType + ownerId) instead of being
+ * deleted and recreated.
+ */
+function EntityDocRow({ requirement, doc, onUpload }) {
+  const inputRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+  const needsUpload = !doc || NEEDS_REUPLOAD.includes(doc.status);
+
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      await onUpload(file);
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  };
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 px-2.5 py-1.5">
+      <span className="text-xs font-medium text-slate-600">{requirement.label}</span>
+      <span className="inline-flex items-center gap-1.5">
+        <StatusPill status={doc ? doc.status : "MISSING"} />
+        {needsUpload && (
+          <>
+            <input ref={inputRef} type="file" className="hidden" accept="image/*,.pdf" onChange={handleFile} />
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              disabled={uploading}
+              className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white transition-all hover:bg-emerald-700 disabled:opacity-60"
+            >
+              {uploading ? <Loader2 size={11} className="animate-spin" /> : <Upload size={11} />}
+              {uploading ? "Uploading…" : doc ? "Replace" : "Upload"}
+            </button>
+          </>
+        )}
+      </span>
+    </div>
+  );
+}
+
 function SummaryCard({ icon: Icon, label, value, accent, hint }) {
   const accents = {
     emerald: "border-emerald-400 bg-emerald-50 text-emerald-700",
@@ -344,6 +457,17 @@ export default function VerificationPage() {
   const profile = data?.profile || null;
   const requirements = data?.requirements || null;
 
+  // Per-entity document requirements come from the backend (narrower for an
+  // "optional" fleet, full set for a required one). The static lists are only
+  // the fallback for older status payloads that carry no requirements.
+  const vehicleDocReqs = requirements ? requirements.vehicleDocuments || [] : VEHICLE_DOC_TYPES;
+  const guideDocReqs = requirements ? requirements.guideDocuments || [] : GUIDE_DOC_TYPES;
+  // The 30-day documentation window: the grace period is served by the backend
+  // (same number the signup wizard promises), the deadline is per-account and
+  // starts the moment the required documents are on file.
+  const graceDays = requirements?.documentationGraceDays ?? 30;
+  const documentationDeadline = requirements?.documentationDeadline || null;
+
   const refresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["supplier", "application-status"] });
   }, [queryClient]);
@@ -370,6 +494,26 @@ export default function VerificationPage() {
         toast.success("Document re-uploaded — it's back under review");
       } else {
         await addDocument({ type: requirement.type, file });
+        toast.success("Document uploaded — it's now under review");
+      }
+      refresh();
+    } catch {
+      toast.error("Failed to upload document");
+    }
+  };
+
+  /** Repair path for a vehicle/guide missing a document: attach it in place. */
+  const handleEntityDocUpload = async (kind, entity, requirement, file) => {
+    const entityDocs = (profile?.documents || []).filter(
+      (d) => d.ownerType === kind && d.ownerId === entity.id
+    );
+    const existing = entityDocs.find((d) => d.type === requirement.type);
+    try {
+      if (existing && NEEDS_REUPLOAD.includes(existing.status)) {
+        await replaceDocument(existing.id, file);
+        toast.success("Document re-uploaded — it's back under review");
+      } else {
+        await addDocument({ type: requirement.type, file, ownerType: kind, ownerId: entity.id });
         toast.success("Document uploaded — it's now under review");
       }
       refresh();
@@ -407,8 +551,8 @@ export default function VerificationPage() {
       toast.error("Vehicle make, model and registration number are required");
       return;
     }
-    const documents = VEHICLE_DOC_TYPES.map((dt) => ({ type: dt.type, file: vehicleForm.docs[dt.type] })).filter((d) => d.file);
-    const required = VEHICLE_DOC_TYPES.filter((dt) => !vehicleForm.docs[dt.type]);
+    const documents = vehicleDocReqs.map((dt) => ({ type: dt.type, file: vehicleForm.docs[dt.type] })).filter((d) => d.file);
+    const required = vehicleDocReqs.filter((dt) => !vehicleForm.docs[dt.type]);
     if (required.length > 0) {
       toast.error(`Attach ${required[0].label} for this vehicle`);
       return;
@@ -446,8 +590,8 @@ export default function VerificationPage() {
       toast.error("Guide full name is required");
       return;
     }
-    const documents = GUIDE_DOC_TYPES.map((dt) => ({ type: dt.type, file: guideForm.docs[dt.type] })).filter((d) => d.file);
-    const required = GUIDE_DOC_TYPES.filter((dt) => !guideForm.docs[dt.type]);
+    const documents = guideDocReqs.map((dt) => ({ type: dt.type, file: guideForm.docs[dt.type] })).filter((d) => d.file);
+    const required = guideDocReqs.filter((dt) => !guideForm.docs[dt.type]);
     if (required.length > 0) {
       toast.error(`Attach ${required[0].label} for this guide`);
       return;
@@ -488,10 +632,17 @@ export default function VerificationPage() {
     requirement,
     doc: documents.find((d) => d.ownerType === "SUPPLIER" && d.type === requirement.type) || null,
   }));
+  // The backend splits its own list into the enforced "upfront" set and the
+  // advisory "later" set; the page mirrors that split instead of re-deriving it.
+  const upfrontRows = requirementRows.filter(({ requirement }) => requirement.timing === "upfront");
+  const laterRows = requirementRows.filter(({ requirement }) => requirement.timing === "later");
+
   const requiredTypes = new Set((requirements?.documents || []).map((r) => r.type));
   const additionalDocs = documents.filter((d) => d.ownerType !== "SUPPLIER" || !requiredTypes.has(d.type));
 
-  const missingRequired = requirementRows.filter(({ requirement, doc }) => requirement.required && !doc).length;
+  // Only enforced (up-front) requirements count as an action: advisory
+  // documents never block anything, so a missing one is not something to fix.
+  const missingRequired = upfrontRows.filter(({ requirement, doc }) => requirement.enforced && !doc).length;
   const pendingDocs = documents.filter((d) => d.status === "PENDING").length;
   const approvedDocs = documents.filter((d) => d.status === "APPROVED").length;
   const actionDocs =
@@ -502,8 +653,24 @@ export default function VerificationPage() {
   const showGuides = requirements ? requirements.guides !== "hidden" : true;
   const typeLabel = SUPPLIER_TYPE_LABEL[profile?.supplierType] || profile?.supplierType;
 
+  // "Additional documents" picker derived from the server's requirement list
+  // (server labels included), so it can never disagree with the wizard. Types
+  // already on file at supplier level are hidden because the backend rejects a
+  // second pending/approved document of the same type for the same entity.
+  const supplierDocTypes = new Set(
+    documents.filter((d) => d.ownerType === "SUPPLIER").map((d) => d.type)
+  );
   const addableTypes = requirements
-    ? ADDABLE_DOC_TYPES.filter((t) => requiredTypes.has(t.value) || t.value === "OTHER")
+    ? [
+        ...Array.from(
+          new Map(
+            (requirements.documents || [])
+              .filter((r) => !supplierDocTypes.has(r.type))
+              .map((r) => [r.type, { value: r.type, label: r.label }])
+          ).values()
+        ),
+        { value: "OTHER", label: "Other document" },
+      ]
     : ADDABLE_DOC_TYPES;
 
   const pendingFleet = vehicles.filter((v) => v.status !== "VERIFIED").length + guides.filter((g) => g.status !== "VERIFIED").length;
@@ -520,8 +687,8 @@ export default function VerificationPage() {
             <h1 className="text-lg font-bold tracking-tight text-slate-800">Verification</h1>
             <p className="mt-0.5 text-sm text-slate-500">
               {requirements
-                ? `Everything a ${typeLabel} needs to verify. Nothing goes live until it's approved.`
-                : "Track every document, vehicle and guide. Nothing goes live until it's approved."}
+                ? `Everything a ${typeLabel} needs on file. Only a government ID (plus a business certificate, if you're a business) is required to go live — the rest are due within ${graceDays} days of going live.`
+                : "Track every document, vehicle and guide on file."}
             </p>
           </div>
         </div>
@@ -559,18 +726,48 @@ export default function VerificationPage() {
                   subtitle="What your operator type needs to provide"
                   badge={requirementRows.length}
                 />
+                {documentationDeadline && laterRows.length > 0 && (
+                  <DocumentationWindowBanner deadline={documentationDeadline} />
+                )}
                 {requirementRows.length === 0 ? (
                   <EmptyState icon={ShieldCheck} text="No documents required for your type." />
                 ) : (
-                  <div className="space-y-2.5">
-                    {requirementRows.map(({ requirement, doc }) => (
-                      <RequirementRow
-                        key={requirement.type}
-                        requirement={requirement}
-                        doc={doc}
-                        onUpload={(file) => handleRequirementUpload(requirement, file)}
+                  <div className="space-y-5">
+                    <div>
+                      <ChecklistGroupHeader
+                        title="Provided during registration"
+                        hint="Collected when your account was created — each document here is verified by our team."
+                        count={upfrontRows.length}
                       />
-                    ))}
+                      <div className="space-y-2.5">
+                        {upfrontRows.map(({ requirement, doc }) => (
+                          <RequirementRow
+                            key={requirement.type}
+                            requirement={requirement}
+                            doc={doc}
+                            onUpload={(file) => handleRequirementUpload(requirement, file)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <ChecklistGroupHeader
+                        title="Still to provide"
+                        hint={`Due within ${graceDays} days of your account going live.`}
+                        count={laterRows.length}
+                      />
+                      <div className="space-y-2.5">
+                        {laterRows.map(({ requirement, doc }) => (
+                          <RequirementRow
+                            key={requirement.type}
+                            requirement={requirement}
+                            doc={doc}
+                            graceDays={graceDays}
+                            onUpload={(file) => handleRequirementUpload(requirement, file)}
+                          />
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 )}
               </section>
@@ -718,7 +915,7 @@ export default function VerificationPage() {
                     <input value={vehicleForm.registrationNumber} onChange={(e) => setVehicleForm((f) => ({ ...f, registrationNumber: e.target.value }))} placeholder="Registration number" className={inputCls} />
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    {VEHICLE_DOC_TYPES.map((dt) => (
+                    {vehicleDocReqs.map((dt) => (
                       <label key={dt.type} className={fileLabelCls}>
                         <span className="mb-1.5 block font-medium text-slate-600">{dt.label}</span>
                         <input
@@ -753,21 +950,40 @@ export default function VerificationPage() {
                 <EmptyState icon={Car} text="No vehicles listed yet." />
               ) : (
                 <div className="space-y-2.5">
-                  {vehicles.map((v) => (
-                    <div key={v.id} className="flex flex-wrap items-center gap-4 rounded-xl border border-slate-100 bg-white p-4 transition-colors hover:border-emerald-200">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-400">
-                        <Car size={18} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-semibold text-slate-800">{v.make} {v.model}{v.year ? ` · ${v.year}` : ""}</p>
-                          <StatusPill status={v.status} />
+                  {vehicles.map((v) => {
+                    const vehicleDocs = documents.filter(
+                      (d) => d.ownerType === "VEHICLE" && d.ownerId === v.id
+                    );
+                    return (
+                      <div key={v.id} className="rounded-xl border border-slate-100 bg-white p-4 transition-colors hover:border-emerald-200">
+                        <div className="flex flex-wrap items-center gap-4">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-400">
+                            <Car size={18} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-sm font-semibold text-slate-800">{v.make} {v.model}{v.year ? ` · ${v.year}` : ""}</p>
+                              <StatusPill status={v.status} />
+                            </div>
+                            <p className="mt-0.5 text-xs text-slate-500">Reg: {v.registrationNumber}</p>
+                          </div>
+                          <OutlineButton danger onClick={() => handleRemoveVehicle(v.id)}><Trash2 size={13} /> Remove</OutlineButton>
                         </div>
-                        <p className="mt-0.5 text-xs text-slate-500">Reg: {v.registrationNumber}</p>
+                        {vehicleDocReqs.length > 0 && (
+                          <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
+                            {vehicleDocReqs.map((req) => (
+                              <EntityDocRow
+                                key={req.type}
+                                requirement={req}
+                                doc={vehicleDocs.find((d) => d.type === req.type) || null}
+                                onUpload={(file) => handleEntityDocUpload("VEHICLE", v, req, file)}
+                              />
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      <OutlineButton danger onClick={() => handleRemoveVehicle(v.id)}><Trash2 size={13} /> Remove</OutlineButton>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </section>
@@ -793,7 +1009,7 @@ export default function VerificationPage() {
                     <input value={guideForm.email} onChange={(e) => setGuideForm((f) => ({ ...f, email: e.target.value }))} placeholder="Email" className={`${inputCls} sm:col-span-2`} />
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    {GUIDE_DOC_TYPES.map((dt) => (
+                    {guideDocReqs.map((dt) => (
                       <label key={dt.type} className={fileLabelCls}>
                         <span className="mb-1.5 block font-medium text-slate-600">{dt.label}</span>
                         <input
@@ -818,21 +1034,40 @@ export default function VerificationPage() {
                 <EmptyState icon={Users} text="No guides added yet." />
               ) : (
                 <div className="space-y-2.5">
-                  {guides.map((g) => (
-                    <div key={g.id} className="flex flex-wrap items-center gap-4 rounded-xl border border-slate-100 bg-white p-4 transition-colors hover:border-emerald-200">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-400">
-                        <Users size={18} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-semibold text-slate-800">{g.fullName}</p>
-                          <StatusPill status={g.status} />
+                  {guides.map((g) => {
+                    const guideDocs = documents.filter(
+                      (d) => d.ownerType === "GUIDE" && d.ownerId === g.id
+                    );
+                    return (
+                      <div key={g.id} className="rounded-xl border border-slate-100 bg-white p-4 transition-colors hover:border-emerald-200">
+                        <div className="flex flex-wrap items-center gap-4">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-400">
+                            <Users size={18} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-sm font-semibold text-slate-800">{g.fullName}</p>
+                              <StatusPill status={g.status} />
+                            </div>
+                            <p className="mt-0.5 text-xs text-slate-500">{[g.phone, g.email].filter(Boolean).join(" · ") || "No contact details"}</p>
+                          </div>
+                          <OutlineButton danger onClick={() => handleRemoveGuide(g.id)}><Trash2 size={13} /> Remove</OutlineButton>
                         </div>
-                        <p className="mt-0.5 text-xs text-slate-500">{[g.phone, g.email].filter(Boolean).join(" · ") || "No contact details"}</p>
+                        {guideDocReqs.length > 0 && (
+                          <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
+                            {guideDocReqs.map((req) => (
+                              <EntityDocRow
+                                key={req.type}
+                                requirement={req}
+                                doc={guideDocs.find((d) => d.type === req.type) || null}
+                                onUpload={(file) => handleEntityDocUpload("GUIDE", g, req, file)}
+                              />
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      <OutlineButton danger onClick={() => handleRemoveGuide(g.id)}><Trash2 size={13} /> Remove</OutlineButton>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </section>
