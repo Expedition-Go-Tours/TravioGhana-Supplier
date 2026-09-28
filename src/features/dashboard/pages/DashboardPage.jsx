@@ -156,17 +156,37 @@ export default function DashboardPage() {
     { value: pendingBookings },
   ];
 
+  // The greeting must never claim there is nothing to do unless that is actually
+  // known. `pendingBookings` is 0 both when the supplier really is caught up and
+  // when the fetch has not landed yet, so an unguarded ternary opened with "All
+  // caught up" on every single load — and on a failed fetch it claimed the same
+  // thing directly above the error banner. The gate is whether the data exists,
+  // NOT `loading`: a manual refresh still holds the previous numbers, and those
+  // are better information than a placeholder. A refresh that fails while data
+  // is in hand also keeps showing them, which is correct — the banner already
+  // says the reload failed and offers Retry.
+  const greetingStatus = (() => {
+    if (!dashboardData) {
+      if (error) return 'We could not load your pending bookings.';
+      if (loading) return 'Checking your pending bookings…';
+      // Signed out, or the fetch never started: nothing to claim either way.
+      return null;
+    }
+    if (pendingBookings > 0) {
+      return `You have ${pendingBookings} pending booking${pendingBookings > 1 ? 's' : ''} to review.`;
+    }
+    return 'No pending bookings to review.';
+  })();
+
   return (
     <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-xl sm:text-2xl font-bold text-slate-800 truncate">{getGreeting()}, {user?.name?.split(' ')[0] || 'there'}</h1>
-          <p className="text-sm text-slate-500 mt-1.5">
-            {pendingBookings > 0
-              ? `You have ${pendingBookings} pending booking${pendingBookings > 1 ? 's' : ''} to review.`
-              : 'All caught up — no pending requests.'}
-          </p>
+          {greetingStatus && (
+            <p className="text-sm text-slate-500 mt-1.5">{greetingStatus}</p>
+          )}
         </div>
         <button onClick={() => { refetchNotifications(); fetchDashboard(); }} disabled={loading}
           className="flex items-center gap-1.5 px-3.5 py-2 bg-white border border-emerald-200/60 rounded-xl text-xs font-medium text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300 transition-all disabled:opacity-40 shadow-sm"
@@ -360,9 +380,17 @@ export default function DashboardPage() {
                   <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center mb-3">
                     <Bell size={18} className="text-slate-300" />
                   </div>
-                  <p className="text-sm font-semibold text-slate-500">All caught up</p>
+                  {/* Was "All caught up", which is both wrong here and a duplicate:
+                      the bell's subtitle already says those words for the unread
+                      count, and this panel is empty whenever there are no
+                      notifications AT ALL — including for a supplier who has never
+                      had one, which is not having finished anything. The copy below
+                      also named three of the six notification types it actually
+                      receives; an enquiry is the one a supplier most wants and was
+                      hidden under "updates". */}
+                  <p className="text-sm font-semibold text-slate-500">No notifications yet</p>
                   <p className="text-xs text-slate-400 mt-1 max-w-[200px] leading-relaxed">
-                    New notifications about bookings, payouts, and updates will appear here.
+                    Bookings, payouts, reviews and customer enquiries will appear here.
                   </p>
                 </div>
               )}
