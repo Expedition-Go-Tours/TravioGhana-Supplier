@@ -2,8 +2,10 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { Search, ChevronRight, ChevronDown, X, HelpCircle } from 'lucide-react'
 import { useProductBuilderStore } from '@/features/products/productBuilderStore'
 import { useStepErrors } from '@/features/products/useStepErrors'
+import { useAuthStore } from '@/stores/authStore'
 import { ACTIVITY_CATEGORIES, TOUR_TRANSPORT_CATEGORIES, TRANSPORT_SERVICE_CATEGORIES } from '@/constants/gygLists'
 import { isMultiDayTour } from '@/features/products/utils/itineraryConstants'
+import { productCategoriesForServices } from '@/features/products/utils/productCategories'
 
 const DURATION_UNITS = ['minutes', 'hours', 'days']
 
@@ -194,6 +196,25 @@ export default function Step02Category() {
   const clearStepErrors = useProductBuilderStore((s) => s.clearStepErrors)
   const errors = useStepErrors(3)
 
+  // Categories are derived from the supplier's application services: a
+  // tours-only account can create tours and activities, a transport-only
+  // account can create transport products, and anything else (Other
+  // Experience, mixes, or unknown/empty) keeps the full set.
+  const supplierServices = useAuthStore((s) => s.supplierProfile?.operatingInfo?.services)
+  const allowedCategories = productCategoriesForServices(supplierServices)
+  const visibleProductTypes = PRODUCT_TYPES.filter((type) => allowedCategories.includes(type.value))
+  const allowedKey = allowedCategories.join(',')
+
+  // If the current draft's category is no longer offered (services changed,
+  // or a draft predates this gating), clear it so the supplier picks from the
+  // visible set instead of silently carrying an unlistable category.
+  useEffect(() => {
+    if (!category || allowedKey.split(',').includes(category)) return
+    setField('category', '')
+    setField('subcategory', '')
+    clearStepErrors(3)
+  }, [allowedKey, category, setField, clearStepErrors])
+
   // Accommodation only applies to multi-day tours (per-day overnight stays)
   const showAccommodation = isMultiDayTour(duration, durationUnit)
 
@@ -238,7 +259,14 @@ export default function Step02Category() {
 
       {/* Product type cards */}
       <div className="space-y-3" data-field="category">
-        {PRODUCT_TYPES.map((type) => {
+        {visibleProductTypes.length < PRODUCT_TYPES.length && (
+          <p className="text-[13px] text-slate-500 pb-1">
+            {allowedKey === 'transport'
+              ? 'Based on the services you selected, you can create transport products.'
+              : 'Based on the services you selected, you can create tours and activities.'}
+          </p>
+        )}
+        {visibleProductTypes.map((type) => {
           const isSelected = category === type.value
           return (
             <label
