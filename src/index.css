@@ -1,6 +1,16 @@
 @import "tailwindcss";
 @plugin "tailwindcss-animate";
 
+/*
+ * PreviewBanner measures itself and raises this to its own height so the fixed
+ * Header and Sidebar sit below it. 0px is the default: with no banner present
+ * every `var(--preview-banner-height)` resolves to zero and the production
+ * layout is exactly what it was before the banner existed.
+ */
+:root {
+  --preview-banner-height: 0px;
+}
+
 @layer utilities {
   .focus-ring {
     outline: none;

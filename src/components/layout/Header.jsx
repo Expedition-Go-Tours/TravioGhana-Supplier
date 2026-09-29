@@ -44,7 +44,7 @@ export default function Header() {
 
   return (
     <header
-      className={`fixed top-0 right-0 h-16 bg-white border-b border-[#eaeaea] flex items-center ${SHELL_GUTTER} z-40 transition-all duration-300 ${
+      className={`fixed top-[var(--preview-banner-height)] right-0 h-16 bg-white border-b border-[#eaeaea] flex items-center ${SHELL_GUTTER} z-40 transition-all duration-300 ${
         isCollapsed ? "lg:left-[64px]" : "lg:left-[270px]"
       } left-0`}
     >

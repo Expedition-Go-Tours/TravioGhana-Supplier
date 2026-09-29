@@ -200,7 +200,7 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
   return (
     <>
       <aside
-        className={`fixed left-0 top-0 h-screen bg-sidebar-bg border-r border-sidebar-border transition-all duration-300 z-50 flex flex-col
+        className={`fixed left-0 top-[var(--preview-banner-height)] h-[calc(100vh_-_var(--preview-banner-height))] bg-sidebar-bg border-r border-sidebar-border transition-all duration-300 z-50 flex flex-col
           ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
           ${isCollapsed ? "lg:w-[64px] lg:translate-x-0" : "lg:w-[270px] lg:translate-x-0"}
           w-[260px]`}
