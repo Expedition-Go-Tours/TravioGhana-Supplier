@@ -37,7 +37,7 @@
     "framer-motion": "^12.40.0",
     "libphonenumber-js": "^1.13.9",
     "lucide-react": "^1.16.0",
-    "maplibre-gl": "^4.7.1",
+    "maplibre-gl": "^6.11.2",
     "react": "^19.2.6",
     "react-apexcharts": "^2.1.0",
     "react-datepicker": "^9.1.0",
