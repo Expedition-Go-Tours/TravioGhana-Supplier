@@ -22,6 +22,7 @@ import { prefetchLightboxImages } from "@/lib/prefetchImages";
 import { PickupGeoshapePreview } from "@/components/shared/PickupGeoshapeDrawer";
 import PreviewMenu from "@/components/shared/PreviewMenu";
 import { getUniqueCities } from "@/features/products/utils/getUniqueCities";
+import { groupTypeLabel } from "@/features/products/utils/groupTypeLabel";
 import { ACCOMMODATION_LABELS } from "@/features/products/utils/itineraryConstants";
 import DeleteModal from "@/components/ui/DeleteModal";
 import { SHELL_GUTTER, SHELL_MEASURE, SHELL_PADDING_Y } from "@/components/layout/shell";
@@ -1346,7 +1347,7 @@ export default function ProductDetailPage() {
                   const joined = Array.isArray(items) ? items.join(", ") : (typeof items === "string" ? items : items ? String(items) : "")
                   return joined ? `${mode}: ${joined}` : ""
                 }).filter(Boolean).join(" | ") : null} />
-                <DetailRow icon={Users} label="Group Type" value={content.isPrivateActivity ? "Private" : "Group"} />
+                <DetailRow icon={Users} label="Group Type" value={groupTypeLabel(content)} />
                 <DetailRow icon={DollarSign} label="Pricing" value={travelerDetails.pricingModel === "perPerson" ? "Per person" : "Per group"} />
                 {(() => {
                   const cats = travelerDetails.pricingCategories || travelerDetails.ageGroups || []
