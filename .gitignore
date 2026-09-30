@@ -51,3 +51,6 @@ test.yml
 !public/icons/v2/*.png
 *.txt
 start file
+
+# Stays parity harness screenshots
+scripts/stays-parity/output/

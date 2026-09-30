@@ -7,6 +7,7 @@ import {
   getLoginErrorMessage,
 } from "@/features/auth/api";
 import { useAuthStore, canAccessSupplierDashboard } from "@/stores/authStore";
+import { WORKSPACES, defaultWorkspaceForProfile } from "@/config/staysWorkspace";
 import api from "@/lib/axios";
 
 /**
@@ -39,7 +40,10 @@ export function getPostLoginPath(supplierProfile, isTeamMember) {
   }
 
   if (canAccessSupplierDashboard(supplierProfile) || isTeamMember) {
-    return "/";
+    // Accommodation suppliers land in their Stays workspace. When the login
+    // payload has no businessInfo yet the `/` landing gate resolves the
+    // profile and forwards to `/stays` from there, so either branch works.
+    return defaultWorkspaceForProfile(supplierProfile) === WORKSPACES.STAYS ? "/stays" : "/";
   }
 
   return "/supplier/status";

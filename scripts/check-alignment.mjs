@@ -48,6 +48,18 @@ const ROUTES = [
   { path: "/special-offers", name: "Special offers" },
   { path: "/special-offers/build/new", name: "Special offer builder" },
   { path: "/chat", name: "Chat" },
+  // Stays workspace (property suppliers). Shared account pages above are
+  // measured once; these are the stays-owned routes.
+  { path: "/stays", name: "Stays dashboard" },
+  { path: "/stays/properties", name: "Stays properties" },
+  { path: "/stays/bookings", name: "Stays bookings" },
+  { path: "/stays/availability", name: "Stays availability" },
+  { path: "/stays/rates", name: "Stays rates" },
+  { path: "/stays/rooms", name: "Stays rooms" },
+  { path: "/stays/policies", name: "Stays policies" },
+  { path: "/stays/special-offers", name: "Stays offers" },
+  { path: "/stays/cancellation", name: "Stays cancellation" },
+  { path: "/stays/properties/build/new", name: "Stays builder", skip: "creates a draft as a side effect" },
   { path: "PRODUCT_DETAIL", name: "Product detail", probe: DETAIL_ROOT },
   { path: "/products/build/new", name: "Product builder", skip: "full-screen takeover, covers the header" },
   { path: "/this-route-does-not-exist", name: "404", skip: "intentionally centred full-screen" },

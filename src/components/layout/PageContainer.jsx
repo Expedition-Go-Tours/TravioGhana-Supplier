@@ -7,8 +7,8 @@ import { SHELL_GUTTER, SHELL_MEASURE, SHELL_PADDING_Y, SHELL_SURFACE } from "./s
  * AppShell wraps <Outlet /> in this, so every page starts at the same left
  * edge as the header logo — see shell.js for the rules pages must follow.
  *
- * `bleed` is for the three routes that own their full-viewport layout
- * (chat, product builder, product detail). They skip the container but still
+ * `bleed` is for the routes that own their full-viewport layout (chat, the
+ * product/stays builders, product detail). They skip the container but still
  * import SHELL_GUTTER for their own chrome, so their content lines up too.
  */
 export default function PageContainer({ bleed = false, className, children }) {

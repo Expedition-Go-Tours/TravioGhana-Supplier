@@ -40,6 +40,9 @@ const GHANA_SUPPLIER_REWRITES = [
   [/^\/payouts\/me/, '/travioghana/supplier/payouts'],
   [/^\/payout-methods\/me/, '/travioghana/supplier/payout-methods'],
   [/^\/notifications/, '/travioghana/supplier/notifications'],
+  // Stays workspace (property suppliers): /stays/supplier/** → Ghana
+  // namespace, same as every other supplier-scoped path above.
+  [/^\/stays\/supplier/, '/travioghana/supplier/stays'],
 ];
 
 api.interceptors.request.use((config) => {

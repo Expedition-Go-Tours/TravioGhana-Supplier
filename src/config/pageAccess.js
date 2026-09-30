@@ -41,6 +41,27 @@ export const PAGE_ACCESS = {
   "/notifications": null,
   // Settings tabs are gated inside the page (each tab has its own key).
   "/settings": null,
+
+  // ── Stays workspace (property suppliers) ─────────────────────────────
+  // Mirrors the Experiences rules one-for-one so team members see the same
+  // shape of access in both workspaces: dashboard open to everyone, catalogue
+  // read-gated, operations (builder, rates, availability, policies, offers)
+  // behind a stays operation key, and the cancellation gauge read-only.
+  // The `stays.*` keys must exist in the API's permission model — see the
+  // mirror in config/teamRoles.js (and the drift test in
+  // config/__tests__/pageAccess.test.js).
+  "/stays": null,
+  "/stays/properties": "stays.view",
+  "/stays/properties/build": "stays.manage",
+  "/stays/bookings": "stays.bookings",
+  "/stays/availability": "stays.availability",
+  "/stays/rates": "stays.rates",
+  // Rooms & units is edited from the same rate workspace — one key governs both.
+  "/stays/rooms": "stays.rates",
+  "/stays/policies": "stays.policies",
+  "/stays/special-offers": "stays.offers",
+  // Cancellation gauge is a read-only rollup, like /cancellation-rate.
+  "/stays/cancellation": null,
 };
 
 /**

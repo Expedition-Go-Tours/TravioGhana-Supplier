@@ -9,6 +9,9 @@ import { cn } from "@/lib/utils";
 import { productsListQuery } from "@/features/products/api";
 import { searchTours, tourSubtitle } from "@/features/products/tourSearch";
 import { getAuthToken } from "@/stores/authStore";
+import { useStaysWorkspaceStore } from "@/stores/staysWorkspaceStore";
+import { STAYS_NAV_ITEMS } from "@/config/staysNav";
+import { WORKSPACES } from "@/config/staysWorkspace";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 
 // Same rules as the sidebar (PAGE_ACCESS) so search can never offer a page the
@@ -50,6 +53,17 @@ const allNavItems = [
 ];
 
 const SEARCHABLE_TEXT = (item) => [item.label, item.parent, item.keywords || []].flat().join(" ").toLowerCase();
+
+// Stays workspace pages — the palette is account-wide, so they are searchable
+// from either workspace, but they lead the list while Stays is active (see the
+// ordering in `navItems` below).
+const staysSearchItems = STAYS_NAV_ITEMS.map((item) => ({
+  label: item.label,
+  path: item.path,
+  iconName: item.iconName,
+  permission: item.permission,
+  keywords: item.keywords,
+}));
 
 function flattenNavItems(items) {
   const out = [];
@@ -151,6 +165,7 @@ export default function SearchDropdown() {
   const containerRef = useRef(null);
   const navigate = useNavigate();
   const { hasPermission } = useTeamRole();
+  const isStays = useStaysWorkspaceStore((state) => state.workspace) === WORKSPACES.STAYS;
 
   const canSearchTours = hasPermission("tours.view") && Boolean(getAuthToken());
 
@@ -164,7 +179,11 @@ export default function SearchDropdown() {
 
   const navItems = useMemo(() => {
     // Pages first, then the settings tabs this role can actually open.
-    const filtered = allNavItems
+    // In the Stays workspace the property pages lead the list.
+    const pool = isStays
+      ? [...staysSearchItems, ...allNavItems]
+      : [...allNavItems, ...staysSearchItems];
+    const filtered = pool
       .filter((item) => {
         if (!item.permission) return true;
         return hasPermission(item.permission);
@@ -174,7 +193,7 @@ export default function SearchDropdown() {
         : item))
       .filter((item) => !item.children || item.children.length > 0);
     return flattenNavItems(filtered);
-  }, [hasPermission]);
+  }, [hasPermission, isStays]);
 
   const validPaths = useMemo(() => new Set(navItems.map((i) => i.path)), [navItems]);
 

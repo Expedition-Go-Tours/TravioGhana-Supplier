@@ -114,6 +114,12 @@ const env = {
   VITE_ENABLE_REACT_QUERY_DEVTOOLS: envBool(import.meta.env.VITE_ENABLE_REACT_QUERY_DEVTOOLS, isDev),
   VITE_ENABLE_REDUX_DEVTOOLS: envBool(import.meta.env.VITE_ENABLE_REDUX_DEVTOOLS, isDev),
   VITE_MOCK_API: envBool(import.meta.env.VITE_MOCK_API, false),
+
+  // Stays workspace — until the property endpoints ship, every Stays page
+  // reads from the in-feature dataset in `features/stays/mock` (same shapes
+  // as the documented endpoints). Set VITE_STAYS_DATA_SOURCE=api to call the
+  // real API instead; no page code changes.
+  VITE_STAYS_DATA_SOURCE: envString(import.meta.env.VITE_STAYS_DATA_SOURCE, 'mock'),
 };
 
 // Warn in development if any critical values are missing or using defaults
@@ -213,6 +219,10 @@ export const config = {
     enableReactQueryDevtools: env.VITE_ENABLE_REACT_QUERY_DEVTOOLS,
     enableReduxDevtools: env.VITE_ENABLE_REDUX_DEVTOOLS,
     mockAPI: env.VITE_MOCK_API,
+  },
+
+  stays: {
+    dataSource: env.VITE_STAYS_DATA_SOURCE,
   },
 
   isDevelopment: () => env.VITE_APP_ENV === 'development',

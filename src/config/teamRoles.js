@@ -51,6 +51,13 @@ export const TEAM_ROLE_PERMISSIONS = {
     'bookings.view', 'bookings.manage',
     'products.view', 'products.create', 'products.update', 'products.delete',
     'analytics.view', 'settings.business',
+    // Stays workspace (property listings) — same editor scope as tours.
+    // These keys must be added to the API's permission model in the same
+    // commit that ships the Stays routes; until then they are granted here
+    // so the dashboards' drift tests and optimistic UI stay honest.
+    'stays.view', 'stays.manage',
+    'stays.bookings', 'stays.availability', 'stays.rates', 'stays.policies',
+    'stays.offers',
   ],
   [TEAM_ROLES.FINANCE]: [
     'earnings.view',

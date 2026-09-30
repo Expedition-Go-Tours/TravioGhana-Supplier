@@ -23,6 +23,19 @@ import CancellationRatePage from "@/features/cancellation/pages/CancellationRate
 import SpecialOffersListPage from "@/features/special-offers/pages/SpecialOffersListPage";
 import SpecialOfferBuilderPage from "@/features/special-offers/pages/SpecialOfferBuilderPage";
 
+// Stays workspace (property suppliers) — see config/staysNav.js for the nav.
+import StaysDashboardPage from "@/features/stays/pages/StaysDashboardPage";
+import PropertiesListPage from "@/features/stays/pages/PropertiesListPage";
+import PropertyBuilderPage from "@/features/stays/pages/PropertyBuilderPage";
+import StaysBookingsPage from "@/features/stays/pages/StaysBookingsPage";
+import StaysAvailabilityPage from "@/features/stays/pages/StaysAvailabilityPage";
+import StaysRatesPage from "@/features/stays/pages/StaysRatesPage";
+import StaysRoomsPage from "@/features/stays/pages/StaysRoomsPage";
+import StaysPoliciesPage from "@/features/stays/pages/StaysPoliciesPage";
+import StaysOffersPage from "@/features/stays/pages/StaysOffersPage";
+import StaysCancellationPage from "@/features/stays/pages/StaysCancellationPage";
+import StaysLandingGate from "@/features/stays/components/StaysLandingGate";
+
 import AuthCallback from "@/features/auth/pages/AuthCallback";
 import LoginPage from "@/features/auth/pages/LoginPage";
 
@@ -66,7 +79,7 @@ export const router = createBrowserRouter([
               // a team member without the page's permission is sent back to the
               // dashboard instead of landing on a page whose requests all fail.
               { element: <RequirePageAccess />, children: [
-                { index: true, element: <DashboardPage /> },
+                { index: true, element: <StaysLandingGate><DashboardPage /></StaysLandingGate> },
                 { path: "bookings", element: <BookingsPage /> },
                 { path: "pickup-planner", element: <PickupPlannerPage /> },
                 { path: "availability", element: <AvailabilityPage /> },
@@ -88,6 +101,20 @@ export const router = createBrowserRouter([
                 { path: "cancellation-rate", element: <CancellationRatePage /> },
                 { path: "special-offers", element: <SpecialOffersListPage /> },
                 { path: "special-offers/build/:id?/:step?", element: <SpecialOfferBuilderPage /> },
+
+                // ── Stays workspace (property suppliers) ─────────────────
+                // Permissions live in config/pageAccess.js. The builder keeps
+                // the shared PageContainer: its chrome is the stays gutter.
+                { path: "stays", element: <StaysDashboardPage /> },
+                { path: "stays/properties", element: <PropertiesListPage /> },
+                { path: "stays/properties/build/:id?", element: <PropertyBuilderPage />, handle: { bleed: true } },
+                { path: "stays/bookings", element: <StaysBookingsPage /> },
+                { path: "stays/availability", element: <StaysAvailabilityPage /> },
+                { path: "stays/rates", element: <StaysRatesPage /> },
+                { path: "stays/rooms", element: <StaysRoomsPage /> },
+                { path: "stays/policies", element: <StaysPoliciesPage /> },
+                { path: "stays/special-offers", element: <StaysOffersPage /> },
+                { path: "stays/cancellation", element: <StaysCancellationPage /> },
               ] },
               // The 404 owns its own full-screen centred layout.
               { path: "*", element: <NotFoundPage />, handle: { bleed: true } },

@@ -1,15 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, isValidElement } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useSidebarStore } from "@/stores/sidebarStore";
 import { useAuthStore } from "@/stores/authStore";
+import { useStaysWorkspaceStore } from "@/stores/staysWorkspaceStore";
 import { toast } from "sonner";
 import { loadSupplierProfile } from "@/features/auth/api";
 import api from "@/lib/axios";
-import { LogOut, ChevronLeft, LayoutDashboard, Package, Ticket, CalendarDays, Users, DollarSign, Star, Bell, BarChart3, BadgeCheck, Settings, CalendarX2, BadgePercent, MapPinned, ShieldCheck, Calendar } from "lucide-react";
+import { LogOut, ChevronLeft, ChevronDown, ArrowUpRight, LayoutGrid, LayoutDashboard, Home, Package, Ticket, CalendarDays, Users, DollarSign, Star, Bell, BarChart3, BadgeCheck, Settings, CalendarX2, BadgePercent, MapPinned, ShieldCheck, Calendar } from "lucide-react";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { useTeamRole } from "@/hooks/useTeamRole";
 import { PAGE_ACCESS } from "@/config/pageAccess";
 import { describeRoles } from "@/config/teamRoles";
+import { STAYS_NAV_GROUPS } from "@/config/staysNav";
+import { WORKSPACES } from "@/config/staysWorkspace";
 
 // `permission` comes from PAGE_ACCESS so the sidebar, the search palette and
 // the route guards can never disagree about who sees what.
@@ -53,10 +56,79 @@ const SIDEBAR_STATUS_STYLES = {
   REJECTED: { dot: "bg-red-400", text: "text-red-600", label: "Rejected" },
 };
 
+/**
+ * The workspace card — shown in both workspaces so a supplier can always move
+ * between property listings and experiences. Styled with the portal's own
+ * conventions so it reads as part of the sidebar rather than a skin.
+ */
+function WorkspaceSwitch({ isStays, isCollapsed, onSelect }) {
+  if (isCollapsed) {
+    return (
+      <div className="px-2 pb-2">
+        <button
+          onClick={() => onSelect(isStays ? WORKSPACES.EXPERIENCES : WORKSPACES.STAYS)}
+          className="mx-auto flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-600 transition-colors hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+          title={`Switch to ${isStays ? "Experiences" : "Stays"}`}
+        >
+          {isStays ? <LayoutGrid size={18} /> : <Home size={18} />}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-3 mb-3 rounded-xl border border-slate-200 bg-slate-50/60 p-2.5">
+      <div className="px-2 pb-1.5 pt-0.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+        Workspace
+      </div>
+      <button
+        onClick={() => onSelect(WORKSPACES.STAYS)}
+        aria-current={isStays ? "true" : undefined}
+        className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors ${
+          isStays
+            ? "bg-emerald-50 font-semibold text-emerald-700"
+            : "text-slate-600 hover:bg-white hover:text-slate-800"
+        }`}
+      >
+        <Home size={18} className="shrink-0" />
+        Stays
+        {isStays ? (
+          <ChevronDown size={14} className="ml-auto shrink-0" />
+        ) : (
+          <ArrowUpRight size={14} className="ml-auto shrink-0 text-slate-400" />
+        )}
+      </button>
+      <button
+        onClick={() => onSelect(WORKSPACES.EXPERIENCES)}
+        aria-current={!isStays ? "true" : undefined}
+        className={`mt-0.5 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors ${
+          !isStays
+            ? "bg-emerald-50 font-semibold text-emerald-700"
+            : "text-slate-600 hover:bg-white hover:text-slate-800"
+        }`}
+      >
+        <LayoutGrid size={18} className="shrink-0" />
+        Experiences
+        {!isStays ? (
+          <ChevronDown size={14} className="ml-auto shrink-0" />
+        ) : (
+          <ArrowUpRight size={14} className="ml-auto shrink-0 text-slate-400" />
+        )}
+      </button>
+      <p className="px-2 pt-1.5 text-[11px] leading-snug text-slate-400">
+        Shared account tools stay the same in both workspaces.
+      </p>
+    </div>
+  );
+}
+
 export default function Sidebar() {
   const { isCollapsed, toggle, isMobileOpen, closeMobile } = useSidebarStore();
   const user = useAuthStore((state) => state.user);
   const supplierProfile = useAuthStore((state) => state.supplierProfile);
+  const workspace = useStaysWorkspaceStore((state) => state.workspace);
+  const switchWorkspace = useStaysWorkspaceStore((state) => state.switchWorkspace);
+  const isStays = workspace === WORKSPACES.STAYS;
   const location = useLocation();
   const navigate = useNavigate();
   const logoUrl = user?.logoUrl;
@@ -84,6 +156,21 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
     if (!item.permission) return true;
     return hasPermission(item.permission);
   });
+
+  // The Stays workspace keeps its three sections, rendered with the portal's
+  // own group-label treatment; Experiences stays a single flat block.
+  const navGroups = isStays
+    ? STAYS_NAV_GROUPS.map((group) => ({
+        ...group,
+        items: group.items.filter((item) => !item.permission || hasPermission(item.permission)),
+      })).filter((group) => group.items.length > 0)
+    : [{ label: null, items: navItems }];
+
+  const handleWorkspaceSelect = (next) => {
+    switchWorkspace(next);
+    closeMobile();
+    navigate(next === WORKSPACES.STAYS ? "/stays" : "/");
+  };
 
   // This card is the BUSINESS, so it must show the business whoever is signed
   // in. `/suppliers/application/status` is resolved server-side through the
@@ -150,7 +237,20 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
   };
 
   function NavItem({ item, isCollapsed, closeMobile }) {
-    const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + "/");
+    // Active state is computed here (not read from NavLink) so config can
+    // express `end` (exact match for workspace roots such as `/stays`) and
+    // `match` (query-aware items such as Settings → Team).
+    const isActive = item.match
+      ? item.match(location)
+      : item.end
+        ? location.pathname === item.path
+        : location.pathname === item.path || location.pathname.startsWith(item.path + "/");
+
+    // The Experiences nav stores ready-made elements; the Stays nav stores the
+    // lucide component itself (so search can reuse the config with iconName
+    // strings). lucide icons are forwardRef objects — `typeof` cannot tell them
+    // apart from elements, so use isValidElement and wrap the component form.
+    const icon = isValidElement(item.icon) ? item.icon : <item.icon size={20} />;
 
     if (item.disabled) {
       return (
@@ -159,7 +259,7 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
           className={`relative flex items-center gap-6 w-full text-left text-slate-300 cursor-default select-none ${isCollapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"}`}
           title={isCollapsed ? item.label : undefined}
         >
-          <span className="shrink-0">{item.icon}</span>
+          <span className="shrink-0">{icon}</span>
           {!isCollapsed && <span className="text-sm font-medium truncate">{item.label}</span>}
         </button>
       );
@@ -168,23 +268,24 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
     return (
       <NavLink
         to={item.path}
+        end={item.end}
         onClick={closeMobile}
-        className={({ isActive: navActive }) =>
+        className={() =>
           `relative flex items-center gap-6 w-full rounded-lg text-sm font-medium transition-all duration-200 group ${
-            isActive || navActive
+            isActive
               ? "bg-sidebar-hover text-sidebar-active"
               : "text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-active"
           } ${isCollapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"}`
         }
         title={isCollapsed ? item.label : undefined}
       >
-        {(isActive) && (
+        {isActive && (
           /* Was `bg-white`, marking the current route with a 5px bar. On a
              white sidebar that bar vanished, so the page you are on stopped
              being identifiable — the one thing this row exists to do. */
           <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[5px] h-[34px] bg-sidebar-active rounded-r-full" />
         )}
-        <span className="shrink-0 relative">{item.icon}</span>
+        <span className="shrink-0 relative">{icon}</span>
         {!isCollapsed && (
           <span className="truncate tracking-normal text-[15px]">{item.label}</span>
         )}
@@ -289,15 +390,26 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
           </div>
         </div>
 
+        <WorkspaceSwitch isStays={isStays} isCollapsed={isCollapsed} onSelect={handleWorkspaceSelect} />
+
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3 min-h-0 scrollbar-none">
-          <ul className={`space-y-[2px] ${isCollapsed ? "px-2" : "px-3"}`}>
-            {navItems.map((item) => (
-              <li key={item.path}>
-                <NavItem item={item} isCollapsed={isCollapsed} closeMobile={closeMobile} />
-              </li>
-            ))}
-          </ul>
+          {navGroups.map((group) => (
+            <div key={group.label || "main"}>
+              {group.label && !isCollapsed && (
+                <div className="px-6 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  {group.label}
+                </div>
+              )}
+              <ul className={`space-y-[2px] ${isCollapsed ? "px-2" : "px-3"}`}>
+                {group.items.map((item) => (
+                  <li key={item.path}>
+                    <NavItem item={item} isCollapsed={isCollapsed} closeMobile={closeMobile} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </nav>
 
         {/* Sign Out */}
