@@ -92,6 +92,8 @@ export default defineConfig(({ mode }) => {
         'react-hook-form',
         'zod',
       ],
+      // MapLibre v6's worker can fail to bundle during dependency pre-bundling.
+      exclude: ['maplibre-gl'],
     },
   };
 });

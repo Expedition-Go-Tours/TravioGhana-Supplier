@@ -16,15 +16,18 @@ import { config } from "@/config";
 
 // Env-backed with hard production fallbacks: a stale config module or a missing
 // env value must never disable the preview link for a live tour.
-const TRAVIO_AFRICA_URL = config.VITE_TRAVIO_AFRICA_URL || "https://travioghana.com";
-const EXPEDITION_GO_URL = config.VITE_EXPEDITION_GO_URL || "https://expeditiongotours.com";
+// This was TRAVIO_AFRICA_URL until now. It always held the Ghana URL, but
+// Travio Africa is a separate brand on travioafrica.com (config/brands.js), so
+// the old name read as a bug the moment anyone looked at it.
+export const TRAVIO_GHANA_URL = config.VITE_TRAVIO_GHANA_URL || "https://travioghana.com";
+export const EXPEDITION_GO_URL = config.VITE_EXPEDITION_GO_URL || "https://expeditiongotours.com";
 
 export const TOUR_PLATFORMS = [
   {
-    key: "travio_africa",
+    key: "travio_ghana",
     name: "Travio Ghana",
     domain: "travioghana.com",
-    baseUrl: TRAVIO_AFRICA_URL,
+    baseUrl: TRAVIO_GHANA_URL,
     icon: Compass,
     accent: "emerald",
     pathFor: (slug) => `/tour/${slug}`,
@@ -37,6 +40,37 @@ export const TOUR_PLATFORMS = [
     icon: Plane,
     accent: "sky",
     pathFor: (slug) => `/tour/${slug}`,
+  },
+];
+
+/**
+ * The "Live Site" destinations offered in the supplier sidebar.
+ *
+ * Filtered by the storefronts the API reports for the BUSINESS
+ * (`/settings/team/my-role` → `storefronts`, derived from the owner's brand
+ * roles in config/brands.js: ghana | expedition). `key` is that API value.
+ *
+ * Order is menu order — Travio Ghana first. Favicons are bundled rather than
+ * hotlinked: the sidebar must paint without a round trip to either store, and
+ * a dead link must not leave a broken image next to "Live Site".
+ */
+export const LIVE_SITES = [
+  {
+    key: "GHANA",
+    // Sidebar menu label: the brand name with no space between the words.
+    // Deliberately not "Travio Ghana" — the spaced form still appears in
+    // comments and in TOUR_PLATFORMS, so don't "correct" this back.
+    name: "TravioGhana",
+    domain: "travioghana.com",
+    url: TRAVIO_GHANA_URL,
+    favicon: "/icons/v2/favicon-32x32.png",
+  },
+  {
+    key: "EXPEDITION",
+    name: "ExpeditionGo",
+    domain: "expeditiongotours.com",
+    url: EXPEDITION_GO_URL,
+    favicon: "/icons/store/expedition-32x32.png",
   },
 ];
 

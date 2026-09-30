@@ -48,7 +48,7 @@ import DashboardPage from '../pages/DashboardPage';
 
 const DASHBOARD = {
   tours: { active: 3, total: 3 },
-  bookings: { confirmed: 2, pending: 1 },
+  bookings: { total: 5, confirmed: 2, pending: 1 },
   earnings: { totalEarnings: 2400 },
   reviews: { averageRating: 4.3, total: 12 },
   topProducts: [{ id: 'tour-1', title: 'Shai Hills Safari', bookings: 3, revenue: 900, reviewCount: 0, averageRating: 0 }],
@@ -105,6 +105,16 @@ describe('a role without the Bookings page', () => {
 
     await waitFor(() => expect(screen.getByText('Total Bookings')).toBeInTheDocument());
     expect(screen.getByText('Shai Hills Safari')).toBeInTheDocument();
+  });
+
+  it('reports every booking on the "Total Bookings" card', async () => {
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText('Total Bookings')).toBeInTheDocument());
+    // 5 total against 2 confirmed + 1 pending. The card used to be bound to
+    // confirmed + pending, so it reported 3 under a heading promising a total —
+    // and would have reported 1 (pending alone) once everything completed.
+    expect(screen.getByText('Total Bookings').previousElementSibling?.textContent).toBe('5');
   });
 });
 

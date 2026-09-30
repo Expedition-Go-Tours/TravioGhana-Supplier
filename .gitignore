@@ -49,6 +49,10 @@ test.yml
 # The favicon set copied from TravioGhana-Store is a deliberate asset, not a
 # screenshot or dump artefact, so it is tracked despite the blanket *.png above.
 !public/icons/v2/*.png
+# Same again for the ExpeditionGo badge worn by the sidebar's Live Site menu.
+# Deliberately fetched once and bundled, so the menu never hotlinks the store
+# and never shows a broken image if that host is down.
+!public/icons/store/*.png
 *.txt
 start file
 
