@@ -8,6 +8,9 @@ export function TeamRoleProvider({ children }) {
   const [teamRoles, setTeamRoles] = useState([]);
   const [permissions, setPermissions] = useState([]);
   const [isOwner, setIsOwner] = useState(false);
+  // Storefronts the BUSINESS is on (['GHANA','EXPEDITION']), from /my-role.
+  // Never a member's own roles — those are ['customer'] and carry no brand.
+  const [storefronts, setStorefronts] = useState([]);
   const [loading, setLoading] = useState(true);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
@@ -21,11 +24,13 @@ export function TeamRoleProvider({ children }) {
       setTeamRoles(data?.roles || (data?.role ? [data.role] : []));
       setPermissions(data?.permissions || []);
       setIsOwner(data?.isOwner || false);
+      setStorefronts(data?.storefronts || []);
     } catch {
       setTeamRole(null);
       setTeamRoles([]);
       setPermissions([]);
       setIsOwner(false);
+      setStorefronts([]);
     }
   }, []);
 
@@ -45,6 +50,7 @@ export function TeamRoleProvider({ children }) {
         setTeamRoles([]);
         setPermissions([]);
         setIsOwner(false);
+        setStorefronts([]);
         setLoading(false);
       });
       return () => { cancelled = true; };
@@ -67,12 +73,14 @@ export function TeamRoleProvider({ children }) {
           setTeamRoles(data?.roles || (data?.role ? [data.role] : []));
           setPermissions(data?.permissions || []);
           setIsOwner(data?.isOwner || false);
+          setStorefronts(data?.storefronts || []);
         } catch {
           if (cancelled) return;
           setTeamRole(null);
           setTeamRoles([]);
           setPermissions([]);
           setIsOwner(false);
+          setStorefronts([]);
         } finally {
           if (!cancelled) setLoading(false);
         }
@@ -108,6 +116,7 @@ export function TeamRoleProvider({ children }) {
         teamRoles,
         permissions,
         isOwner,
+        storefronts,
         loading,
         refetch,
         hasPermission,

@@ -104,7 +104,14 @@ const env = {
   VITE_INTERCOM_APP_ID: envString(import.meta.env.VITE_INTERCOM_APP_ID, ''),
 
   // Public platforms (live product preview URLs)
-  VITE_TRAVIO_AFRICA_URL: envString(import.meta.env.VITE_TRAVIO_AFRICA_URL, 'https://travioghana.com'),
+  // Travio Ghana. This was keyed VITE_TRAVIO_AFRICA_URL, which collides by name
+  // with the separate Travio Africa brand (travioafrica.com — config/brands.js),
+  // while `.env` has always written VITE_TRAVIO_GHANA_URL. The two never met, so
+  // only the fallback below ever produced the link. Accept both names.
+  VITE_TRAVIO_GHANA_URL: envString(
+    import.meta.env.VITE_TRAVIO_GHANA_URL || import.meta.env.VITE_TRAVIO_AFRICA_URL,
+    'https://travioghana.com'
+  ),
   VITE_EXPEDITION_GO_URL: envString(import.meta.env.VITE_EXPEDITION_GO_URL, 'https://expeditiongotours.com'),
 
   // Support

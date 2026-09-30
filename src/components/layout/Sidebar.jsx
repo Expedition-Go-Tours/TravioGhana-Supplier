@@ -5,11 +5,13 @@ import { useAuthStore } from "@/stores/authStore";
 import { toast } from "sonner";
 import { loadSupplierProfile } from "@/features/auth/api";
 import api from "@/lib/axios";
-import { LogOut, ChevronLeft, LayoutDashboard, Package, Ticket, CalendarDays, Users, DollarSign, Star, Bell, BarChart3, BadgeCheck, Settings, CalendarX2, BadgePercent, MapPinned, ShieldCheck, Calendar } from "lucide-react";
+import { Home, ChevronDown, LogOut, ChevronLeft, LayoutDashboard, Package, Ticket, CalendarDays, Users, DollarSign, Star, Bell, BarChart3, BadgeCheck, Settings, CalendarX2, BadgePercent, MapPinned, ShieldCheck, Calendar } from "lucide-react";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { useTeamRole } from "@/hooks/useTeamRole";
 import { PAGE_ACCESS } from "@/config/pageAccess";
 import { describeRoles } from "@/config/teamRoles";
+import { LIVE_SITES } from "@/lib/platforms";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 // `permission` comes from PAGE_ACCESS so the sidebar, the search palette and
 // the route guards can never disagree about who sees what.
@@ -67,7 +69,7 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
   // Derived state: a collapsed sidebar can never show the confirm dialog.
   // Expressing the reset during render avoids a setState-from-effect cascade.
   const showLogoutConfirm = logoutConfirmOpen && !isCollapsed;
-  const { hasPermission, isOwner, teamRoles } = useTeamRole();
+  const { hasPermission, isOwner, teamRoles, storefronts } = useTeamRole();
 
   // Who the viewer is acting as. A team member's own account is a plain
   // `customer` account, so testing `user.roles` alone hid the business card
@@ -79,6 +81,14 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
   // A member without business-profile rights still gets their own Security tab,
   // so the card falls back to the settings root instead of a hidden tab.
   const canEditBusiness = hasPermission("settings.business");
+
+  // "Live Site": one destination renders as a plain link, two render as a menu.
+  // An empty answer — still loading, an internal admin, or a business holding
+  // no brand roles — falls back to Travio Ghana so the control never vanishes
+  // or flickers out while /my-role is in flight.
+  const liveSites = LIVE_SITES.filter((site) => (storefronts || []).includes(site.key));
+  const siteLinks = liveSites.length ? liveSites : [LIVE_SITES[0]];
+  const liveSiteIsMenu = siteLinks.length > 1;
 
   const navItems = allNavItems.filter((item) => {
     if (!item.permission) return true;
@@ -205,8 +215,48 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
           ${isCollapsed ? "lg:w-[64px] lg:translate-x-0" : "lg:w-[270px] lg:translate-x-0"}
           w-[260px]`}
       >
-        {/* Collapse toggle — separate from profile */}
-        <div className={`flex shrink-0 ${isCollapsed ? "justify-center px-2 pt-2 pb-1" : "justify-end px-3 pt-2 pb-1"}`}>
+        {/* Live Site + collapse toggle share one row. The store control is
+            expanded-only: the 64px collapsed rail has no room for two buttons,
+            and justify-center would push them past its edges. */}
+        <div className={`flex shrink-0 ${isCollapsed ? "justify-center px-2 pt-2 pb-1" : "items-center justify-between px-3 pt-2 pb-1"}`}>
+          {!isCollapsed && (liveSiteIsMenu ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="flex items-center gap-1.5 text-sidebar-muted hover:text-sidebar-text hover:bg-slate-100 rounded-lg transition-all duration-200 p-1.5"
+                  title="Live Site — choose which storefront to open"
+                >
+                  <Home size={15} />
+                  <span className="text-xs whitespace-nowrap">Live Site</span>
+                  <ChevronDown size={12} className="opacity-70" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" sideOffset={6} className="w-60">
+                {siteLinks.map((site) => (
+                  <DropdownMenuItem
+                    key={site.key}
+                    onSelect={() => window.open(site.url, "_blank", "noopener,noreferrer")}
+                    className="gap-2.5"
+                  >
+                    <img src={site.favicon} alt="" width={16} height={16} className="shrink-0 rounded-[3px]" />
+                    <span className="text-sm">{site.name}</span>
+                    <span className="ml-auto text-[10px] text-slate-400">{site.domain}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <a
+              href={siteLinks[0].url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-sidebar-muted hover:text-sidebar-text hover:bg-slate-100 rounded-lg transition-all duration-200 p-1.5"
+              title={`Live Site — opens ${siteLinks[0].domain} in a new tab`}
+            >
+              <Home size={15} />
+              <span className="text-xs whitespace-nowrap">Live Site</span>
+            </a>
+          ))}
           <button
             onClick={() => isMobileOpen ? closeMobile() : toggle()}
             className="flex items-center gap-1.5 text-sidebar-muted hover:text-sidebar-text hover:bg-slate-100 rounded-lg transition-all duration-200 p-1.5"
