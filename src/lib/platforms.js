@@ -57,7 +57,10 @@ export const TOUR_PLATFORMS = [
 export const LIVE_SITES = [
   {
     key: "GHANA",
-    name: "Travio Ghana",
+    // Sidebar menu label: the brand name with no space between the words.
+    // Deliberately not "Travio Ghana" — the spaced form still appears in
+    // comments and in TOUR_PLATFORMS, so don't "correct" this back.
+    name: "TravioGhana",
     domain: "travioghana.com",
     url: TRAVIO_GHANA_URL,
     favicon: "/icons/v2/favicon-32x32.png",
