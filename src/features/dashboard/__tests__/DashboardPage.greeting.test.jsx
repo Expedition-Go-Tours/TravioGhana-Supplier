@@ -66,7 +66,7 @@ import DashboardPage from '../pages/DashboardPage';
 
 const DASHBOARD = {
   tours: { active: 3, total: 3 },
-  bookings: { confirmed: 2, pending: 0 },
+  bookings: { total: 5, confirmed: 2, pending: 0 },
   earnings: { totalEarnings: 2400 },
   reviews: { averageRating: 4.3, total: 12 },
   topProducts: [{ id: 'tour-1', title: 'Shai Hills Safari', bookings: 3, revenue: 900, reviewCount: 0, averageRating: 0 }],

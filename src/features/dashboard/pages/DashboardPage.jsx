@@ -32,7 +32,7 @@ const STATS_CONFIG = [
   { label: "Total Bookings", icon: ShoppingBag, accent: "border-l-emerald-600", iconBg: "bg-emerald-50", iconBorder: "border-emerald-200/60", iconColor: "text-emerald-600", path: "/bookings" },
   { label: "Total Earnings", icon: TrendingUp, accent: "border-l-emerald-500", iconBg: "bg-emerald-50", iconBorder: "border-emerald-200/60", iconColor: "text-emerald-600", path: "/finance" },
   { label: "Active Tours", icon: MapPin, accent: "border-l-emerald-400", iconBg: "bg-emerald-50", iconBorder: "border-emerald-200/60", iconColor: "text-emerald-600", path: "/products", state: { statusFilter: "ACTIVE" } },
-  { label: "Pending Requests", icon: ClipboardList, accent: "border-l-amber-400", iconBg: "bg-amber-50", iconBorder: "border-amber-200/60", iconColor: "text-amber-600", path: "/bookings?tab=PENDING" },
+  { label: "Pending Bookings", icon: ClipboardList, accent: "border-l-amber-400", iconBg: "bg-amber-50", iconBorder: "border-amber-200/60", iconColor: "text-amber-600", path: "/bookings?tab=PENDING" },
 ];
 
 const CustomTooltip = ({ active, payload, label }) => {
@@ -145,12 +145,19 @@ export default function DashboardPage() {
   const topProducts = dashboardData?.topProducts || [];
 
   const activeTours = tours.active || 0;
-  const activeBookings = bookings.confirmed || 0;
+  // Card 1 is labelled "Total Bookings", so it has to mean every booking the
+  // supplier has — the same figure the Bookings page reports. It was bound to
+  // `confirmed + pending`, which on a five-booking account read "2 Total
+  // Bookings": three COMPLETED bookings disappeared from a card claiming to be
+  // a total, and the card would have fallen to 0 the moment everything
+  // completed. `bookings.total` was already returned by the dashboard
+  // endpoint; only the binding was wrong.
+  const totalBookings = bookings.total || 0;
   const totalRevenue = Number(earnings.totalEarnings) || 0;
   const pendingBookings = bookings.pending || 0;
 
   const statsValues = [
-    { value: activeBookings + pendingBookings },
+    { value: totalBookings },
     { value: formatCurrency(totalRevenue) },
     { value: activeTours },
     { value: pendingBookings },
@@ -240,10 +247,15 @@ export default function DashboardPage() {
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Bookings Overview Chart */}
+        {/* Revenue Overview Chart */}
         <div className="lg:col-span-2 bg-white border border-emerald-100/60 rounded-xl p-5 flex flex-col hover:border-emerald-200 transition-all">
           <div className="flex items-center justify-between mb-4 shrink-0">
-            <h3 className="text-sm font-semibold text-slate-800">Bookings Overview</h3>
+            {/* Plots grossAmount per month — money the customer paid, not the
+                supplier's cut — over the trailing 12 calendar months, so the
+                old "Bookings Overview / Earnings are cumulative · Bookings from
+                last 90 days" described neither the metric, nor the arithmetic,
+                nor the window. */}
+            <h3 className="text-sm font-semibold text-slate-800">Revenue Overview</h3>
             {canOpen("/bookings") && (
               <button onClick={() => navigate("/bookings")} className="text-xs font-medium text-emerald-600 hover:text-emerald-700 flex items-center gap-1 transition-colors">
                 View all <ArrowUpRight size={11} />
@@ -264,10 +276,10 @@ export default function DashboardPage() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-full text-xs font-medium text-slate-400">No booking data yet</div>
+              <div className="flex items-center justify-center h-full text-xs font-medium text-slate-400">No revenue yet</div>
             )}
           </div>
-          <p className="text-[10px] font-medium text-slate-400 mt-3 shrink-0">Earnings are cumulative · Bookings from last 90 days</p>
+          <p className="text-[10px] font-medium text-slate-400 mt-3 shrink-0">Gross revenue by month · Last 12 months</p>
         </div>
 
         {/* Right Column */}
