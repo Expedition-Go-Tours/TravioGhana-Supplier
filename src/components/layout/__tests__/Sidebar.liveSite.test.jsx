@@ -108,8 +108,11 @@ describe('sidebar — Live Site', () => {
 
     const items = await screen.findAllByRole('menuitem');
     expect(items).toHaveLength(2);
-    expect(items[0]).toHaveTextContent('Travio Ghana');
-    expect(items[1]).toHaveTextContent('ExpeditionGo');
+    // Read the label spans directly: a whole-row toHaveTextContent check would
+    // pass on the trailing domain ("travioghana.com") even if the label itself
+    // were wrong.
+    const labels = items.map((el) => el.querySelector('.text-sm')?.textContent);
+    expect(labels).toEqual(['TravioGhana', 'ExpeditionGo']);
 
     // Each row wears its own store's icon, bundled rather than hotlinked so a
     // slow or dead storefront cannot leave a broken image beside the label.
