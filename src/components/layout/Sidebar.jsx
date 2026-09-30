@@ -226,9 +226,9 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
                   className="flex items-center gap-1.5 text-sidebar-muted hover:text-sidebar-text hover:bg-slate-100 rounded-lg transition-all duration-200 p-1.5"
                   title="Live Site — choose which storefront to open"
                 >
-                  <Home size={15} />
-                  <span className="text-xs whitespace-nowrap">Live Site</span>
-                  <ChevronDown size={12} className="opacity-70" />
+                  <Home size={15} strokeWidth={2.5} />
+                  <span className="text-xs font-medium whitespace-nowrap">Live Site</span>
+                  <ChevronDown size={12} strokeWidth={2.5} className="opacity-70" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" sideOffset={6} className="w-60">
@@ -253,8 +253,8 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
               className="flex items-center gap-1.5 text-sidebar-muted hover:text-sidebar-text hover:bg-slate-100 rounded-lg transition-all duration-200 p-1.5"
               title={`Live Site — opens ${siteLinks[0].domain} in a new tab`}
             >
-              <Home size={15} />
-              <span className="text-xs whitespace-nowrap">Live Site</span>
+              <Home size={15} strokeWidth={2.5} />
+              <span className="text-xs font-medium whitespace-nowrap">Live Site</span>
             </a>
           ))}
           <button
@@ -262,8 +262,8 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
             className="flex items-center gap-1.5 text-sidebar-muted hover:text-sidebar-text hover:bg-slate-100 rounded-lg transition-all duration-200 p-1.5"
             title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            <ChevronLeft size={15} className={`transition-transform duration-200 ${isCollapsed ? "rotate-180" : ""}`} />
-            {!isCollapsed && <span className="text-xs whitespace-nowrap">Collapse sidebar</span>}
+            <ChevronLeft size={15} strokeWidth={2.5} className={`transition-transform duration-200 ${isCollapsed ? "rotate-180" : ""}`} />
+            {!isCollapsed && <span className="text-xs font-medium whitespace-nowrap">Collapse sidebar</span>}
           </button>
         </div>
 
