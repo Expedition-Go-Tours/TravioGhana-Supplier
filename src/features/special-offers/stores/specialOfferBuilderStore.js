@@ -165,7 +165,16 @@ export const useSpecialOfferBuilderStore = create(
           targets: (offer.targets || []).map((t) => ({
             tourId: t.tour?.id || t.tourId,
             tourTitle: t.tour?.title || "",
-            tourPhotos: t.tour?.photos || t.tour?.coverPhoto ? [t.tour.coverPhoto] : [],
+            // `photos || coverPhoto ? [coverPhoto] : []` (the old form) parsed
+            // as `(photos || coverPhoto) ? [coverPhoto] : []`, so a tour WITH
+            // photos threw away every one of them and rendered the single
+            // cover — or nothing, when only `photos` existed. Prefer the real
+            // list and fall back to the cover.
+            tourPhotos: t.tour?.photos?.length
+              ? t.tour.photos
+              : t.tour?.coverPhoto
+                ? [t.tour.coverPhoto]
+                : [],
             tourOptionKey: t.tourOptionKey || null,
             tourOptionLabel: t.tourOptionLabel || null,
           })),
