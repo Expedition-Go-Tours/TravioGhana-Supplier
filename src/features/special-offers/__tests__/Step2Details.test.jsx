@@ -26,11 +26,14 @@ function endedLastWeek() {
 describe('Step2Details status control', () => {
   beforeEach(() => resetStore());
 
-  it('shows a live status badge that matches the offer window', () => {
+  it('reports a switched-off offer as Expired even inside its window', () => {
+    // There is no separate "Inactive" badge any more: switched off and window
+    // spent are one state. The amber note asserted further down is what still
+    // tells the supplier that the window is fine and the switch is the fix.
     resetStore({ isActive: false, ...inWindow() });
     render(<Step2Details />);
 
-    expect(screen.getByTestId('offer-status-badge')).toHaveTextContent('Inactive');
+    expect(screen.getByTestId('offer-status-badge')).toHaveTextContent('Expired');
   });
 
   it('reports an expired window as Expired even while switched on', () => {
@@ -63,10 +66,12 @@ describe('Step2Details status control', () => {
   });
 
   it('reports a past window as Expired even while switched off', () => {
-    // Dates outrank the switch. A window that has run out needs new dates, not
-    // a flip of the toggle, so calling it "Inactive" points at the wrong fix —
-    // and, because the backend's nightly job forces isActive off, checking the
-    // switch first left the Expired filter permanently empty.
+    // Dates outrank the switch, and now that "switched off" is folded into
+    // Expired the two cases share a badge. What must stay distinct is the
+    // remedy: a window that has run out needs new dates, so the amber
+    // "period is current" note must NOT appear — and, because the backend's
+    // nightly job forces isActive off, checking the switch first would still
+    // leave a genuinely dead offer looking merely switched off.
     resetStore({ isActive: false, ...endedLastWeek() });
     render(<Step2Details />);
 

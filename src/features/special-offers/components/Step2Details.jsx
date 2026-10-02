@@ -18,7 +18,7 @@ export default function Step2Details() {
 
   // Recomputed on every render so the pill tracks edits to the dates live.
   const statusKey = computeOfferStatus(offer);
-  const statusCfg = STATUS_CONFIG[statusKey] || STATUS_CONFIG.inactive;
+  const statusCfg = STATUS_CONFIG[statusKey] || STATUS_CONFIG.expired;
   const switchedOffButInWindow = !offer.isActive && statusIfActivated(offer) === "active";
 
   const toggleWeekday = (day) => {

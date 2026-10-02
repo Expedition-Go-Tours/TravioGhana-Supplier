@@ -330,7 +330,7 @@ function BuilderStatusPill() {
   const offer = useSpecialOfferBuilderStore((s) => s.offer);
   if (!editingId) return null;
 
-  const cfg = STATUS_CONFIG[computeOfferStatus(offer)] || STATUS_CONFIG.inactive;
+  const cfg = STATUS_CONFIG[computeOfferStatus(offer)] || STATUS_CONFIG.expired;
   return (
     <span
       data-testid="builder-status-badge"

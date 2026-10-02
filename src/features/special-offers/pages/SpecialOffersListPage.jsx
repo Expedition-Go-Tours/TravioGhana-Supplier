@@ -128,8 +128,10 @@ export default function SpecialOffersListPage() {
     { label: "Scheduled", value: offers.filter((o) => o.status === "scheduled").length, icon: Clock, accent: "border-l-emerald-500", iconBg: "bg-emerald-50", iconBorder: "border-emerald-200", iconColor: "text-emerald-600" },
     // Without this card the offers sitting just under the default Active
     // filter were invisible at a glance — 8 dead rows existed and the header
-    // only ever admitted to Total / Active / Scheduled.
-    { label: "Inactive", value: offers.filter((o) => o.status === "inactive").length, icon: ArrowDown, accent: "border-l-emerald-500", iconBg: "bg-emerald-50", iconBorder: "border-emerald-200", iconColor: "text-emerald-600" },
+    // only ever admitted to Total / Active / Scheduled. Switched-off offers
+    // count here too: they read as 'expired' alongside offers whose window has
+    // run out, so this is the one card that keeps them findable.
+    { label: "Expired", value: offers.filter((o) => o.status === "expired").length, icon: ArrowDown, accent: "border-l-emerald-500", iconBg: "bg-emerald-50", iconBorder: "border-emerald-200", iconColor: "text-emerald-600" },
   ];
 
   return (
@@ -200,7 +202,6 @@ export default function SpecialOffersListPage() {
               <SelectItem value="active">Active</SelectItem>
               <SelectItem value="scheduled">Scheduled</SelectItem>
               <SelectItem value="expired">Expired</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
             </SelectContent>
           </Select>
           {hasFilters && (
@@ -297,7 +298,7 @@ export default function SpecialOffersListPage() {
             Showing {filtered.length} of {offers.length} offer{offers.length !== 1 ? "s" : ""}
           </p>
           {filtered.map((offer, i) => {
-            const statusCfg = STATUS_CONFIG[offer.status] || STATUS_CONFIG.inactive;
+            const statusCfg = STATUS_CONFIG[offer.status] || STATUS_CONFIG.expired;
             const typeLabel = OFFER_TYPE_LABELS[offer.offerType] || offer.offerType;
             const capped = offer.capacityType === "CAPPED";
             const spotsUsed = capped ? ((offer.spotsSold / offer.maxSpots) * 100).toFixed(0) : 0;
@@ -572,7 +573,7 @@ export default function SpecialOffersListPage() {
       <AnimatePresence>
         {selectedOffer && (() => {
           const o = selectedOffer;
-          const statusCfg = STATUS_CONFIG[o.status] || STATUS_CONFIG.inactive;
+          const statusCfg = STATUS_CONFIG[o.status] || STATUS_CONFIG.expired;
           const typeLabel = OFFER_TYPE_LABELS[o.offerType] || o.offerType;
           const capped = o.capacityType === "CAPPED";
           const spotsUsed = capped ? ((o.spotsSold / o.maxSpots) * 100).toFixed(0) : 0;

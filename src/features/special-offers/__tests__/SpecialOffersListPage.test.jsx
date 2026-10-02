@@ -51,12 +51,12 @@ const MIXED = [
   offer({ id: 'o-1', name: 'Active Sale', targets: [{ id: 't-1', tourId: 'tour-1', tour: { id: 'tour-1', title: 'Serengeti Safari Adventure', photos: [], coverPhoto: null } }] }),
   offer({ id: 'o-2', name: 'Active Promo', status: 'scheduled', isActive: true, targets: [{ id: 't-2', tourId: 'tour-2', tour: { id: 'tour-2', title: 'Ngorongoro Crater Day Trip', photos: [], coverPhoto: null } }] }),
   offer({ id: 'o-3', name: 'Dead Sale', status: 'expired', isActive: true, targets: [{ id: 't-3', tourId: 'tour-3', tour: { id: 'tour-3', title: 'Old Mountain Trek', photos: [], coverPhoto: null } }] }),
-  offer({ id: 'o-4', name: 'Switched Off', status: 'inactive', isActive: false, targets: [{ id: 't-4', tourId: 'tour-4', tour: { id: 'tour-4', title: 'Retired Beach Break', photos: [], coverPhoto: null } }] }),
+  offer({ id: 'o-4', name: 'Switched Off', status: 'expired', isActive: false, targets: [{ id: 't-4', tourId: 'tour-4', tour: { id: 'tour-4', title: 'Retired Beach Break', photos: [], coverPhoto: null } }] }),
 ];
 
 const NONE_ACTIVE = [
   offer({ id: 'o-1', name: 'Dead Sale', status: 'expired', isActive: true }),
-  offer({ id: 'o-2', name: 'Switched Off', status: 'inactive', isActive: false }),
+  offer({ id: 'o-2', name: 'Switched Off', status: 'expired', isActive: false }),
   offer({ id: 'o-3', name: 'Future Sale', status: 'scheduled', isActive: true }),
 ];
 
@@ -142,15 +142,17 @@ describe('SpecialOffersListPage status filter', () => {
     expect(screen.getByText('4')).toBeInTheDocument();
   });
 
-  it('shows an Inactive card so rows the default filter hides are visible', async () => {
+  it('shows an Expired card so rows the default filter hides are visible', async () => {
     useOffers(MIXED);
     renderWithProviders(<SpecialOffersListPage />);
 
     await screen.findByText('Active Sale');
-    const label = screen.getByText('Inactive');
-    // MIXED holds exactly one switched-off row, and the default Active view
-    // hides it — the card is what surfaces it without changing the filter.
-    expect(label.previousElementSibling).toHaveTextContent('1');
+    const label = screen.getByText('Expired');
+    // MIXED holds two non-live rows — one whose window has run out and one
+    // that is switched off — and the default Active view hides both. Folding
+    // the switched-off row into 'expired' is what lets this single card
+    // surface all of them without touching the filter.
+    expect(label.previousElementSibling).toHaveTextContent('2');
   });
 
   // Filter Expired and land on nothing used to read "Try adjusting your

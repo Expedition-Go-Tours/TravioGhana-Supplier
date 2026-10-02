@@ -8,15 +8,19 @@ describe('computeOfferStatus precedence', () => {
     expect(computeOfferStatus({ isActive: false, endDate: day(-1) })).toBe('expired');
   });
 
-  it('reports a switched-off offer with a live window as inactive', () => {
-    expect(computeOfferStatus({ isActive: false, startDate: day(-1), endDate: day(1) })).toBe('inactive');
+  it('reports a switched-off offer with a live window as expired', () => {
+    // No `inactive` state: switched off and window spent are the same position
+    // to a supplier — not earning, and not starting on its own — so both carry
+    // `expired`, one filter and one stat card.
+    expect(computeOfferStatus({ isActive: false, startDate: day(-1), endDate: day(1) })).toBe('expired');
   });
 
   it('reports a future start as scheduled only while the switch is on', () => {
     expect(computeOfferStatus({ isActive: true, startDate: day(1), endDate: day(5) })).toBe('scheduled');
     // Off, with dates still ahead: it will never go live by itself, so calling
-    // it "scheduled" would promise something the switch prevents.
-    expect(computeOfferStatus({ isActive: false, startDate: day(1), endDate: day(5) })).toBe('inactive');
+    // it "scheduled" would promise something the switch prevents. `expired` is
+    // the only non-live state left to fall to.
+    expect(computeOfferStatus({ isActive: false, startDate: day(1), endDate: day(5) })).toBe('expired');
   });
 
   it('reports a live window as active', () => {
@@ -62,9 +66,25 @@ describe('statusIfActivated', () => {
 
 describe('STATUS_CONFIG', () => {
   it('labels every status the matcher can return', () => {
-    ['active', 'scheduled', 'expired', 'inactive'].forEach((s) => {
+    ['active', 'scheduled', 'expired'].forEach((s) => {
       expect(STATUS_CONFIG[s]?.label).toBeTruthy();
       expect(STATUS_CONFIG[s]?.dot).toBeTruthy();
     });
+  });
+
+  it('has a label for every status computeOfferStatus can emit', () => {
+    // The badge falls back to `expired` for an unknown key, so a genuinely new
+    // state would be mislabelled silently rather than failing loudly here.
+    // Sweep the date/switch matrix instead of trusting a hand-written list.
+    const bools = [true, false];
+    const dates = [undefined, new Date(Date.now() - 864e5), new Date(Date.now() + 864e5)];
+    for (const isActive of bools) {
+      for (const startDate of dates) {
+        for (const endDate of dates) {
+          const s = computeOfferStatus({ isActive, startDate, endDate });
+          expect(STATUS_CONFIG[s], `status "${s}" has no STATUS_CONFIG entry`).toBeTruthy();
+        }
+      }
+    }
   });
 });
