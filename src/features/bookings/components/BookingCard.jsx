@@ -527,9 +527,15 @@ export default function BookingCard({
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     {booking.cancellationReason && (
-                      <div className="sm:col-span-2">
+                      <div className={booking.cancellationNote ? "sm:col-span-1" : "sm:col-span-2"}>
                         <p className="text-xs text-slate-500 mb-0.5">Reason</p>
                         <p className="text-sm text-slate-800">{booking.cancellationReason}</p>
+                      </div>
+                    )}
+                    {booking.cancellationNote && (
+                      <div className="sm:col-span-2">
+                        <p className="text-xs text-slate-500 mb-0.5">Customer note</p>
+                        <p className="text-sm text-slate-800 italic">{booking.cancellationNote}</p>
                       </div>
                     )}
                     {booking.cancelledAt && (

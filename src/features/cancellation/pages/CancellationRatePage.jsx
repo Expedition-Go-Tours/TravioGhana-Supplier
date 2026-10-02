@@ -102,6 +102,9 @@ export default function CancellationRatePage() {
     const headers = [
       "Travel Date",
       "Reason",
+      // The records table shows the customer's note under the reason, so an
+      // export that omitted it would quietly disagree with the screen.
+      "Note",
       "Booking Reference",
       "Product",
       "Booking Value",
@@ -110,6 +113,7 @@ export default function CancellationRatePage() {
     const rows = allRecords.map((r) => [
       r.travelDate,
       `"${(r.reason || "").replace(/"/g, '""')}"`,
+      `"${(r.note || "").replace(/"/g, '""')}"`,
       r.bookingReference,
       `"${(r.productName || "").replace(/"/g, '""')}"`,
       r.bookingValue ?? "",
