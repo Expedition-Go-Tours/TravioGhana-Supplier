@@ -518,6 +518,45 @@ export default function BookingCard({
                 </div>
               </div>
 
+              {/* ── Section: Cancellation details (supplier) ── */}
+              {booking.status === 'CANCELLED' && (
+                <div className="py-4 border-b border-slate-100">
+                  <h4 className="text-sm font-bold text-red-700 mb-3 flex items-center gap-1.5">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                    Cancellation
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {booking.cancellationReason && (
+                      <div className="sm:col-span-2">
+                        <p className="text-xs text-slate-500 mb-0.5">Reason</p>
+                        <p className="text-sm text-slate-800">{booking.cancellationReason}</p>
+                      </div>
+                    )}
+                    {booking.cancelledAt && (
+                      <div>
+                        <p className="text-xs text-slate-500 mb-0.5">Cancelled on</p>
+                        <p className="text-sm text-slate-800">{formatDate(booking.cancelledAt)}</p>
+                      </div>
+                    )}
+                    {booking.refundStatus && booking.refundStatus !== 'NOT_APPLICABLE' && (
+                      <div>
+                        <p className="text-xs text-slate-500 mb-0.5">Refund</p>
+                        <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium ${
+                          booking.refundStatus === 'SUCCEEDED' ? 'bg-green-100 text-green-700' :
+                          booking.refundStatus === 'PENDING' ? 'bg-amber-100 text-amber-700' :
+                          booking.refundStatus === 'FAILED' ? 'bg-red-100 text-red-700' :
+                          'bg-slate-100 text-slate-700'
+                        }`}>
+                          {booking.refundStatus === 'SUCCEEDED' ? 'Processed' :
+                           booking.refundStatus === 'PENDING' ? 'Pending' :
+                           booking.refundStatus === 'FAILED' ? 'Failed' : booking.refundStatus}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* ── Section: Lead traveler ── */}
               <div className="py-4 border-b border-slate-100">
                 <h4 className="text-sm font-bold text-slate-900 mb-3">
