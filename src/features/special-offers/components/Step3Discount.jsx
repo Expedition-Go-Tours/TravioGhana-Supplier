@@ -94,14 +94,14 @@ export default function Step3Discount() {
               <div className="relative">
                 <input
                   type="range"
-                  min="0"
+                  min="1"
                   max="100"
                   value={discount}
                   onChange={handleSlider}
                   className="w-full h-2 rounded-full appearance-none cursor-pointer bg-slate-200 accent-emerald-600 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-emerald-500 [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:hover:scale-110"
                 />
                 <div className="flex justify-between text-xs text-slate-400 mt-1.5 px-0.5">
-                  <span>0%</span>
+                  <span>1%</span>
                   <span className={cn("font-medium", discount >= 50 ? "text-emerald-600" : "text-transparent")}>50%</span>
                   <span>100%</span>
                 </div>
@@ -111,7 +111,7 @@ export default function Step3Discount() {
                 <div className="flex items-center gap-1.5">
                   <input
                     type="number"
-                    min="0"
+                    min="1"
                     max="100"
                     value={discount || ""}
                     onChange={handlePercentInput}
@@ -170,7 +170,7 @@ export default function Step3Discount() {
                   <span className="text-lg font-semibold text-slate-500">$</span>
                   <input
                     type="number"
-                    min="0"
+                    min="0.01"
                     step="0.01"
                     placeholder="0.00"
                     value={fixedAmount || ""}

@@ -17,6 +17,3 @@ export const deleteSpecialOffer = (id) =>
 
 export const toggleSpecialOffer = (id) =>
   api.patch(`/suppliers/special-offers/${id}/toggle`);
-
-export const fetchOfferListings = (params = {}) =>
-  api.get("/tours/offers", { params });

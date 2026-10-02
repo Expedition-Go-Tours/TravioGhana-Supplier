@@ -8,10 +8,17 @@
  * taken": the nightly job had flipped `isActive` off and nothing in the builder
  * ever said so.
  *
- * Order matters and is deliberate:
- *   1. `isActive` is checked FIRST — a switched-off offer is `inactive`
- *      regardless of its dates.
- *   2. otherwise the window decides `scheduled` / `expired` / `active`.
+ * Order matters and is deliberate — the DATES win:
+ *   1. `endDate` past → `expired`. Switching the offer off cannot revive a
+ *      window that has already run out, so the badge has to say what actually
+ *      needs fixing: new dates.
+ *   2. switch off → `inactive`. The window is still usable; flipping the
+ *      switch is the whole fix.
+ *   3. otherwise the window decides `scheduled` / `active`.
+ *
+ * Checking `isActive` first (the original order) reported every dead offer as
+ * `inactive`, because the backend's nightly job writes `isActive: false` as
+ * soon as a date passes — leaving the `expired` filter permanently empty.
  *
  * `endDate` is stored at the last millisecond of its UTC day, so an offer is
  * `active` for the whole of the day the supplier picked.
@@ -25,9 +32,9 @@ export const STATUS_CONFIG = {
 
 export function computeOfferStatus(offer) {
   const now = new Date();
+  if (offer?.endDate && now > new Date(offer.endDate)) return "expired";
   if (!offer?.isActive) return "inactive";
   if (offer.startDate && now < new Date(offer.startDate)) return "scheduled";
-  if (offer.endDate && now > new Date(offer.endDate)) return "expired";
   return "active";
 }
 

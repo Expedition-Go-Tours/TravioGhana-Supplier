@@ -37,6 +37,7 @@ export default function Step2Details() {
             type="text"
             placeholder='e.g. "Summer Sale 2026"'
             value={offer.name}
+            maxLength={60}
             onChange={(e) => updateOffer({ name: e.target.value })}
             className={cn(
               "w-full px-4 py-3 border rounded-xl text-sm transition-all",
@@ -492,6 +493,10 @@ export default function Step2Details() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {errors.specificWeekdays && (
+          <p className="mt-2 text-sm text-red-500">{errors.specificWeekdays}</p>
+        )}
 
         {offer.timeSlotMode === "ALL_DAYS" && (
           <p className="text-xs text-slate-400">Offer applies every day of the week</p>

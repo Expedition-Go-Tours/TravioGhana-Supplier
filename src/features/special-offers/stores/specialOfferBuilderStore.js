@@ -31,6 +31,53 @@ const INITIAL_OFFER = {
   stackable: false,
 };
 
+/**
+ * Validation for one wizard step, as a pure function so both `validateStep`
+ * (single step, on Next) and `validateAll` (all steps, on save) can share it
+ * without overwriting each other's error objects.
+ *
+ * The weekday rule mirrors the backend's 400: an offer limited to specific
+ * weekdays with none selected matches no date at all, so it would sit in the
+ * list advertising a discount nobody can claim.
+ */
+function errorsForStep(offer, stepIndex) {
+  const errors = {};
+  if (stepIndex === 0) {
+    if (offer.targets.length === 0) errors.targets = "Select at least one product";
+  }
+  if (stepIndex === 1) {
+    if (!offer.name || !offer.name.trim()) errors.name = "Offer name is required";
+    else if (offer.name.trim().length > 60) errors.name = "Offer name must be 60 characters or fewer";
+    if (offer.offerType === "LIMITED_TIME") {
+      if (!offer.startDate) errors.startDate = "Start date is required";
+      if (!offer.endDate) errors.endDate = "End date is required";
+      if (offer.startDate && offer.endDate && new Date(offer.startDate) >= new Date(offer.endDate)) {
+        errors.endDate = "End date must be after start date";
+      }
+    } else if (offer.startDate && offer.endDate && new Date(offer.startDate) >= new Date(offer.endDate)) {
+      errors.endDate = "End date must be after start date";
+    }
+    if (offer.timeSlotMode === "SPECIFIC_WEEKDAYS" && !(offer.specificWeekdays || []).length) {
+      errors.specificWeekdays = "Select at least one weekday";
+    }
+  }
+  if (stepIndex === 2) {
+    if (offer.discountType === "PERCENTAGE") {
+      if (!offer.discountPercentage || offer.discountPercentage < 1 || offer.discountPercentage > 100) {
+        errors.discountPercentage = "Discount must be between 1 and 100";
+      }
+    } else {
+      if (!offer.fixedDiscountValue || offer.fixedDiscountValue <= 0) {
+        errors.fixedDiscountValue = "Discount value must be greater than 0";
+      }
+    }
+    if (offer.capacityType === "CAPPED" && (!offer.maxSpots || offer.maxSpots < 1)) {
+      errors.maxSpots = "Max spots is required for capped offers";
+    }
+  }
+  return errors;
+}
+
 export const useSpecialOfferBuilderStore = create(
   persist(
     (set, get) => ({
@@ -103,39 +150,27 @@ export const useSpecialOfferBuilderStore = create(
       clearErrors: () => set({ errors: {} }),
 
       validateStep: (stepIndex) => {
-        const { offer } = get();
-        const errors = {};
-        if (stepIndex === 0) {
-          if (offer.targets.length === 0) errors.targets = "Select at least one product";
-        }
-        if (stepIndex === 1) {
-          if (!offer.name || !offer.name.trim()) errors.name = "Offer name is required";
-          if (offer.offerType === "LIMITED_TIME") {
-            if (!offer.startDate) errors.startDate = "Start date is required";
-            if (!offer.endDate) errors.endDate = "End date is required";
-            if (offer.startDate && offer.endDate && new Date(offer.startDate) >= new Date(offer.endDate)) {
-              errors.endDate = "End date must be after start date";
-            }
-          } else if (offer.startDate && offer.endDate && new Date(offer.startDate) >= new Date(offer.endDate)) {
-            errors.endDate = "End date must be after start date";
-          }
-        }
-        if (stepIndex === 2) {
-          if (offer.discountType === "PERCENTAGE") {
-            if (!offer.discountPercentage || offer.discountPercentage < 1 || offer.discountPercentage > 100) {
-              errors.discountPercentage = "Discount must be between 1 and 100";
-            }
-          } else {
-            if (!offer.fixedDiscountValue || offer.fixedDiscountValue <= 0) {
-              errors.fixedDiscountValue = "Discount value must be greater than 0";
-            }
-          }
-          if (offer.capacityType === "CAPPED" && (!offer.maxSpots || offer.maxSpots < 1)) {
-            errors.maxSpots = "Max spots is required for capped offers";
-          }
-        }
+        const errors = errorsForStep(get().offer, stepIndex);
         set({ errors });
         return Object.keys(errors).length === 0;
+      },
+
+      // `STEPS.every((_, i) => validateStep(i))` short-circuited at the first
+      // failing step, and each validateStep call REPLACED `errors` — so the
+      // toast promised "complete all required fields" while only ever showing
+      // one step's problems, and never saying which. Validate every step, merge
+      // the results, and report the first step that actually needs attention.
+      validateAll: () => {
+        const offer = get().offer;
+        const errors = {};
+        let firstInvalid = -1;
+        STEPS.forEach((_, i) => {
+          const stepErrors = errorsForStep(offer, i);
+          if (firstInvalid === -1 && Object.keys(stepErrors).length > 0) firstInvalid = i;
+          Object.assign(errors, stepErrors);
+        });
+        set({ errors });
+        return { ok: firstInvalid === -1, firstInvalid };
       },
 
       reset: () => set({

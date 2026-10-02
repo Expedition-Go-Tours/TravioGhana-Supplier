@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { Plus, Search, Edit, Power, Trash2, Package, Percent, Tag, X, TicketCheck, ArrowUp, Clock, DollarSign } from "lucide-react";
+import { Plus, Search, Edit, Power, Trash2, Package, Percent, Tag, X, TicketCheck, ArrowUp, ArrowDown, Clock, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { fetchSpecialOffers, deleteSpecialOffer, toggleSpecialOffer } from "@/features/special-offers/api";
@@ -126,6 +126,10 @@ export default function SpecialOffersListPage() {
     { label: "Total Offers", value: offers.length, icon: TicketCheck, accent: "border-l-emerald-500", iconBg: "bg-emerald-50", iconBorder: "border-emerald-200", iconColor: "text-emerald-600" },
     { label: "Active", value: offers.filter((o) => o.status === "active").length, icon: ArrowUp, accent: "border-l-emerald-500", iconBg: "bg-emerald-50", iconBorder: "border-emerald-200", iconColor: "text-emerald-600" },
     { label: "Scheduled", value: offers.filter((o) => o.status === "scheduled").length, icon: Clock, accent: "border-l-emerald-500", iconBg: "bg-emerald-50", iconBorder: "border-emerald-200", iconColor: "text-emerald-600" },
+    // Without this card the offers sitting just under the default Active
+    // filter were invisible at a glance — 8 dead rows existed and the header
+    // only ever admitted to Total / Active / Scheduled.
+    { label: "Inactive", value: offers.filter((o) => o.status === "inactive").length, icon: ArrowDown, accent: "border-l-emerald-500", iconBg: "bg-emerald-50", iconBorder: "border-emerald-200", iconColor: "text-emerald-600" },
   ];
 
   return (
@@ -146,7 +150,7 @@ export default function SpecialOffersListPage() {
       </motion.div>
 
       {/* Stats */}
-      <motion.div {...FADE_UP} transition={{ ...FADE_UP.transition, delay: 0.05 }} className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+      <motion.div {...FADE_UP} transition={{ ...FADE_UP.transition, delay: 0.05 }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         {stats.map((s) => {
           const Icon = s.icon;
           return (
@@ -177,7 +181,7 @@ export default function SpecialOffersListPage() {
         </div>
         <div className="flex gap-2">
           <Select value={typeFilter || "all"} onValueChange={(v) => setTypeFilter(v === "all" ? "" : v)}>
-            <SelectTrigger className="w-[150px]">
+            <SelectTrigger className="w-[150px]" aria-label="Offer type">
               <SelectValue placeholder="All Types" />
             </SelectTrigger>
             <SelectContent>
@@ -188,7 +192,7 @@ export default function SpecialOffersListPage() {
             </SelectContent>
           </Select>
           <Select value={statusFilter || "all"} onValueChange={(v) => setStatusFilter(v === "all" ? "" : v)}>
-            <SelectTrigger className="w-[150px]">
+            <SelectTrigger className="w-[150px]" aria-label="Status">
               <SelectValue placeholder="All Statuses" />
             </SelectTrigger>
             <SelectContent>
@@ -259,6 +263,21 @@ export default function SpecialOffersListPage() {
                   Show all {offers.length} offers
                 </button>
               </div>
+            </>
+          ) : statusFilter && !search && !typeFilter ? (
+            /* A status filter that matches nothing is not "adjust your filters"
+               — it's an answer: nothing is in that state. Say so, and hand back
+               a way out instead of a dead end. */
+            <>
+              <h3 className="text-base font-semibold text-slate-800 mb-1">
+                No {STATUS_CONFIG[statusFilter]?.label?.toLowerCase() || statusFilter} offers
+              </h3>
+              <p className="text-sm text-slate-500 max-w-sm mx-auto mb-5">
+                None of your {offers.length} offer{offers.length !== 1 ? "s have" : " has"} that status right now.
+              </p>
+              <button onClick={() => setStatusFilter("")} className="text-sm text-emerald-600 hover:text-emerald-700 font-medium">
+                Show all {offers.length} offers
+              </button>
             </>
           ) : (
             <>

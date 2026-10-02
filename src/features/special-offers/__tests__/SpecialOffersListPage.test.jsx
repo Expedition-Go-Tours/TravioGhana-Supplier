@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { screen, fireEvent } from '@/test/utils';
+import { screen, fireEvent, userEvent } from '@/test/utils';
 import { renderWithProviders } from '@/test/utils';
 import { http, HttpResponse } from 'msw';
 import { server } from '@/test/mocks/server';
@@ -140,5 +140,40 @@ describe('SpecialOffersListPage status filter', () => {
     // Total is computed from `offers`, so 4 rows must be reported regardless
     // of how many the default filter lets through.
     expect(screen.getByText('4')).toBeInTheDocument();
+  });
+
+  it('shows an Inactive card so rows the default filter hides are visible', async () => {
+    useOffers(MIXED);
+    renderWithProviders(<SpecialOffersListPage />);
+
+    await screen.findByText('Active Sale');
+    const label = screen.getByText('Inactive');
+    // MIXED holds exactly one switched-off row, and the default Active view
+    // hides it — the card is what surfaces it without changing the filter.
+    expect(label.previousElementSibling).toHaveTextContent('1');
+  });
+
+  // Filter Expired and land on nothing used to read "Try adjusting your
+  // filters", which is a dead end when the truthful answer is "you have none
+  // in that state".
+  it('answers a status filter with no matches instead of sending a dead end', async () => {
+    useOffers([
+      offer({ id: 'o-1', name: 'Active Sale', status: 'active' }),
+      offer({ id: 'o-2', name: 'Dead Sale', status: 'expired' }),
+    ]);
+    renderWithProviders(<SpecialOffersListPage />);
+
+    const user = userEvent.setup();
+    await screen.findByText('Active Sale');
+
+    await user.click(screen.getByRole('combobox', { name: 'Status' }));
+    await user.click(await screen.findByRole('option', { name: 'Scheduled' }));
+
+    expect(await screen.findByText('No scheduled offers')).toBeInTheDocument();
+    expect(screen.getByText(/None of your 2 offers have that status/)).toBeInTheDocument();
+    expect(screen.queryByText(/Try adjusting your filters/i)).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: /show all 2 offers/i }));
+    expect(await screen.findByText('Dead Sale')).toBeInTheDocument();
   });
 });

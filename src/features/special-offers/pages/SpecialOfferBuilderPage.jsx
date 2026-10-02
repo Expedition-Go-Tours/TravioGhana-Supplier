@@ -20,7 +20,7 @@ export default function SpecialOfferBuilderPage() {
   const [searchParams] = useSearchParams();
   const {
     currentStep, setStep, offer, editingId, isSaving,
-    nextStep, prevStep, validateStep, setSaving, markSaved, reset, loadOffer, hasHydrated, addTarget,
+    nextStep, prevStep, goToStep, validateStep, validateAll, setSaving, markSaved, reset, loadOffer, hasHydrated, addTarget,
   } = useSpecialOfferBuilderStore();
   const [loadingProduct, setLoadingProduct] = useState(false);
   const [productError, setProductError] = useState(null);
@@ -149,8 +149,15 @@ export default function SpecialOfferBuilderPage() {
   };
 
   const handleSubmit = async () => {
-    const allValid = STEPS.every((_, i) => validateStep(i));
-    if (!allValid) { toast.error("Please complete all required fields"); return; }
+    // Validate every step in one pass and jump to the first one that failed —
+    // `STEPS.every` stopped at the first failure, leaving the rest unchecked
+    // and the message pointing at nothing in particular.
+    const { ok, firstInvalid } = validateAll();
+    if (!ok) {
+      if (firstInvalid >= 0) goToStep(firstInvalid);
+      toast.error("Please complete all required fields");
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -354,7 +361,21 @@ function WizardProgressBar() {
               <div className="flex items-center w-full">
                 <motion.button
                   type="button"
-                  onClick={() => useSpecialOfferBuilderStore.getState().goToStep(index)}
+                  onClick={() => {
+                    // The progress bar used to jump anywhere unconditionally,
+                    // so a supplier could skip straight past an unfinished step
+                    // and only discover it at save time. Forward jumps validate
+                    // everything in between first and land on the first
+                    // problem; stepping backwards stays free.
+                    const s = useSpecialOfferBuilderStore.getState();
+                    const { ok, firstInvalid } = s.validateAll();
+                    if (!ok && index > firstInvalid) {
+                      s.goToStep(firstInvalid);
+                      toast.error("Please fix the highlighted errors");
+                      return;
+                    }
+                    s.goToStep(index);
+                  }}
                   className={cn(
                     "relative w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 cursor-pointer shrink-0",
                     isCompleted && "bg-emerald-600 text-white shadow-md shadow-emerald-600/20",

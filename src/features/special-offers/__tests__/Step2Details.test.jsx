@@ -62,12 +62,16 @@ describe('Step2Details status control', () => {
     expect(screen.getByText(/Your offer period is current/i)).toBeInTheDocument();
   });
 
-  it('does not claim the offer would go live when its window has already ended', () => {
+  it('reports a past window as Expired even while switched off', () => {
+    // Dates outrank the switch. A window that has run out needs new dates, not
+    // a flip of the toggle, so calling it "Inactive" points at the wrong fix —
+    // and, because the backend's nightly job forces isActive off, checking the
+    // switch first left the Expired filter permanently empty.
     resetStore({ isActive: false, ...endedLastWeek() });
     render(<Step2Details />);
 
     expect(screen.queryByText(/Your offer period is current/i)).toBeNull();
-    expect(screen.getByTestId('offer-status-badge')).toHaveTextContent('Inactive');
+    expect(screen.getByTestId('offer-status-badge')).toHaveTextContent('Expired');
   });
 
   it('persists the switch into the store payload', () => {
