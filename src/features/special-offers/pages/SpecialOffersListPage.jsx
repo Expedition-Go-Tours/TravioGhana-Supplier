@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { fetchSpecialOffers, deleteSpecialOffer, toggleSpecialOffer } from "@/features/special-offers/api";
 import { startPriceOf } from "@/features/special-offers/utils/catalogue";
+import { STATUS_CONFIG } from "@/features/special-offers/utils/status";
 import LoadingSkeleton from "@/components/shared/Skeleton";
 import CountdownBadge from "@/components/shared/CountdownBadge";
 import { cn } from "@/lib/utils";
@@ -26,12 +27,10 @@ import {
 
 const OFFER_TYPE_LABELS = { LIMITED_TIME: "Limited Time", EARLY_BIRD: "Early Bird", LAST_MINUTE: "Last Minute" };
 
-const STATUS_CONFIG = {
-  active: { label: "Active", dot: "bg-emerald-500", bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
-  scheduled: { label: "Scheduled", dot: "bg-blue-500", bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" },
-  expired: { label: "Expired", dot: "bg-slate-400", bg: "bg-slate-50", text: "text-slate-500", border: "border-slate-200" },
-  inactive: { label: "Inactive", dot: "bg-gray-400", bg: "bg-gray-50", text: "text-gray-500", border: "border-gray-200" },
-};
+// Suppliers come here to manage what's running, so the list opens on the
+// offers a customer can actually claim rather than every dead row they've
+// ever created. "All Statuses" in the dropdown is the way back to everything.
+const DEFAULT_STATUS_FILTER = "active";
 
 const FADE_UP = {
   initial: { opacity: 0, y: 12 },
@@ -45,7 +44,7 @@ export default function SpecialOffersListPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState(DEFAULT_STATUS_FILTER);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [selectedOffer, setSelectedOffer] = useState(null);
   const load = useCallback(async () => {
@@ -108,8 +107,20 @@ export default function SpecialOffersListPage() {
       ? Math.max((price || 0) - (o.fixedDiscountValue || 0), 0)
       : Math.round((price || 0) * (1 - (o.discountPercentage || 0) / 100));
 
-  const hasFilters = search || typeFilter || statusFilter;
-  const clearFilters = () => { setSearch(""); setTypeFilter(""); setStatusFilter(""); };
+  // The default status filter is the page's resting state, not an active
+  // choice — otherwise every load would count as "filtered", which hides the
+  // Create Offer CTA from the empty state and offers a Clear button that
+  // clears nothing.
+  const hasFilters = search || typeFilter || statusFilter !== DEFAULT_STATUS_FILTER;
+  const clearFilters = () => {
+    setSearch("");
+    setTypeFilter("");
+    setStatusFilter(DEFAULT_STATUS_FILTER);
+  };
+  const activeCount = offers.filter((o) => o.status === "active").length;
+  const hiddenByStatusFilter = offers.length - activeCount;
+  // True when nothing but the resting Active default is narrowing the list.
+  const isDefaultView = !search && !typeFilter && statusFilter === DEFAULT_STATUS_FILTER;
 
   const stats = [
     { label: "Total Offers", value: offers.length, icon: TicketCheck, accent: "border-l-emerald-500", iconBg: "bg-emerald-50", iconBorder: "border-emerald-200", iconColor: "text-emerald-600" },
@@ -212,27 +223,53 @@ export default function SpecialOffersListPage() {
           <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <Percent size={28} className="text-slate-300" />
           </div>
-          <h3 className="text-base font-semibold text-slate-800 mb-1">
-            {hasFilters ? "No matching offers" : "No offers yet"}
-          </h3>
-          <p className="text-sm text-slate-500 max-w-sm mx-auto mb-5">
-            {hasFilters
-              ? "Try adjusting your filters or search term"
-              : "Create your first special offer to start promoting your tours with discounts"}
-          </p>
-          {!hasFilters && (
-            <button
-              onClick={() => navigate("/special-offers/build/new")}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 shadow-sm transition-all"
-            >
-              <Plus size={18} />
-              Create Offer
-            </button>
-          )}
-          {hasFilters && (
-            <button onClick={clearFilters} className="text-sm text-emerald-600 hover:text-emerald-700 font-medium">
-              Clear all filters
-            </button>
+          {/* Three genuinely different situations — collapsing them into one
+              "nothing here" message is what made the default Active filter
+              feel like it was hiding the supplier's work. */}
+          {offers.length === 0 ? (
+            <>
+              <h3 className="text-base font-semibold text-slate-800 mb-1">No offers yet</h3>
+              <p className="text-sm text-slate-500 max-w-sm mx-auto mb-5">
+                Create your first special offer to start promoting your tours with discounts
+              </p>
+              <button
+                onClick={() => navigate("/special-offers/build/new")}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 shadow-sm transition-all"
+              >
+                <Plus size={18} />
+                Create Offer
+              </button>
+            </>
+          ) : isDefaultView ? (
+            <>
+              <h3 className="text-base font-semibold text-slate-800 mb-1">No active offers</h3>
+              <p className="text-sm text-slate-500 max-w-sm mx-auto mb-5">
+                Nothing is running right now. {hiddenByStatusFilter} of your {offers.length} offer
+                {offers.length !== 1 ? "s are" : " is"} switched off, scheduled, or past its end date.
+              </p>
+              <button
+                onClick={() => navigate("/special-offers/build/new")}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 shadow-sm transition-all"
+              >
+                <Plus size={18} />
+                Create Offer
+              </button>
+              <div className="mt-4">
+                <button onClick={() => setStatusFilter("")} className="text-sm text-emerald-600 hover:text-emerald-700 font-medium">
+                  Show all {offers.length} offers
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <h3 className="text-base font-semibold text-slate-800 mb-1">No matching offers</h3>
+              <p className="text-sm text-slate-500 max-w-sm mx-auto mb-5">
+                Try adjusting your filters or search term
+              </p>
+              <button onClick={clearFilters} className="text-sm text-emerald-600 hover:text-emerald-700 font-medium">
+                Clear all filters
+              </button>
+            </>
           )}
         </motion.div>
       ) : (

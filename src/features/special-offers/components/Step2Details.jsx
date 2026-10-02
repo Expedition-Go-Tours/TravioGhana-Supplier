@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Clock, Sunrise, Timer, CalendarDays, Percent, DollarSign, Copy, Layers, Users } from "lucide-react";
+import { Clock, Sunrise, Timer, CalendarDays, Percent, DollarSign, Copy, Layers, Users, Power } from "lucide-react";
 import { useSpecialOfferBuilderStore } from "@/features/special-offers/stores/specialOfferBuilderStore";
+import { STATUS_CONFIG, computeOfferStatus, statusIfActivated } from "@/features/special-offers/utils/status";
 import DatePicker from "@/components/forms/DatePicker";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +15,11 @@ const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "satur
 
 export default function Step2Details() {
   const { offer, updateOffer, errors } = useSpecialOfferBuilderStore();
+
+  // Recomputed on every render so the pill tracks edits to the dates live.
+  const statusKey = computeOfferStatus(offer);
+  const statusCfg = STATUS_CONFIG[statusKey] || STATUS_CONFIG.inactive;
+  const switchedOffButInWindow = !offer.isActive && statusIfActivated(offer) === "active";
 
   const toggleWeekday = (day) => {
     const current = offer.specificWeekdays || [];
@@ -159,6 +165,60 @@ export default function Step2Details() {
           </div>
         </div>
       )}
+      {/* Status — the switch that decides whether this offer is published at
+          all. Without it here, editing an offer the nightly expiry job had
+          switched off round-tripped `isActive: false` and "saving" could never
+          bring it back, which read to suppliers as "edit didn't stick". */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4">
+        <div className="flex items-start justify-between gap-5">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-1.5">
+              <Power size={16} className="text-emerald-600" />
+              <label htmlFor="offer-status" className="text-sm font-semibold text-slate-700">Status</label>
+              <span
+                data-testid="offer-status-badge"
+                className={cn(
+                  "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border",
+                  statusCfg.bg, statusCfg.text, statusCfg.border
+                )}
+              >
+                <span className={cn("w-1.5 h-1.5 rounded-full", statusCfg.dot)} />
+                {statusCfg.label}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 leading-relaxed max-w-md">
+              {offer.isActive
+                ? "Published — this offer applies to eligible bookings during its offer period."
+                : "Switched off. Nothing will be discounted while this is off, whatever the dates say."}
+            </p>
+            {switchedOffButInWindow && (
+              <p className="mt-2 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                Your offer period is current, so switching this on will make the offer live immediately.
+              </p>
+            )}
+          </div>
+          <button
+            id="offer-status"
+            type="button"
+            role="switch"
+            aria-checked={Boolean(offer.isActive)}
+            aria-label="Offer status"
+            onClick={() => updateOffer({ isActive: !offer.isActive })}
+            className={cn(
+              "relative w-12 h-6 rounded-full transition-colors shrink-0 mt-0.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/30",
+              offer.isActive ? "bg-emerald-600" : "bg-slate-300"
+            )}
+          >
+            <span
+              className={cn(
+                "absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform",
+                offer.isActive ? "translate-x-6" : "translate-x-0.5"
+              )}
+            />
+          </button>
+        </div>
+      </div>
+
       {/* Discount Type */}
       <div>
         <label className="block text-sm font-semibold text-slate-700 mb-3">Discount Type</label>

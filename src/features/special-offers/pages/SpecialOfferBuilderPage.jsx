@@ -5,6 +5,7 @@ import { Loader2, ArrowLeft, Check, Package, CalendarRange, Percent } from "luci
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useSpecialOfferBuilderStore, STEPS } from "@/features/special-offers/stores/specialOfferBuilderStore";
+import { STATUS_CONFIG, computeOfferStatus, statusIfActivated } from "@/features/special-offers/utils/status";
 import { createSpecialOffer, updateSpecialOffer, getSpecialOffer } from "@/features/special-offers/api";
 import { getMyProduct } from "@/features/products/api";
 import Step1Products from "@/features/special-offers/components/Step1Products";
@@ -181,7 +182,14 @@ export default function SpecialOfferBuilderPage() {
 
       if (editingId) {
         await updateSpecialOffer(editingId, payload);
-        toast.success("Offer updated successfully!");
+        // Editing dates can't revive an offer the nightly expiry job switched
+        // off — `isActive` is round-tripped. Say so instead of letting
+        // "updated successfully" imply the offer is now live.
+        if (!offer.isActive && statusIfActivated(payload) === "active") {
+          toast.success("Offer saved — it's still switched off. Turn Status on to publish it.");
+        } else {
+          toast.success("Offer updated successfully!");
+        }
       } else {
         await createSpecialOffer(payload);
         toast.success("Offer created successfully!");
@@ -206,9 +214,12 @@ export default function SpecialOfferBuilderPage() {
           <ArrowLeft size={17} className="text-slate-500" />
         </button>
         <div>
-          <h1 className="text-lg font-bold text-slate-800">
-            {editingId ? "Edit Offer" : "Create Offer"}
-          </h1>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-lg font-bold text-slate-800">
+              {editingId ? "Edit Offer" : "Create Offer"}
+            </h1>
+            <BuilderStatusPill />
+          </div>
           <p className="text-xs text-slate-500 mt-0.5">
             Step {stepIndex + 1} of {STEPS.length} — {STEPS[stepIndex]?.label}
           </p>
@@ -300,6 +311,31 @@ function StepIcon({ index }) {
   const icons = [Package, CalendarRange, Percent];
   const Icon = icons[index] || Package;
   return <Icon size={16} className="text-emerald-600" />;
+}
+
+/**
+ * Live status, shown on every step while editing so a supplier can see —
+ * before they press Save — that an offer they're about to "republish" is
+ * actually switched off. Hidden for new offers, which have no status yet.
+ */
+function BuilderStatusPill() {
+  const editingId = useSpecialOfferBuilderStore((s) => s.editingId);
+  const offer = useSpecialOfferBuilderStore((s) => s.offer);
+  if (!editingId) return null;
+
+  const cfg = STATUS_CONFIG[computeOfferStatus(offer)] || STATUS_CONFIG.inactive;
+  return (
+    <span
+      data-testid="builder-status-badge"
+      className={cn(
+        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border",
+        cfg.bg, cfg.text, cfg.border
+      )}
+    >
+      <span className={cn("w-1.5 h-1.5 rounded-full", cfg.dot)} />
+      {cfg.label}
+    </span>
+  );
 }
 
 function WizardProgressBar() {
