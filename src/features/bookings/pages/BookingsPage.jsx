@@ -320,6 +320,7 @@ export default function BookingsPage() {
       pending: filteredData.filter((b) => b.status === "PENDING").length,
       confirmed: filteredData.filter((b) => b.status === "CONFIRMED").length,
       completed: filteredData.filter((b) => b.status === "COMPLETED").length,
+      cancelled: filteredData.filter((b) => b.status === "CANCELLED").length,
       revenue: bookingSummary?.totalRevenue ?? filteredData.reduce((sum, b) => sum + b.total, 0),
     }),
     [filteredData, bookingSummary]
@@ -394,7 +395,7 @@ export default function BookingsPage() {
       ) : (
         <>
       {/* ====== STATS ====== */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 lg:gap-4">
         {[
           {
             label: "Total Bookings",
@@ -425,6 +426,13 @@ export default function BookingsPage() {
             bar: "bg-green-500",
           },
           {
+            label: "Cancellations",
+            value: stats.cancelled,
+            icon: AlertTriangle,
+            color: "text-red-600",
+            bar: "bg-red-400",
+          },
+          {
             label: "Revenue",
             value: formatCurrency(stats.revenue),
             icon: TrendingUp,
@@ -434,14 +442,19 @@ export default function BookingsPage() {
         ].map((s) => (
           <div
             key={s.label}
-            className="bg-white rounded-xl border border-emerald-100/60 p-3 sm:p-4 hover:shadow-md transition-shadow"
+            className="bg-white rounded-xl border border-emerald-100/60 p-3 sm:p-4 lg:p-2 xl:p-4 hover:shadow-md transition-shadow"
           >
-            <div className="flex items-center justify-between mb-2">
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-emerald-50/40 border border-emerald-100/60 flex items-center justify-center">
-                <s.icon size={14} className={s.color} />
+            <div className="flex items-center justify-between gap-1 mb-2">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 lg:w-6 lg:h-6 xl:w-9 xl:h-9 rounded-lg bg-emerald-50/40 border border-emerald-100/60 flex items-center justify-center shrink-0">
+                {/* Six columns at exactly 1024px (sidebar expanded) leave ~104px
+                    per card. Measured: the value needs 62px at 14px and 80px at
+                    18px, beside a 36px icon — so the font steps back up only
+                    where the column is genuinely wider. Revenue must never
+                    ellipsis at lg+, hence the 2xl step rather than xl. */}
+                <s.icon size={14} className={`${s.color} lg:w-3 lg:h-3`} />
               </div>
               <span
-                className={`text-base sm:text-lg font-bold ${s.color} text-right`}
+                className={`text-base sm:text-lg lg:text-xs xl:text-sm 2xl:text-lg font-bold ${s.color} text-right truncate min-w-0`}
               >
                 {s.value}
               </span>
