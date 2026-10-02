@@ -54,6 +54,16 @@ export function mapBookingRow(booking) {
     pickupConfig: typeof booking.tour?.bookingAndTickets === 'string'
       ? (() => { try { return JSON.parse(booking.tour.bookingAndTickets); } catch { return null; } })()
       : booking.tour?.bookingAndTickets || null,
+    // Cancellation detail. These are plain Booking scalars that the supplier
+    // bookings endpoint already returns (it hands back raw Prisma rows), but
+    // this mapper is an explicit whitelist and was dropping all four — so every
+    // `booking.cancellationReason` / `.cancellationNote` / `.cancelledAt` /
+    // `.refundStatus` read in BookingCard was undefined and the whole
+    // "Cancellation" section silently never rendered.
+    cancellationReason: booking.cancellationReason || null,
+    cancellationNote: booking.cancellationNote || null,
+    cancelledAt: booking.cancelledAt || null,
+    refundStatus: booking.refundStatus || null,
     discount: Number(booking.discounts) || 0,
     offerId: booking.appliedOfferId || null,
     offerName: booking.offerName || booking.appliedOffer?.name || null,

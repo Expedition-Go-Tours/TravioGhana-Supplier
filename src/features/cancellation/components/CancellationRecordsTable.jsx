@@ -85,8 +85,13 @@ export default function CancellationRecordsTable({
                     className="border-b border-slate-50 last:border-0 hover:bg-slate-50/40 transition-colors"
                   >
                     <td className="px-4 py-3.5 text-slate-700 whitespace-nowrap">{r.travelDate}</td>
-                    <td className="px-4 py-3.5 text-slate-600 max-w-60 truncate" title={r.reason}>
-                      {r.reason}
+                    <td className="px-4 py-3.5 text-slate-600 max-w-60" title={r.note ? `${r.reason}\n${r.note}` : r.reason}>
+                      <div className="truncate">{r.reason}</div>
+                      {r.note && (
+                        <div className="text-xs text-slate-400 truncate mt-0.5" title={r.note}>
+                          {r.note}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3.5 text-slate-700 whitespace-nowrap font-medium">
                       {r.bookingReference}
