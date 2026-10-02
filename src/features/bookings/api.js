@@ -8,7 +8,10 @@ export function mapBookingRow(booking) {
     bookingNumber: booking.bookingNumber,
     // Which storefront the customer booked through: 'GHANA' | 'EXPEDITION'.
     // Fallback parses the booking-number prefix so older rows still label correctly.
-    source: booking.source || (booking.bookingNumber?.startsWith("GHA") ? "GHANA" : "EXPEDITION"),
+    // TRG is the Ghana prefix (config/brands.js bookingPrefix); EXP is Expedition's.
+    // This used to test for "GHA", which no brand has ever minted, so the fallback
+    // could never label anything GHANA. See __tests__/mapBookingRow.source.test.js.
+    source: booking.source || (booking.bookingNumber?.startsWith("TRG") ? "GHANA" : "EXPEDITION"),
     customerId: booking.customer?.id || "",
     customerName: booking.customer?.name || "—",
     customerEmail: booking.customer?.email || "",
