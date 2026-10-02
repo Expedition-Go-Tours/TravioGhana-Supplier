@@ -8,6 +8,7 @@ const SORT_FIELDS = {
   productName: "Product",
   bookingValue: "Booking Value",
   refundAmount: "Refund Amount",
+  countsTowardRate: "Rate Impact",
 };
 
 export default function CancellationRecordsTable({
@@ -34,7 +35,7 @@ export default function CancellationRecordsTable({
     <div className="bg-white border border-slate-200 rounded-[20px] shadow-none overflow-hidden">
       <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-slate-800">
-          Cancellations used to calculate your rate
+          Cancellation records
         </h2>
         {records.length > 0 && (
           <button
@@ -52,10 +53,9 @@ export default function CancellationRecordsTable({
           <div className="w-14 h-14 rounded-2xl bg-teal-50 flex items-center justify-center mb-4">
             <CalendarX2 size={22} className="text-teal-400" />
           </div>
-          <p className="text-sm font-semibold text-slate-700">No cancelled bookings counted toward your rate</p>
+          <p className="text-sm font-semibold text-slate-700">No cancelled bookings in the last {days} days</p>
           <p className="text-xs text-slate-400 mt-1.5 max-w-[320px] leading-relaxed">
-            Only supplier-caused cancellations from the last {days} days appear here. Weather, force
-            majeure, and customer-requested cancellations are excluded.
+            All cancellations for your tours — whether initiated by you, the customer, or external events — will appear here.
           </p>
         </div>
       ) : (
@@ -97,6 +97,21 @@ export default function CancellationRecordsTable({
                     </td>
                     <td className="px-4 py-3.5 text-slate-600 whitespace-nowrap text-right">
                       {r.refundAmount != null ? formatCurrency(r.refundAmount) : "—"}
+                    </td>
+                    <td className="px-4 py-3.5 whitespace-nowrap">
+                      {r.countsTowardRate === true && (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 px-2 py-0.5 rounded-full">
+                          Counts
+                        </span>
+                      )}
+                      {r.countsTowardRate === false && (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                          Excluded
+                        </span>
+                      )}
+                      {r.countsTowardRate == null && (
+                        <span className="text-xs text-slate-400">—</span>
+                      )}
                     </td>
                   </tr>
                 ))}
