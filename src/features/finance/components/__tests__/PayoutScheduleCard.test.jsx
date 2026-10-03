@@ -128,7 +128,7 @@ describe('PayoutScheduleEditor', () => {
 });
 
 describe('PayoutScheduleSummary', () => {
-  it('shows the plan, the next run and a change link', () => {
+  it('shows the plan and the next run', () => {
     render(
       <MemoryRouter>
         <PayoutScheduleSummary plan={basePlan} available={1240} />
@@ -138,7 +138,8 @@ describe('PayoutScheduleSummary', () => {
     expect(screen.getByText('Twice a month — paid on the 1st & 15th')).toBeInTheDocument();
     expect(screen.getByText(/next payout/i)).toBeInTheDocument();
     expect(screen.getByText(/covering oct 1–14/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /change schedule/i })).toHaveAttribute('href', '/settings?tab=payouts');
+    // Editing the cadence lives in Settings; the card is read-only.
+    expect(screen.queryByRole('link', { name: /change schedule/i })).not.toBeInTheDocument();
   });
 
   it('flags a paused scheduler', () => {
@@ -197,8 +198,9 @@ describe('PayoutScheduleSummary', () => {
     await userEvent.click(btn);
     expect(onRequestPayout).toHaveBeenCalledTimes(1);
 
-    // The schedule action must survive alongside it, not be replaced by it.
-    expect(screen.getByRole('link', { name: /change schedule/i })).toBeInTheDocument();
+    // "Change schedule" lives in Settings; repeating it here just split the
+    // supplier's attention between the two things they can do.
+    expect(screen.queryByRole('link', { name: /change schedule/i })).not.toBeInTheDocument();
   });
 
   it('disables the request outside the run window and says when it opens', () => {
@@ -216,7 +218,7 @@ describe('PayoutScheduleSummary', () => {
 
     const btn = screen.getByRole('button', { name: /request payout/i });
     expect(btn).toBeDisabled();
-    expect(btn).toHaveAttribute('title', expect.stringMatching(/opens with the next payout run/i));
+    expect(btn).toHaveAttribute('title', expect.stringMatching(/24 hours/i));
     expect(screen.getByText(/manual requests open/i)).toBeInTheDocument();
   });
 
@@ -247,6 +249,6 @@ describe('PayoutScheduleSummary', () => {
     );
     expect(screen.queryByRole('button', { name: /request payout/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/manual requests open/i)).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /change schedule/i })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /change schedule/i })).not.toBeInTheDocument();
   });
 });
