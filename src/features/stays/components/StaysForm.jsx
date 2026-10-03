@@ -1,6 +1,13 @@
 import { cloneElement, isValidElement, useId } from "react";
 import { cn } from "@/lib/utils";
-import { FormLabel, Input, Select, Textarea } from "@/components/forms";
+import { FormLabel, Input, Textarea } from "@/components/forms";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 /**
  * Stays form controls — thin wrappers over the portal's shared form kit
@@ -33,15 +40,57 @@ export function StaysTextarea({ className, ...props }) {
   return <Textarea className={className} {...props} />;
 }
 
-export function StaysSelect({ className, options = [], children, ...props }) {
+/** Options are bare strings or `{ value, label }` pairs. */
+function normalizeOption(option) {
+  if (option && typeof option === "object") return option;
+  return { value: String(option), label: String(option) };
+}
+
+/**
+ * The workspace dropdown — the same custom Radix select the Experience product
+ * builder uses (`components/ui/select`), not a native `<select>`. The open
+ * menu, check indicator, keyboard behaviour and styling therefore match the
+ * product builder.
+ *
+ * The API stays native-select-shaped for existing call sites: pass `options`
+ * and an `onChange` that reads `event.target.value`. Radix's
+ * `onValueChange(value)` is adapted to that event shape here, so no caller
+ * needs to change. `className` styles the trigger and the field `id` is
+ * forwarded to it so `StaysField` labels keep working.
+ */
+export function StaysSelect({
+  className,
+  options = [],
+  value,
+  onChange,
+  placeholder = "Select an option",
+  disabled = false,
+  name,
+  required = false,
+  ...props
+}) {
   return (
-    <Select className={className} {...props}>
-      {options.map((option) => (
-        <option key={option} value={option}>
-          {option}
-        </option>
-      ))}
-      {children}
+    <Select
+      value={value == null ? "" : String(value)}
+      onValueChange={(next) => onChange?.({ target: { value: next } })}
+      disabled={disabled}
+      name={name}
+      required={required}
+    >
+      <SelectTrigger className={className} {...props}>
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      {/* Above StaysModal (z-50) and the builder's fixed overlay (z-50). */}
+      <SelectContent className="z-[60]">
+        {options.map((option, index) => {
+          const { value: optionValue, label } = normalizeOption(option);
+          return (
+            <SelectItem key={`${optionValue}-${index}`} value={optionValue}>
+              {label}
+            </SelectItem>
+          );
+        })}
+      </SelectContent>
     </Select>
   );
 }

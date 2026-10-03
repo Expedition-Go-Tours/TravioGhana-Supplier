@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import StaysModal from "./StaysModal";
 import StaysButton from "./StaysButton";
 import { StaysField, StaysInput, StaysSelect } from "./StaysForm";
 import {
@@ -14,10 +13,14 @@ import { defaultPlanForRoom, planPrice } from "../utils/ratePlans";
 import { formatMoney } from "../utils/money";
 
 /**
- * Create/edit a rate plan — the prototype's wide modal, with its four
- * sections, conditional fields and validation. Fixed vs derived pricing swaps
- * the price inputs; the free-cancellation cutoff only appears for
- * "Free cancellation" plans, exactly like the prototype's `data-*-mode` CSS.
+ * Create/edit a rate plan — the four-section form, conditional fields and
+ * validation, rendered inline (no modal). Used by the builder's Rates & plans
+ * step and the standalone Rates & availability page, inside the owning room's
+ * card.
+ *
+ * Fixed vs derived pricing swaps the price inputs; the free-cancellation
+ * cutoff only appears for "Free cancellation" plans, exactly like the
+ * prototype's `data-*-mode` CSS.
  */
 function PlanSection({ title, children }) {
   return (
@@ -28,14 +31,22 @@ function PlanSection({ title, children }) {
   );
 }
 
-export default function RatePlanModal({ open, room, plan, onClose, onSave, onDelete }) {
-  // Mount-fresh state: the parent remounts per open (see `key` at the call
-  // sites), so no reset effect is needed and cancel discards edits.
-  const [form, setForm] = useState(() => (plan ? { ...plan } : room ? defaultPlanForRoom(room) : null));
+export default function RatePlanForm({ room, plan, onCancel, onSave, onDelete }) {
+  // Mount-fresh state: the parent remounts per open (`key`), so cancel
+  // discards edits without a reset effect. A new plan drops the default
+  // factory's synthetic id so the API creates a fresh plan instead of
+  // patching the room's existing Standard rate.
+  const [form, setForm] = useState(() => {
+    if (plan) return { ...plan };
+    const seeded = defaultPlanForRoom(room);
+    delete seeded.id; // the API assigns a fresh id on create
+    return seeded;
+  });
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const isEditing = Boolean(plan?.id);
 
-  if (!form || !room) return null;
+  if (!room) return null;
 
   const set = (key) => (event) => {
     const value = event.target.value;
@@ -82,7 +93,7 @@ export default function RatePlanModal({ open, room, plan, onClose, onSave, onDel
         closedDeparture: form.closedDeparture === "Yes" || form.closedDeparture === true,
       });
       toast.success("Rate plan saved");
-      onClose();
+      onCancel();
     } catch (error) {
       toast.error(error?.message || "Could not save the rate plan");
     } finally {
@@ -91,38 +102,22 @@ export default function RatePlanModal({ open, room, plan, onClose, onSave, onDel
   };
 
   const handleDelete = async () => {
+    setDeleting(true);
     try {
       await onDelete(form);
       toast.success("Rate plan removed");
-      onClose();
+      onCancel();
     } catch (error) {
       toast.error(error?.message || "Could not remove the rate plan");
+    } finally {
+      setDeleting(false);
     }
   };
 
   const derived = form.pricingModel === "Derived from room base rate";
 
   return (
-    <StaysModal
-      open={open}
-      onOpenChange={(next) => !next && onClose()}
-      wide
-      title={isEditing ? "Edit rate plan" : "Create rate plan"}
-      description={`${room.name} · Configure the offer travellers can book.`}
-      footer={
-        <>
-          {isEditing && (
-            <StaysButton variant="danger" onClick={handleDelete} className="mr-auto">
-              Delete plan
-            </StaysButton>
-          )}
-          <StaysButton onClick={onClose}>Cancel</StaysButton>
-          <StaysButton variant="primary" onClick={handleSave} disabled={saving}>
-            {saving ? "Saving…" : "Save rate plan"}
-          </StaysButton>
-        </>
-      }
-    >
+    <div>
       <PlanSection title="Rate and inclusions">
         <StaysField label="Rate plan name *">
           <StaysInput value={form.name} onChange={set("name")} />
@@ -232,6 +227,23 @@ export default function RatePlanModal({ open, room, plan, onClose, onSave, onDel
       <p className="mt-4 text-xs leading-relaxed text-slate-400">
         TravioGhana collects guest payments. This rate plan defines what the guest books and the terms they see.
       </p>
-    </StaysModal>
+
+      <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
+        {isEditing && (
+          <StaysButton
+            variant="danger"
+            onClick={handleDelete}
+            disabled={deleting || saving}
+            className="mr-auto"
+          >
+            {deleting ? "Removing…" : "Delete plan"}
+          </StaysButton>
+        )}
+        <StaysButton onClick={onCancel}>Cancel</StaysButton>
+        <StaysButton variant="primary" onClick={handleSave} disabled={saving || deleting}>
+          {saving ? "Saving…" : "Save rate plan"}
+        </StaysButton>
+      </div>
+    </div>
   );
 }

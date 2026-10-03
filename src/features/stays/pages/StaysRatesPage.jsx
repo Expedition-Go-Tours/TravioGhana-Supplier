@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import StaysSurface from "../components/StaysSurface";
@@ -7,22 +6,20 @@ import StaysButton from "../components/StaysButton";
 import StaysCard from "../components/StaysCard";
 import StaysEmptyState from "../components/StaysEmptyState";
 import RatePlanCards from "../components/RatePlanCards";
-import RatePlanModal from "../components/RatePlanModal";
 import StaysPropertySelect from "../components/StaysPropertySelect";
 import { usePropertyContext } from "../hooks/usePropertyContext";
 import { STAYS_KEYS, saveRatePlan, deleteRatePlan } from "../api";
 
 /**
  * Rates & availability — manage the bookable rate plans per room type.
- * Opens the same plan modal as builder step 4; deletion keeps the prototype's
- * rule that every room retains at least one plan (enforced by the API layer,
- * surfaced here as a toast).
+ * The create/edit form opens inline inside the room card (no modal);
+ * deletion keeps the prototype's rule that every room retains at least one
+ * plan (enforced by the API layer, surfaced here as a toast).
  */
 export default function StaysRatesPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { property, properties, isLoading, selectProperty } = usePropertyContext();
-  const [modal, setModal] = useState(null); // { room, plan? }
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["stays", "properties"] });
@@ -65,8 +62,8 @@ export default function StaysRatesPage() {
       ) : property ? (
         <RatePlanCards
           property={property}
-          onAddPlan={(room) => setModal({ room, openKey: Date.now() })}
-          onEditPlan={(room, plan) => setModal({ room, plan, openKey: Date.now() })}
+          onSavePlan={(plan) => saveMutation.mutateAsync(plan)}
+          onDeletePlan={(plan) => deleteMutation.mutateAsync(plan)}
           emptyState={
             <StaysCard>
               <StaysEmptyState title="Add a room before creating rate plans">
@@ -82,16 +79,6 @@ export default function StaysRatesPage() {
           </StaysEmptyState>
         </StaysCard>
       )}
-
-      <RatePlanModal
-        key={modal?.openKey}
-        open={Boolean(modal)}
-        room={modal?.room}
-        plan={modal?.plan}
-        onClose={() => setModal(null)}
-        onSave={(plan) => saveMutation.mutateAsync(plan)}
-        onDelete={(plan) => deleteMutation.mutateAsync(plan)}
-      />
     </StaysSurface>
   );
 }

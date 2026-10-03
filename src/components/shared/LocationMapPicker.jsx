@@ -2,10 +2,16 @@ import { useState, useRef, useEffect } from "react";
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "@/lib/maplibreWorker";
-import { MapPin, Loader2, AlertTriangle, CheckCircle2, X } from "lucide-react";
-import config from "@/config";
+import { MapPin, Loader2, AlertTriangle, CheckCircle2, X, ChevronDown } from "lucide-react";
 import LocationAutocomplete from "@/components/shared/LocationAutocomplete";
+import { parseCoordinateInput } from "@/lib/coordinates";
+import { isShortGoogleMapsLink, parseGoogleMapsLocation } from "@/lib/googleMaps";
+import { reverseGeocode } from "@/lib/reverseGeocode";
 import { DEFAULT_CENTER, TILE_STYLE, warmMapResources } from "@/lib/mapConfig";
+
+const SHORT_LINK_MESSAGE =
+  "Short Google links can't be read here. Open the link, then copy the full URL or long-press the pin and paste its coordinates (e.g. 5.6037, -0.1870).";
+const INVALID_LINK_MESSAGE = "Paste a Google Maps link or coordinates like 5.6037, -0.1870.";
 
 function SelectedLocationCard({ result, onClear }) {
   if (!result) return null;
@@ -41,18 +47,43 @@ function SelectedLocationCard({ result, onClear }) {
   );
 }
 
-export default function LocationMapPicker({ onSelect, initialLat, initialLng, label, placeholder }) {
+export default function LocationMapPicker({
+  onSelect,
+  initialLat,
+  initialLng,
+  initialFormatted,
+  label,
+  placeholder,
+  allowManualCoordinates = false,
+}) {
   const [lat, setLat] = useState(initialLat ?? null);
   const [lng, setLng] = useState(initialLng ?? null);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState(false);
-  const [selectedResult, setSelectedResult] = useState(null);
+  const [selectedResult, setSelectedResult] = useState(() =>
+    initialFormatted
+      ? {
+          formatted: initialFormatted,
+          city: "",
+          country: "",
+          region: "",
+          latitude: initialLat ?? null,
+          longitude: initialLng ?? null,
+        }
+      : null,
+  );
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualName, setManualName] = useState("");
+  const [manualLink, setManualLink] = useState("");
+  const [manualLat, setManualLat] = useState(initialLat != null ? String(initialLat) : "");
+  const [manualLng, setManualLng] = useState(initialLng != null ? String(initialLng) : "");
+  const [manualError, setManualError] = useState("");
   const autocompleteRef = useRef(null);
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
   const onSelectRef = useRef(onSelect);
-  const apiBaseRef = useRef(config.api.baseURL);
+  const resolveRef = useRef(null);
   onSelectRef.current = onSelect;
 
   useEffect(() => {
@@ -80,35 +111,12 @@ export default function LocationMapPicker({ onSelect, initialLat, initialLng, la
     map.on("load", () => setMapReady(true));
     map.on("error", () => setMapError(true));
 
-    map.on("click", async (e) => {
-      const clickLng = e.lngLat.lng;
+    map.on("click", (e) => {
       const clickLat = e.lngLat.lat;
-      setLat(clickLat);
-      setLng(clickLng);
+      const clickLng = e.lngLat.lng;
       updateMarker(map, clickLng, clickLat);
       autocompleteRef.current?.reset();
-
-      try {
-        const res = await fetch(`${apiBaseRef.current}/locations/reverse?lat=${clickLat}&lng=${clickLng}`);
-        const body = await res.json();
-        const data = body?.data?.results?.[0];
-        if (data) {
-          const normalized = {
-            formatted: data.formatted || "",
-            city: data.city || "",
-            country: data.country || "",
-            region: data.region || "",
-            latitude: data.latitude ?? null,
-            longitude: data.longitude ?? null,
-          };
-          setSelectedResult(normalized);
-          onSelectRef.current?.(normalized);
-        }
-      } catch {
-        const fallback = { formatted: `${clickLat.toFixed(4)}, ${clickLng.toFixed(4)}`, city: "", country: "", region: "", latitude: clickLat, longitude: clickLng };
-        setSelectedResult(fallback);
-        onSelectRef.current?.(fallback);
-      }
+      resolveRef.current?.(clickLat, clickLng);
     });
 
     mapRef.current = map;
@@ -151,11 +159,45 @@ export default function LocationMapPicker({ onSelect, initialLat, initialLng, la
     updateMarker(mapRef.current, lng, lat);
   }, [lat, lng, mapReady]);
 
+  /**
+   * Drop the pin at the given coordinates and reverse-geocode them for the
+   * address parts. The coordinates passed in always win over the reverse
+   * response, so a response without lat/lng can never blank a pin.
+   */
+  const emitResolved = async (nextLat, nextLng, preferredName = "") => {
+    setLat(nextLat);
+    setLng(nextLng);
+    if (allowManualCoordinates) {
+      setManualLat(String(nextLat));
+      setManualLng(String(nextLng));
+      setManualError("");
+    }
+
+    const reverse = await reverseGeocode(nextLat, nextLng);
+    const name = preferredName.trim();
+    const result = {
+      formatted: name || reverse?.formatted || `${nextLat.toFixed(5)}, ${nextLng.toFixed(5)}`,
+      city: reverse?.city || "",
+      country: reverse?.country || "",
+      region: reverse?.region || "",
+      latitude: nextLat,
+      longitude: nextLng,
+    };
+    setSelectedResult(result);
+    onSelectRef.current?.(result);
+  };
+  resolveRef.current = emitResolved;
+
   const handleLocationSelect = (result) => {
     const outLat = result.latitude;
     const outLng = result.longitude;
     setLat(outLat);
     setLng(outLng);
+    if (allowManualCoordinates) {
+      setManualLat(outLat != null ? String(outLat) : "");
+      setManualLng(outLng != null ? String(outLng) : "");
+      setManualError("");
+    }
     setSelectedResult(result);
     onSelect?.(result);
   };
@@ -164,8 +206,50 @@ export default function LocationMapPicker({ onSelect, initialLat, initialLng, la
     setLat(null);
     setLng(null);
     setSelectedResult(null);
+    setManualName("");
+    setManualLink("");
+    setManualLat("");
+    setManualLng("");
+    setManualError("");
     autocompleteRef.current?.reset();
     onSelect?.(null);
+  };
+
+  /** "Add '…' as a custom location" from the no-results state. */
+  const handleAddCustom = (name) => {
+    setManualOpen(true);
+    setManualName(name);
+    setManualError("");
+  };
+
+  /** Fill the coordinate fields from a pasted Google Maps link or raw pair. */
+  const handleManualLinkChange = (value) => {
+    setManualLink(value);
+    setManualError("");
+    const parsed = parseGoogleMapsLocation(value);
+    if (parsed) {
+      setManualLat(String(parsed.lat));
+      setManualLng(String(parsed.lng));
+      if (parsed.name && !manualName.trim()) setManualName(parsed.name);
+    } else if (isShortGoogleMapsLink(value)) {
+      setManualError(SHORT_LINK_MESSAGE);
+    }
+  };
+
+  const handleApplyManual = async () => {
+    const parsed = parseCoordinateInput(manualLat, manualLng);
+    if (!parsed) {
+      if (isShortGoogleMapsLink(manualLink)) setManualError(SHORT_LINK_MESSAGE);
+      else if (manualLink.trim()) setManualError(INVALID_LINK_MESSAGE);
+      else {
+        setManualError(
+          "Enter a latitude between -90 and 90 and a longitude between -180 and 180.",
+        );
+      }
+      return;
+    }
+    setManualError("");
+    await emitResolved(parsed.lat, parsed.lng, manualName);
   };
 
   return (
@@ -180,6 +264,7 @@ export default function LocationMapPicker({ onSelect, initialLat, initialLng, la
         <LocationAutocomplete
           ref={autocompleteRef}
           onSelect={handleLocationSelect}
+          onAddCustom={handleAddCustom}
           hideLabel
           hideAttribution
           mode="inline"
@@ -214,6 +299,79 @@ export default function LocationMapPicker({ onSelect, initialLat, initialLng, la
         <div className="flex items-center gap-4 text-xs text-slate-400 font-mono">
           <span>Lat: {lat.toFixed(6)}</span>
           <span>Lng: {lng.toFixed(6)}</span>
+        </div>
+      )}
+
+      {allowManualCoordinates && (
+        <div className="rounded-xl border border-slate-200 bg-slate-50/60 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setManualOpen((open) => !open)}
+            aria-expanded={manualOpen}
+            className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-slate-100/60 transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              <MapPin size={14} className="text-slate-400" />
+              Can&apos;t find your location? Enter it manually
+            </span>
+            <ChevronDown
+              size={16}
+              className={`shrink-0 text-slate-400 transition-transform ${manualOpen ? "rotate-180" : ""}`}
+            />
+          </button>
+          {manualOpen && (
+            <div className="space-y-3 border-t border-slate-100 px-4 pb-4 pt-3">
+              <p className="text-xs leading-relaxed text-slate-400">
+                Found it on Google Maps? Paste the link and its coordinates are captured and pinned
+                automatically. You can also type the name and coordinates yourself.
+              </p>
+              <input
+                type="text"
+                aria-label="Google Maps link"
+                value={manualLink}
+                onChange={(event) => handleManualLinkChange(event.target.value)}
+                placeholder="Paste a Google Maps link or 5.6037, -0.1870"
+                className="w-full h-[42px] rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 placeholder:text-slate-400 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition-all"
+              />
+              <input
+                type="text"
+                aria-label="Location name"
+                value={manualName}
+                onChange={(event) => setManualName(event.target.value)}
+                placeholder="e.g. Labone, Accra"
+                className="w-full h-[42px] rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 placeholder:text-slate-400 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition-all"
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  aria-label="Latitude"
+                  value={manualLat}
+                  onChange={(event) => setManualLat(event.target.value)}
+                  placeholder="Latitude, e.g. 5.6037"
+                  className="w-full h-[42px] rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 placeholder:text-slate-400 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition-all"
+                />
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  aria-label="Longitude"
+                  value={manualLng}
+                  onChange={(event) => setManualLng(event.target.value)}
+                  placeholder="Longitude, e.g. -0.1870"
+                  className="w-full h-[42px] rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 placeholder:text-slate-400 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition-all"
+                />
+              </div>
+              {manualError && <p className="text-xs font-medium text-red-600">{manualError}</p>}
+              <button
+                type="button"
+                onClick={handleApplyManual}
+                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition-colors"
+              >
+                <MapPin size={14} />
+                Place pin
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

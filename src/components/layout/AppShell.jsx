@@ -20,7 +20,9 @@ export default function AppShell() {
   const location = useLocation();
   const matches = useMatches();
   const isProductBuilder = location.pathname.includes('/products/build');
-  const isStaysBuilder = location.pathname.includes('/stays/properties/build');
+  // Only the builder with a draft id owns the viewport; `/stays/properties/build`
+  // is the category chooser and keeps the normal shell (support bubble included).
+  const isStaysBuilder = /^\/stays\/properties\/build\/.+/.test(location.pathname);
   const isChatPage = location.pathname.startsWith('/chat');
   const syncWorkspace = useStaysWorkspaceStore((state) => state.syncWorkspace);
 

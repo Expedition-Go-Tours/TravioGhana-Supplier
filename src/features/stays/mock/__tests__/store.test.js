@@ -1,5 +1,6 @@
-import { describe, expect, it, beforeEach } from 'vitest';
-import { staysMock } from '../store';
+import { describe, expect, it, beforeEach, vi } from 'vitest';
+import { staysMock, STAYS_MOCK_STORAGE_KEY } from '../store';
+import { STAYS_BUILDER_STEP_COUNT } from '@/features/stays/config/staysSteps';
 
 /**
  * The mock store stands in for the property API while it is being built, so
@@ -58,7 +59,7 @@ describe('properties', () => {
   it('submits a property for review', async () => {
     const created = await staysMock.createProperty();
     const submitted = await staysMock.submitProperty(created.id);
-    expect(submitted).toMatchObject({ status: 'Under review', step: 10 });
+    expect(submitted).toMatchObject({ status: 'Under review', step: STAYS_BUILDER_STEP_COUNT });
   });
 
   it('deletes a property together with its bookings', async () => {
@@ -154,5 +155,81 @@ describe('bookings', () => {
     const updated = await staysMock.updateBookingStatus('TG-S-20494', 'Confirmed');
     expect(updated.status).toBe('Confirmed');
     expect(await staysMock.listBookings({ status: 'New' })).toHaveLength(0);
+  });
+});
+
+describe('draft persistence', () => {
+  it('keeps a created draft through a reload', async () => {
+    const created = await staysMock.createProperty({ name: 'Persisted Draft', city: 'Accra' });
+
+    staysMock.reload();
+
+    const reloaded = await staysMock.getProperty(created.id);
+    expect(reloaded).toMatchObject({ name: 'Persisted Draft', city: 'Accra', status: 'Draft' });
+  });
+
+  it('keeps edits to a reference property through a reload', async () => {
+    await staysMock.updateProperty('p1', { name: 'Renamed Hotel', step: 4 });
+
+    staysMock.reload();
+
+    const reloaded = await staysMock.getProperty('p1');
+    expect(reloaded).toMatchObject({ name: 'Renamed Hotel', step: 4 });
+  });
+
+  it('restores the reference dataset on reset, stored copy included', async () => {
+    await staysMock.updateProperty('p1', { name: 'Scratch' });
+
+    staysMock.reset();
+    staysMock.reload();
+
+    const reloaded = await staysMock.getProperty('p1');
+    expect(reloaded.name).toBe('Akwaaba Coast Hotel');
+  });
+
+  it('falls back to the seed when the stored payload is corrupt', async () => {
+    localStorage.setItem(STAYS_MOCK_STORAGE_KEY, '{not-json');
+
+    staysMock.reload();
+
+    const properties = await staysMock.listProperties();
+    expect(properties.map((p) => p.id)).toContain('p1');
+  });
+
+  it('falls back to the seed for an older storage version', async () => {
+    localStorage.setItem(
+      STAYS_MOCK_STORAGE_KEY,
+      JSON.stringify({ version: 0, db: { properties: [], bookings: [] } }),
+    );
+
+    staysMock.reload();
+
+    const properties = await staysMock.listProperties();
+    expect(properties.map((p) => p.id)).toContain('p1');
+  });
+
+  it('keeps draft fields (drops photo payloads) when storage is full', async () => {
+    const created = await staysMock.createProperty({ name: 'Quota Draft' });
+
+    const original = Storage.prototype.setItem;
+    let calls = 0;
+    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function setItem(key, value) {
+      calls += 1;
+      // Fail the first (full) write so persist() retries without the photos.
+      if (calls === 1) throw new DOMException('quota', 'QuotaExceededError');
+      return original.call(this, key, value);
+    });
+
+    try {
+      await staysMock.addPhotos(created.id, ['data:image/png;base64,AAAA']);
+
+      staysMock.reload();
+
+      const reloaded = await staysMock.getProperty(created.id);
+      expect(reloaded.name).toBe('Quota Draft');
+      expect(reloaded.photos).toEqual([]);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

@@ -27,6 +27,15 @@ import SpecialOfferBuilderPage from "@/features/special-offers/pages/SpecialOffe
 import StaysDashboardPage from "@/features/stays/pages/StaysDashboardPage";
 import PropertiesListPage from "@/features/stays/pages/PropertiesListPage";
 import PropertyBuilderPage from "@/features/stays/pages/PropertyBuilderPage";
+import PropertyTypeChooserPage from "@/features/stays/pages/PropertyTypeChooserPage";
+import PropertyScopePage from "@/features/stays/pages/PropertyScopePage";
+import PropertyBookTypePage from "@/features/stays/pages/PropertyBookTypePage";
+import PropertyHomeCategoryPage from "@/features/stays/pages/PropertyHomeCategoryPage";
+import PropertyHomeCountPage from "@/features/stays/pages/PropertyHomeCountPage";
+import PropertyHotelCategoryPage from "@/features/stays/pages/PropertyHotelCategoryPage";
+import PropertyAlternativeCategoryPage from "@/features/stays/pages/PropertyAlternativeCategoryPage";
+import PropertyConfirmPage from "@/features/stays/pages/PropertyConfirmPage";
+import PropertyOtherListingsPage from "@/features/stays/pages/PropertyOtherListingsPage";
 import StaysBookingsPage from "@/features/stays/pages/StaysBookingsPage";
 import StaysAvailabilityPage from "@/features/stays/pages/StaysAvailabilityPage";
 import StaysRatesPage from "@/features/stays/pages/StaysRatesPage";
@@ -107,7 +116,22 @@ export const router = createBrowserRouter([
                 // the shared PageContainer: its chrome is the stays gutter.
                 { path: "stays", element: <StaysDashboardPage /> },
                 { path: "stays/properties", element: <PropertiesListPage /> },
-                { path: "stays/properties/build/:id?", element: <PropertyBuilderPage />, handle: { bleed: true } },
+                // Bare /build is the category chooser (Booking's landing page);
+                // the builder itself always has a draft id, or the `new` alias.
+                { path: "stays/properties/build", element: <PropertyTypeChooserPage /> },
+                // The Quick start card's intro screens — "how many are you listing?"
+                // then the confirmation and the other-listings question. No draft
+                // exists until the last screen's Continue.
+                { path: "stays/properties/build/quick-start", element: <PropertyScopePage /> },
+                // The Homes card asks what guests can book, then the sub-type.
+                { path: "stays/properties/build/book-type", element: <PropertyBookTypePage /> },
+                { path: "stays/properties/build/home-category", element: <PropertyHomeCategoryPage /> },
+                { path: "stays/properties/build/home-count", element: <PropertyHomeCountPage /> },
+                { path: "stays/properties/build/hotel-category", element: <PropertyHotelCategoryPage /> },
+                { path: "stays/properties/build/alternative-category", element: <PropertyAlternativeCategoryPage /> },
+                { path: "stays/properties/build/quick-start/confirm", element: <PropertyConfirmPage /> },
+                { path: "stays/properties/build/quick-start/other-listings", element: <PropertyOtherListingsPage /> },
+                { path: "stays/properties/build/:id", element: <PropertyBuilderPage />, handle: { bleed: true } },
                 { path: "stays/bookings", element: <StaysBookingsPage /> },
                 { path: "stays/availability", element: <StaysAvailabilityPage /> },
                 { path: "stays/rates", element: <StaysRatesPage /> },

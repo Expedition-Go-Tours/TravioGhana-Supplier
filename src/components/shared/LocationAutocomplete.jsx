@@ -42,6 +42,7 @@ const LocationAutocomplete = forwardRef(function LocationAutocomplete(
     mode = "dropdown",
     clearOnSelect = false,
     minChars = 2,
+    value,
   },
   ref
 ) {
@@ -79,6 +80,16 @@ const LocationAutocomplete = forwardRef(function LocationAutocomplete(
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Optional controlled mode: when the parent sets the value (a pin moved on
+  // the map, a pasted Google Maps link), mirror it into the input. Typing
+  // still flows through `onChange`, so this never fights the user.
+  useEffect(() => {
+    if (typeof value === "string" && value !== query) {
+      setQuery(value);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
 
   const handleInputChange = (e) => {
     const value = e.target.value;

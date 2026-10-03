@@ -1,19 +1,70 @@
 /**
- * In-memory Stays dataset used while the backend endpoints are being built.
+ * Stays preview dataset used while the backend endpoints are being built.
  *
  * Every function mirrors an API call from `features/stays/api.js` — same
  * arguments, same response shape — so switching `staysDataSource` to "api"
- * changes nothing for the pages. State lives for the tab's lifetime only;
- * the prototype's localStorage persistence is intentionally not carried over
- * (a reload should always show the same reference dataset).
+ * changes nothing for the pages. Edits are persisted to localStorage so a
+ * draft in progress survives a page reload; when the real endpoints ship, the
+ * backend owns persistence and this layer is no longer used.
  */
+import { STAYS_BUILDER_STEP_COUNT } from "../config/staysSteps";
 import { defaultRatePlan, seedStays } from "./seed";
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const delay = (ms = 120) => new Promise((resolve) => setTimeout(resolve, ms));
 const uid = (prefix) => `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
-let db = clone(seedStays);
+/** Bump when the seed or stored shape changes — old payloads reseed. */
+const STORAGE_VERSION = 2;
+export const STAYS_MOCK_STORAGE_KEY = "stays-mock-db-v1";
+
+/**
+ * Read the persisted dataset, falling back to the reference seed for a
+ * missing, corrupt or outdated payload.
+ */
+function loadDb() {
+  if (typeof localStorage === "undefined") return clone(seedStays);
+  try {
+    const raw = localStorage.getItem(STAYS_MOCK_STORAGE_KEY);
+    if (!raw) return clone(seedStays);
+    const stored = JSON.parse(raw);
+    if (stored?.version !== STORAGE_VERSION || !stored.db) return clone(seedStays);
+    const data = stored.db;
+    if (!Array.isArray(data.properties) || !Array.isArray(data.bookings)) return clone(seedStays);
+    return data;
+  } catch {
+    return clone(seedStays);
+  }
+}
+
+/**
+ * Persist the dataset after every mutation. Photos are data URLs, so a full
+ * draft can exceed the ~5MB localStorage quota — fall back to dropping the
+ * image payloads before giving up; the fields users care about survive a
+ * reload either way.
+ */
+function persist() {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(STAYS_MOCK_STORAGE_KEY, JSON.stringify({ version: STORAGE_VERSION, db }));
+    return;
+  } catch {
+    // Most likely QuotaExceededError from photo data URLs.
+  }
+  try {
+    const light = clone(db);
+    for (const property of light.properties) {
+      property.photos = (property.photos || []).filter(
+        (src) => typeof src === "string" && !src.startsWith("data:"),
+      );
+    }
+    localStorage.setItem(STAYS_MOCK_STORAGE_KEY, JSON.stringify({ version: STORAGE_VERSION, db: light }));
+  } catch {
+    // Storage unavailable or still full: keep the session copy working.
+  }
+}
+
+let db = loadDb();
 
 function property(id) {
   const found = db.properties.find((p) => p.id === id);
@@ -44,9 +95,15 @@ function bookingCountFor(propertyId) {
 const nonCancelled = () => db.bookings.filter((b) => b.status !== "Cancelled");
 
 export const staysMock = {
-  /** Test hook — restore the reference dataset. */
+  /** Test hook — restore the reference dataset (and the stored copy). */
   reset() {
     db = clone(seedStays);
+    persist();
+  },
+
+  /** Test hook — simulate a page reload by re-reading persisted state. */
+  reload() {
+    db = loadDb();
   },
 
   // ── Dashboard ─────────────────────────────────────────────────────────
@@ -127,6 +184,11 @@ export const staysMock = {
       country: "Ghana",
       city: "",
       address: "",
+      apartment: "",
+      postcode: "",
+      lat: null,
+      lng: null,
+      mapAddress: "",
       gps: "",
       landmark: "",
       shortDescription: "",
@@ -140,23 +202,72 @@ export const staysMock = {
       start: "",
       advance: "12 months",
       checkin: "14:00",
+      checkinEnd: "18:00",
+      checkoutStart: "08:00",
       checkout: "11:00",
       cancellation: "Flexible",
+      // Become-a-host answers (see scripts/booking-host-crawl/STEP-MAP.md).
+      listingScope: "One property",
+      sameAddress: null,
+      propertyCount: null,
+      otherListings: [],
+      noOtherListings: false,
+      channelManager: { connected: false, name: "" },
+      services: { breakfast: "No", parking: "No" },
+      languages: [],
+      hostProfile: {
+        property: { included: false, about: "" },
+        host: { included: false, name: "", about: "" },
+        neighbourhood: { included: false, about: "" },
+        none: false,
+      },
+      // Property details (step 10)
+      sleeping: {
+        bedrooms: [{ id: "bed-1", name: "Bedroom 1", doubleBeds: 1, singleBeds: 0 }],
+        livingRoomBeds: 0,
+        otherSpacesBeds: 0,
+      },
+      maxGuests: 2,
+      excludeInfants: false,
+      bathrooms: 1,
+      children: "Welcome",
+      cots: "Not available",
+      size: "",
+      sizeUnit: "square metres",
+      bookingPreference: "instant",
+      pricePerNight: "29.00",
+      currency: "GHS",
+      promotion: true,
+      startMode: "asap",
+      calendarWindow: "365 days",
+      calendarImport: { mode: "import", url: "" },
+      longStays: null,
+      payments: { mode: "Online when they book" },
+      invoicing: { name: "", legalName: "", sameAddress: true, address: "" },
+      agreement: {
+        certifyBusiness: false,
+        certifyTerms: false,
+        openMonths: "18 months",
+        notReadyReason: "",
+      },
       ...payload,
     };
     db.properties.push(created);
+    persist();
     return clone(created);
   },
 
   async updateProperty(id, patch = {}) {
     await delay();
     Object.assign(property(id), patch);
+    persist();
     return clone(property(id));
   },
 
   async submitProperty(id) {
     await delay();
-    Object.assign(property(id), { status: "Under review", step: 10 });
+    Object.assign(property(id), { status: "Under review", step: STAYS_BUILDER_STEP_COUNT });
+    persist();
     return clone(property(id));
   },
 
@@ -164,6 +275,7 @@ export const staysMock = {
     await delay();
     db.properties = db.properties.filter((p) => p.id !== id);
     db.bookings = db.bookings.filter((b) => b.propertyId !== id);
+    persist();
     return { ok: true };
   },
 
@@ -181,6 +293,7 @@ export const staysMock = {
       p.ratePlans = p.ratePlans || [];
       p.ratePlans.push(defaultRatePlan(created));
     }
+    persist();
     return clone(p);
   },
 
@@ -189,6 +302,7 @@ export const staysMock = {
     const p = property(propertyId);
     p.rooms = p.rooms.filter((r) => r.id !== roomId);
     p.ratePlans = (p.ratePlans || []).filter((plan) => plan.roomId !== roomId);
+    persist();
     return clone(p);
   },
 
@@ -200,6 +314,7 @@ export const staysMock = {
     const index = p.ratePlans.findIndex((x) => x.id === plan.id);
     if (index >= 0) p.ratePlans[index] = { ...p.ratePlans[index], ...plan };
     else p.ratePlans.push({ ...plan, id: plan.id || uid("plan") });
+    persist();
     return clone(p);
   },
 
@@ -212,6 +327,7 @@ export const staysMock = {
       throw new Error("Keep at least one rate plan for this room");
     }
     p.ratePlans = p.ratePlans.filter((x) => x.id !== planId);
+    persist();
     return clone(p);
   },
 
@@ -234,6 +350,7 @@ export const staysMock = {
     await delay();
     property(propertyId);
     db.overrides[`${roomId}|${date}`] = { ...values };
+    persist();
     return { ok: true };
   },
 
@@ -242,6 +359,7 @@ export const staysMock = {
     await delay();
     property(propertyId);
     delete db.overrides[`${roomId}|${date}`];
+    persist();
     return { ok: true };
   },
 
@@ -262,6 +380,7 @@ export const staysMock = {
     const booking = db.bookings.find((b) => b.id === id);
     if (!booking) throw new Error("Booking not found");
     booking.status = status;
+    persist();
     return clone(booking);
   },
 
@@ -280,12 +399,14 @@ export const staysMock = {
     const index = db.offers.findIndex((o) => o.id === offer.id);
     if (index >= 0) db.offers[index] = { ...db.offers[index], ...offer };
     else db.offers.push({ ...offer, id: offer.id || uid("offer") });
+    persist();
     return clone(db.offers);
   },
 
   async deleteOffer(id) {
     await delay();
     db.offers = db.offers.filter((o) => o.id !== id);
+    persist();
     return { ok: true };
   },
 
@@ -303,6 +424,7 @@ export const staysMock = {
     const message = db.messages.find((m) => m.id === id);
     if (!message) throw new Error("Message not found");
     message.reply = reply;
+    persist();
     return clone(message);
   },
 
@@ -319,6 +441,7 @@ export const staysMock = {
     const review = db.reviews.find((r) => r.id === id);
     if (!review) throw new Error("Review not found");
     review.reply = reply;
+    persist();
     return clone(review);
   },
 
@@ -384,6 +507,7 @@ export const staysMock = {
     await delay();
     const p = property(propertyId);
     p.photos = [...(p.photos || []), ...dataUrls];
+    persist();
     return clone(p.photos);
   },
 
@@ -391,6 +515,7 @@ export const staysMock = {
     await delay();
     const p = property(propertyId);
     p.photos.splice(index, 1);
+    persist();
     return clone(p.photos);
   },
 };

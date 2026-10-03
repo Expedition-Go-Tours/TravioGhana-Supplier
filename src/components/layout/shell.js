@@ -11,6 +11,11 @@
  *   - a narrower reading measure is fine, as long as it is left-aligned
  *     (e.g. `max-w-4xl`, never `max-w-4xl mx-auto`)
  *
+ * One documented exception: landing/hero pages that are a single centred card
+ * (the stays property-type chooser) centre their content column with `mx-auto`
+ * inside PageContainer. The page root still spans the shared gutter, so the
+ * header/logo alignment contract is unaffected.
+ *
  * SHELL_GUTTER must stay in sync with the fixed Header, which is what the
  * measured alignment in scripts/check-alignment.mjs compares against.
  */

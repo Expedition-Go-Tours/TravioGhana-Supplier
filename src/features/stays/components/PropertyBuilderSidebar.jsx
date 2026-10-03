@@ -1,5 +1,13 @@
 import { useState, useRef, useEffect } from "react";
-import { ChevronDown, Flag, FileText, Settings, ShieldCheck, Eye, CheckCircle2 } from "lucide-react";
+import {
+  ChevronDown,
+  Flag,
+  Camera,
+  Settings,
+  CalendarDays,
+  Eye,
+  CheckCircle2,
+} from "lucide-react";
 import { STAYS_SECTIONS, STAYS_BUILDER_STEPS } from "../config/staysSteps";
 
 /**
@@ -10,10 +18,10 @@ import { STAYS_SECTIONS, STAYS_BUILDER_STEPS } from "../config/staysSteps";
  */
 
 const SECTION_ICONS = {
-  "getting-started": Flag,
-  "property-content": FileText,
-  "rates-availability": Settings,
-  "policies-media": ShieldCheck,
+  "basic-information": Flag,
+  photos: Camera,
+  "property-setup": Settings,
+  "pricing-calendar": CalendarDays,
   "review-submit": Eye,
 };
 

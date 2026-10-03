@@ -69,13 +69,12 @@ export default function OfferModal({ open, offer, properties = [], defaultProper
           <StaysInput value={form.name} onChange={set("name")} />
         </StaysField>
         <StaysField label="Property">
-          <StaysSelect value={form.propertyId} onChange={set("propertyId")}>
-            {properties.map((property) => (
-              <option key={property.id} value={property.id}>
-                {property.name}
-              </option>
-            ))}
-          </StaysSelect>
+          <StaysSelect
+            options={properties.map((property) => ({ value: property.id, label: property.name }))}
+            value={form.propertyId}
+            onChange={set("propertyId")}
+            placeholder="Select a property"
+          />
         </StaysField>
         <StaysField label="Offer type">
           <StaysSelect options={OFFER_KINDS} value={form.kind} onChange={set("kind")} />

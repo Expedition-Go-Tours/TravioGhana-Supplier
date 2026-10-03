@@ -763,6 +763,29 @@ export const handlers = [
     return HttpResponse.json({ data: { results: [] } });
   }),
 
+  // Backend reverse geocoding (proxy) — returns the coordinates it was given.
+  http.get(`${API_BASE_URL}/locations/reverse`, ({ request }) => {
+    const url = new URL(request.url);
+    const lat = Number(url.searchParams.get('lat'));
+    const lng = Number(url.searchParams.get('lng'));
+
+    return HttpResponse.json({
+      data: {
+        results: [
+          {
+            formatted: '12 Independence Ave, Accra, Greater Accra, Ghana',
+            city: 'Accra',
+            country: 'Ghana',
+            region: 'Greater Accra',
+            latitude: lat,
+            longitude: lng,
+            source: 'geoapify',
+          },
+        ],
+      },
+    });
+  }),
+
   // Geoapify Geocoding (free tier autocomplete)
   http.get('https://api.geoapify.com/v1/geocode/autocomplete', ({ request }) => {
     const url = new URL(request.url);

@@ -2,20 +2,19 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
-import { RefreshCw, X } from "lucide-react";
+import { AlertTriangle, RefreshCw, X } from "lucide-react";
 import { toast } from "sonner";
 import { SHELL_GUTTER } from "@/components/layout/shell";
 import StaysPill from "../components/StaysPill";
 import StaysModal from "../components/StaysModal";
 import StaysButton from "../components/StaysButton";
-import RoomModal from "../components/RoomModal";
-import RatePlanModal from "../components/RatePlanModal";
 import PropertyBuilderSidebar from "../components/PropertyBuilderSidebar";
 import PropertyBuilderFooter from "../components/PropertyBuilderFooter";
 import {
   getStaysStepIndex,
   STAYS_BUILDER_STEPS,
   STAYS_BUILDER_STEP_COUNT,
+  STAYS_FIRST_BUILDER_INDEX,
 } from "../config/staysSteps";
 import { useStaysDraft } from "../hooks/useStaysDraft";
 import { statusTone } from "../utils/status";
@@ -30,28 +29,40 @@ import {
   submitProperty,
   STAYS_KEYS,
 } from "../api";
-import Step01Name from "../steps/Step01Name";
-import Step02Basics from "../steps/Step02Basics";
-import Step03Location from "../steps/Step03Location";
-import Step04Facilities from "../steps/Step04Facilities";
-import Step05Rooms from "../steps/Step05Rooms";
-import Step06Rates from "../steps/Step06Rates";
-import Step07Availability from "../steps/Step07Availability";
-import Step08Policies from "../steps/Step08Policies";
-import Step09Photos from "../steps/Step09Photos";
-import Step10Review from "../steps/Step10Review";
+import Step01Location from "../steps/Step01Location";
+import Step02ChannelManager from "../steps/Step02ChannelManager";
+import Step03Photos from "../steps/Step03Photos";
+import Step04Languages from "../steps/Step04Languages";
+import Step05HouseRules from "../steps/Step05HouseRules";
+import Step06Identity from "../steps/Step06Identity";
+import Step07HostProfile from "../steps/Step07HostProfile";
+import Step08PropertyDetails from "../steps/Step08PropertyDetails";
+import Step09Amenities from "../steps/Step09Amenities";
+import Step10Services from "../steps/Step10Services";
+import Step11BookingPreference from "../steps/Step11BookingPreference";
+import Step12Payments from "../steps/Step12Payments";
+import Step13PricePerNight from "../steps/Step13PricePerNight";
+import Step14Rates from "../steps/Step14Rates";
+import Step15Availability from "../steps/Step15Availability";
+import Step16Review from "../steps/Step16Review";
 
 const STEP_COMPONENTS = [
-  Step01Name,
-  Step02Basics,
-  Step03Location,
-  Step04Facilities,
-  Step05Rooms,
-  Step06Rates,
-  Step07Availability,
-  Step08Policies,
-  Step09Photos,
-  Step10Review,
+  Step01Location,
+  Step02ChannelManager,
+  Step03Photos,
+  Step04Languages,
+  Step05HouseRules,
+  Step06Identity,
+  Step07HostProfile,
+  Step08PropertyDetails,
+  Step09Amenities,
+  Step10Services,
+  Step11BookingPreference,
+  Step12Payments,
+  Step13PricePerNight,
+  Step14Rates,
+  Step15Availability,
+  Step16Review,
 ];
 
 /**
@@ -71,8 +82,6 @@ export default function PropertyBuilderPage() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [roomModal, setRoomModal] = useState(null); // { room?, openKey }
-  const [planModal, setPlanModal] = useState(null); // { room, plan?, openKey }
   const [showSuccess, setShowSuccess] = useState(false);
   const [mobileStepsOpen, setMobileStepsOpen] = useState(false);
   const [stepError, setStepError] = useState("");
@@ -82,6 +91,11 @@ export default function PropertyBuilderPage() {
   // Guards against React StrictMode's double effect invocation, which used to
   // create two "Untitled property" drafts every time the builder opened.
   const createStartedRef = useRef(false);
+  // `/stays/properties/build` and `/stays/properties/build/new` both start a
+  // fresh draft. Without the `new` alias the route treats it as an existing
+  // property ID: the fetch 404s and the builder spins on its loading screen
+  // forever. The products builder accepts the same alias.
+  const isNew = !id || id === "new";
 
   // ── Draft bootstrapping ────────────────────────────────────────────────
   const createMutation = useMutation({
@@ -90,7 +104,7 @@ export default function PropertyBuilderPage() {
       setCreatedHere(true);
       queryClient.invalidateQueries({ queryKey: ["stays", "properties"] });
       navigate(
-        `/stays/properties/build/${created.id}?section=getting-started&step=name`,
+        `/stays/properties/build/${created.id}?section=basic-information&step=location`,
         { replace: true },
       );
     },
@@ -98,15 +112,15 @@ export default function PropertyBuilderPage() {
   });
 
   useEffect(() => {
-    if (id || createStartedRef.current) return;
+    if (!isNew || createStartedRef.current) return;
     createStartedRef.current = true;
     createMutation.mutate();
-  }, [id, createMutation]);
+  }, [isNew, createMutation]);
 
-  const { data: property, isLoading } = useQuery({
+  const { data: property, isLoading, isError } = useQuery({
     queryKey: STAYS_KEYS.property(id),
     queryFn: () => getProperty(id),
-    enabled: Boolean(id),
+    enabled: Boolean(id) && !isNew,
   });
 
   const { draft, patch, flush, isSaving, lastSavedAt } = useStaysDraft(property);
@@ -115,11 +129,22 @@ export default function PropertyBuilderPage() {
   const querySection = searchParams.get("section");
   const queryStep = searchParams.get("step");
   const hasStepParams = Boolean(querySection && queryStep);
-  const stepIndex = hasStepParams
-    ? getStaysStepIndex(querySection, queryStep)
-    : Math.min(draft?.step || 0, STAYS_BUILDER_STEP_COUNT - 1);
+  // The category step is answered before the draft exists, so the builder
+  // never sits on it: any index below the first builder step floors there.
+  const stepIndex = Math.max(
+    hasStepParams
+      ? getStaysStepIndex(querySection, queryStep)
+      : Math.min(draft?.step || 0, STAYS_BUILDER_STEP_COUNT - 1),
+    STAYS_FIRST_BUILDER_INDEX,
+  );
   const stepMeta = STAYS_BUILDER_STEPS[stepIndex];
   const completedCount = Math.min(draft?.step || 0, STAYS_BUILDER_STEP_COUNT);
+  // Full-bleed steps own the content area (the location map) and hide the
+  // builder footer; steps with their own heading/footer (the channel manager)
+  // skip the standard chrome so the reference layout isn't doubled up.
+  const isFullBleedStep = Boolean(stepMeta?.fullBleed);
+  const showStepHeader = !isFullBleedStep && !stepMeta?.hideHeader;
+  const showBuilderFooter = !isFullBleedStep && !stepMeta?.hideFooter;
 
   useEffect(() => {
     contentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
@@ -130,35 +155,46 @@ export default function PropertyBuilderPage() {
     if (!meta) return;
     setStepDirection(direction);
     setStepError("");
-    setSearchParams({ section: meta.sectionId, step: meta.stepId }, { replace: true });
+    const next = new URLSearchParams(searchParams);
+    next.set("section", meta.sectionId);
+    next.set("step", meta.stepId);
+    setSearchParams(next, { replace: true });
   };
 
-  // ── Validation — the rules the builder always had, per step ────────────
-  const validateStepAt = (index, value) => {
-    switch (index) {
-      case 0:
-        return !value.name || value.name === "Untitled property"
-          ? "Add a property name to continue"
-          : "";
-      case 2:
-        return !value.city || !value.address ? "Add a city and street address" : "";
-      case 4:
-        return !value.rooms?.length ? "Add at least one room or unit" : "";
-      case 5:
-        return (value.rooms || []).some(
-          (room) => !(value.ratePlans || []).some((plan) => plan.roomId === room.id),
-        )
-          ? "Add a rate plan for each room"
-          : "";
-      case 6:
-        return !value.start ? "Choose the first bookable date" : "";
-      default:
-        return "";
-    }
+  // ── Validation — keyed by step slug so reordering steps is safe ───────
+  const STEP_VALIDATORS = {
+    location: (value) => {
+      if (!value.city || !value.address) return "Add a city and street address";
+      if (value.lat == null || value.lng == null) {
+        return "Place your property's pin on the map to continue";
+      }
+      return "";
+    },
+    identity: (value) =>
+      !value.name || value.name === "Untitled property"
+        ? "Add a property name to continue"
+        : "",
+    availability: (value) => {
+      if ((value.startMode || "asap") === "date" && !value.start) {
+        return "Choose the first bookable date";
+      }
+      if (!value.longStays) return "Answer the 30+ night stays question";
+      return "";
+    },
+    review: (value) =>
+      !value.agreement?.certifyBusiness || !value.agreement?.certifyTerms
+        ? "Accept the certifications before submitting"
+        : "",
+  };
+
+  const validateStep = (index, value) => {
+    const meta = STAYS_BUILDER_STEPS[index];
+    const validator = meta ? STEP_VALIDATORS[meta.stepId] : null;
+    return validator ? validator(value) : "";
   };
 
   const handleNext = () => {
-    const error = validateStepAt(stepIndex, draft);
+    const error = validateStep(stepIndex, draft);
     if (error) {
       setStepError(error);
       toast.error(error);
@@ -168,12 +204,25 @@ export default function PropertyBuilderPage() {
     goToStep(Math.min(stepIndex + 1, STAYS_BUILDER_STEP_COUNT - 1), 1);
   };
 
-  const handleBack = () => goToStep(Math.max(0, stepIndex - 1), -1);
+  const handleBack = () => goToStep(Math.max(STAYS_FIRST_BUILDER_INDEX, stepIndex - 1), -1);
 
   const handleSelectStep = (index) => {
+    const meta = STAYS_BUILDER_STEPS[index];
+    if (!meta) return;
+    // Step 1 lives in the pre-builder chain (the four cards and their
+    // follow-ups), not inside the draft builder: clicking it reopens the
+    // chain to edit this draft's category instead of creating a new draft.
+    if (meta.preBuilder) {
+      navigate(`/stays/properties/build?draft=${id}`);
+      return;
+    }
     if (index > Math.max(completedCount, stepIndex)) return;
     goToStep(index, index > stepIndex ? 1 : -1);
   };
+
+  // Back on the first builder step (Location) reopens step 1 — the category
+  // chain — for this draft, mirroring the sidebar's step-1 row.
+  const handleFirstStepBack = () => handleSelectStep(STAYS_FIRST_BUILDER_INDEX - 1);
 
   const handleExit = async () => {
     try {
@@ -186,7 +235,7 @@ export default function PropertyBuilderPage() {
 
   const handleSubmit = () => {
     for (let index = 0; index < STAYS_BUILDER_STEP_COUNT; index += 1) {
-      const error = validateStepAt(index, draft);
+      const error = validateStep(index, draft);
       if (error) {
         setStepError(error);
         toast.error(error);
@@ -238,6 +287,46 @@ export default function PropertyBuilderPage() {
   });
 
   // ── Render ─────────────────────────────────────────────────────────────
+  // A failed lookup or failed draft creation must never leave the builder on
+  // its loading spinner forever (deleted draft, stale link, reset preview
+  // dataset, or an offline create).
+  if (isError || createMutation.isError) {
+    const createFailed = createMutation.isError;
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-white">
+        <div className="w-full max-w-md px-6">
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center">
+            <AlertTriangle className="mx-auto mb-3 text-red-600" size={36} />
+            <h2 className="text-lg font-semibold text-red-800">
+              {createFailed ? "Could not start a new property" : "Property not found"}
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-red-700">
+              {createFailed
+                ? "Something went wrong while creating the draft. Check your connection and try again."
+                : "This draft is no longer available. It may have been removed, or the preview data was reset."}
+            </p>
+            <div className="mt-5 flex flex-wrap justify-center gap-3">
+              {createFailed && (
+                <StaysButton
+                  variant="primary"
+                  onClick={() => {
+                    createMutation.reset();
+                    createMutation.mutate();
+                  }}
+                >
+                  Try again
+                </StaysButton>
+              )}
+              <StaysButton onClick={() => navigate("/stays/properties")}>
+                Back to properties
+              </StaysButton>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!draft || isLoading) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-white">
@@ -246,7 +335,9 @@ export default function PropertyBuilderPage() {
     );
   }
 
-  const StepBody = STEP_COMPONENTS[stepIndex];
+  // The category step is pre-builder, so the component list starts at the
+  // first draft-builder step (Location) — offset the lookup accordingly.
+  const StepBody = STEP_COMPONENTS[stepIndex - STAYS_FIRST_BUILDER_INDEX];
 
   return (
     <motion.div
@@ -351,10 +442,25 @@ export default function PropertyBuilderPage() {
             />
           </div>
 
-          <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-white lg:ml-6">
-            <div ref={contentRef} className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8">
-              <h2 className="mb-1 text-lg font-bold tracking-tight sm:mb-1.5 sm:text-xl">{stepMeta.label}</h2>
-              <p className="mb-4 text-sm text-slate-500 sm:mb-6">{stepMeta.hint}</p>
+          <div
+            className={`flex min-w-0 flex-1 flex-col overflow-hidden lg:ml-6 ${
+              isFullBleedStep ? "" : "bg-white"
+            }`}
+          >
+            <div
+              ref={contentRef}
+              className={
+                isFullBleedStep
+                  ? "min-h-0 flex-1 overflow-hidden"
+                  : "flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8"
+              }
+            >
+              {showStepHeader && (
+                <>
+                  <h2 className="mb-1 text-lg font-bold tracking-tight sm:mb-1.5 sm:text-xl">{stepMeta.label}</h2>
+                  <p className="mb-4 text-sm text-slate-500 sm:mb-6">{stepMeta.hint}</p>
+                </>
+              )}
               <AnimatePresence mode="wait" custom={stepDirection}>
                 {StepBody && (
                   <motion.div
@@ -369,14 +475,27 @@ export default function PropertyBuilderPage() {
                     animate="animate"
                     exit="exit"
                     transition={{ duration: 0.2, ease: "easeInOut" }}
+                    className={isFullBleedStep ? "h-full" : undefined}
                   >
                     <StepBody
                       property={draft}
                       patch={patch}
-                      onAddRoom={() => setRoomModal({ openKey: Date.now() })}
-                      onEditRoom={(room) => setRoomModal({ room, openKey: Date.now() })}
-                      onAddPlan={(room) => setPlanModal({ room, openKey: Date.now() })}
-                      onEditPlan={(room, plan) => setPlanModal({ room, plan, openKey: Date.now() })}
+                      // First builder step: Back reopens the category chain
+                      // instead of leaving the button off the screen.
+                      onBack={
+                        stepIndex > STAYS_FIRST_BUILDER_INDEX
+                          ? handleBack
+                          : handleFirstStepBack
+                      }
+                      onNext={handleNext}
+                      onSave={() => flush()}
+                      saving={isSaving}
+                      onSubmit={handleSubmit}
+                      submitting={submitMutation.isPending}
+                      onExit={handleExit}
+                      onSaveRoom={(room) => saveRoomMutation.mutateAsync(room)}
+                      onSavePlan={(plan) => savePlanMutation.mutateAsync(plan)}
+                      onDeletePlan={(plan) => deletePlanMutation.mutateAsync(plan)}
                       onAddPhotos={(dataUrls) => addPhotosMutation.mutateAsync(dataUrls)}
                       onRemovePhoto={(index) => removePhotoMutation.mutateAsync(index)}
                     />
@@ -385,38 +504,25 @@ export default function PropertyBuilderPage() {
               </AnimatePresence>
             </div>
 
-            <PropertyBuilderFooter
-              stepNumber={stepIndex + 1}
-              totalSteps={STAYS_BUILDER_STEP_COUNT}
-              onBack={handleBack}
-              onNext={handleNext}
-              onSubmit={handleSubmit}
-              error={stepError}
-              saving={isSaving}
-              submitting={submitMutation.isPending}
-              lastSavedAt={lastSavedAt}
-            />
+            {showBuilderFooter && (
+              <PropertyBuilderFooter
+                // Builder-relative numbering: the footer only uses these to
+                // hide Back on the first builder step and show Submit on the
+                // last, so the pre-builder category step doesn't count.
+                stepNumber={stepIndex - STAYS_FIRST_BUILDER_INDEX + 1}
+                totalSteps={STAYS_BUILDER_STEP_COUNT - STAYS_FIRST_BUILDER_INDEX}
+                onBack={handleBack}
+                onNext={handleNext}
+                onSubmit={handleSubmit}
+                error={stepError}
+                saving={isSaving}
+                submitting={submitMutation.isPending}
+                lastSavedAt={lastSavedAt}
+              />
+            )}
           </div>
         </div>
       </div>
-
-      <RoomModal
-        key={roomModal?.openKey}
-        open={Boolean(roomModal)}
-        room={roomModal?.room}
-        onClose={() => setRoomModal(null)}
-        onSave={(room) => saveRoomMutation.mutateAsync(room)}
-      />
-
-      <RatePlanModal
-        key={planModal?.openKey}
-        open={Boolean(planModal)}
-        room={planModal?.room}
-        plan={planModal?.plan}
-        onClose={() => setPlanModal(null)}
-        onSave={(plan) => savePlanMutation.mutateAsync(plan)}
-        onDelete={(plan) => deletePlanMutation.mutateAsync(plan)}
-      />
 
       <StaysModal
         open={showSuccess}

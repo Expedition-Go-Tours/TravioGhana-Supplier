@@ -11,15 +11,11 @@ export default function StaysPropertySelect({ properties, value, onChange, class
   return (
     <StaysSelect
       aria-label="Selected property"
+      options={properties.map((property) => ({ value: property.id, label: property.name }))}
       value={value || ""}
       onChange={(event) => onChange(event.target.value)}
+      placeholder="Select a property"
       className={className}
-    >
-      {properties.map((property) => (
-        <option key={property.id} value={property.id}>
-          {property.name}
-        </option>
-      ))}
-    </StaysSelect>
+    />
   );
 }

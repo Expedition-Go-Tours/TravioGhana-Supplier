@@ -58,3 +58,7 @@ start file
 
 # Stays parity harness screenshots
 scripts/stays-parity/output/
+
+# Booking host-flow crawl: local captures + the signed-in Chrome profile
+scripts/booking-host-crawl/output/
+scripts/booking-host-crawl/.auth/

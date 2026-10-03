@@ -4,6 +4,8 @@
  * its own nightly price. Kept as a pure function so builder step 4, the Rates
  * page and the plan cards all quote the same number.
  */
+import { roomPeople } from "./rooms";
+
 export function planPrice(plan, room) {
   if (plan?.pricingModel === "Derived from room base rate") {
     return Math.round(Number(room?.price || 0) * (1 + Number(plan.adjustmentPct || 0) / 100));
@@ -35,7 +37,7 @@ export function defaultPlanForRoom(room) {
     maxAdvanceDays: 365,
     minStay: 1,
     maxStay: 30,
-    baseGuests: Number(room.adults) || 2,
+    baseGuests: roomPeople(room) || 2,
     singleGuestDiscount: 0,
     extraAdult: 0,
     extraChild: 0,
