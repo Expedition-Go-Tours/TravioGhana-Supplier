@@ -167,4 +167,86 @@ describe('PayoutScheduleSummary', () => {
     );
     expect(screen.queryByText(/add a payout method to get paid/i)).not.toBeInTheDocument();
   });
+
+  const openRequestWindow = {
+    open: true,
+    opensAt: new Date(2026, 9, 15).toISOString(),
+    closesAt: new Date(2026, 9, 17, 23, 59, 59, 999).toISOString(),
+    cycleLabel: 'Oct 1–14',
+    source: 'schedule',
+  };
+
+  it('offers a manual request while the supplier own run window is open', async () => {
+    const onRequestPayout = vi.fn();
+    render(
+      <MemoryRouter>
+        <PayoutScheduleSummary
+          plan={basePlan}
+          available={1240}
+          requestWindow={openRequestWindow}
+          canRequestPayout
+          onRequestPayout={onRequestPayout}
+        />
+      </MemoryRouter>
+    );
+
+    const btn = screen.getByRole('button', { name: /request payout/i });
+    expect(btn).toBeEnabled();
+    expect(screen.getByText(/manual requests open until/i)).toBeInTheDocument();
+
+    await userEvent.click(btn);
+    expect(onRequestPayout).toHaveBeenCalledTimes(1);
+
+    // The schedule action must survive alongside it, not be replaced by it.
+    expect(screen.getByRole('link', { name: /change schedule/i })).toBeInTheDocument();
+  });
+
+  it('disables the request outside the run window and says when it opens', () => {
+    render(
+      <MemoryRouter>
+        <PayoutScheduleSummary
+          plan={basePlan}
+          available={1240}
+          requestWindow={{ ...openRequestWindow, open: false }}
+          canRequestPayout={false}
+          onRequestPayout={() => {}}
+        />
+      </MemoryRouter>
+    );
+
+    const btn = screen.getByRole('button', { name: /request payout/i });
+    expect(btn).toBeDisabled();
+    expect(btn).toHaveAttribute('title', expect.stringMatching(/opens with the next payout run/i));
+    expect(screen.getByText(/manual requests open/i)).toBeInTheDocument();
+  });
+
+  it('disables the request when nothing has cleared yet', () => {
+    render(
+      <MemoryRouter>
+        <PayoutScheduleSummary
+          plan={basePlan}
+          available={0}
+          requestWindow={openRequestWindow}
+          canRequestPayout={false}
+          onRequestPayout={() => {}}
+        />
+      </MemoryRouter>
+    );
+
+    const btn = screen.getByRole('button', { name: /request payout/i });
+    expect(btn).toBeDisabled();
+    expect(btn).toHaveAttribute('title', expect.stringMatching(/no eligible earnings/i));
+  });
+
+  it('renders no request button unless the page asks for one', () => {
+    // Legacy callers (and older payloads without a window) must be unaffected.
+    render(
+      <MemoryRouter>
+        <PayoutScheduleSummary plan={basePlan} available={1240} />
+      </MemoryRouter>
+    );
+    expect(screen.queryByRole('button', { name: /request payout/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/manual requests open/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /change schedule/i })).toBeInTheDocument();
+  });
 });

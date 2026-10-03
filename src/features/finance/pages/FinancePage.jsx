@@ -350,10 +350,13 @@ export default function FinancePage() {
   const windowOpen = Boolean(windowInfo?.open);
   const canRequestPayout = windowOpen && stats.available > 0;
 
-  // Automated payout schedule (weekly / twice a month / monthly). Enrolled
-  // suppliers are paid on their schedule — the withdrawal-window card and the
-  // manual request button apply only to legacy suppliers, or to everyone while
-  // the scheduler is paused.
+  // Automated payout schedule (weekly / twice a month / monthly).
+  //
+  // Enrolled suppliers are paid on their schedule, so they get the schedule
+  // card instead of the legacy withdrawal-window card — but they are not shut
+  // out of requesting by hand: `withdrawalWindow` now carries their own run
+  // day plus a short grace, and `canRequestPayout` below reads it exactly the
+  // same way for both flows. Only the card that is shown differs.
   const payoutPlan = summary?.payoutPlan || null;
   const showSchedule = Boolean(payoutPlan?.autoManaged) && payoutPlan?.autoRunsEnabled !== false;
 
@@ -529,7 +532,13 @@ export default function FinancePage() {
           legacy withdrawal window for everyone else. */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {showSchedule ? (
-          <PayoutScheduleSummary plan={payoutPlan} available={stats.available} />
+          <PayoutScheduleSummary
+            plan={payoutPlan}
+            available={stats.available}
+            requestWindow={windowInfo}
+            canRequestPayout={canRequestPayout}
+            onRequestPayout={() => setShowRequestModal(true)}
+          />
         ) : (
         <>
         {/* Current Payout Cycle */}
@@ -838,6 +847,9 @@ export default function FinancePage() {
               <p className="text-sm text-teal-700">
                 {showSchedule
                   ? `Payouts are generated automatically on your ${(payoutPlan?.scheduleShortLabel || "chosen").toLowerCase()} schedule — the next run is ${formatDate(payoutPlan?.nextRunAt)}.`
+                    + (windowInfo
+                        ? ` You can also request one by hand between ${formatDate(windowInfo.opensAt)} and ${formatDate(windowInfo.closesAt)}.`
+                        : "")
                   : "Payouts can be requested twice monthly during open withdrawal windows."}{" "}
                 Bookings with an open refund request are held until it is resolved.
               </p>

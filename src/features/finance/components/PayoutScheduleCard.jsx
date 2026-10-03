@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  AlertTriangle, Calendar, Check, ChevronRight, Clock, Info, Loader2, PauseCircle, Pencil,
+  AlertTriangle, Banknote, Calendar, Check, ChevronRight, Clock, Info, Loader2, PauseCircle, Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -289,9 +289,17 @@ function nextMonthFirst() {
  * is accumulating toward it. Replaces the legacy withdrawal-window card for
  * enrolled suppliers.
  */
-export function PayoutScheduleSummary({ plan, available = 0, currency = "USD" }) {
+export function PayoutScheduleSummary({
+  plan,
+  available = 0,
+  currency = "USD",
+  requestWindow = null,
+  canRequestPayout = false,
+  onRequestPayout = null,
+}) {
   const option = optionFor(plan, plan?.cycle);
   const paused = plan?.autoRunsEnabled === false;
+  const manualOpen = Boolean(requestWindow?.open);
 
   return (
     <div className="lg:col-span-2 bg-white border border-gray-200 rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -318,6 +326,20 @@ export function PayoutScheduleSummary({ plan, available = 0, currency = "USD" })
                 <PauseCircle size={11} /> Paused
               </span>
             )}
+            {/* An enrolled supplier can still ask for a payout by hand, but only
+                around their own run day — so say when, rather than leaving a
+                button they cannot explain the timing of. */}
+            {onRequestPayout && !paused && (
+              manualOpen ? (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700">
+                  Manual requests open until {formatRunDate(requestWindow.closesAt, { withYear: false })}
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-600">
+                  Manual requests open {formatRunDate(plan?.nextRunAt, { withYear: false })}
+                </span>
+              )
+            )}
           </div>
           <p className="text-xs text-gray-500 mt-1.5">
             {formatCurrency(available, currency)} accumulating · only completed bookings past their travel date are included.
@@ -335,14 +357,39 @@ export function PayoutScheduleSummary({ plan, available = 0, currency = "USD" })
           </div>
         </div>
       </div>
-      <Link
-        to="/settings?tab=payouts"
-        className="inline-flex items-center justify-center gap-2 px-5 sm:px-6 py-3 sm:py-3.5 rounded-lg text-sm font-semibold bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all whitespace-nowrap"
-      >
-        <Pencil size={15} />
-        Change schedule
-        <ChevronRight size={15} />
-      </Link>
+      <div className="flex flex-col gap-2 shrink-0">
+        {onRequestPayout && (
+          <button
+            type="button"
+            onClick={onRequestPayout}
+            disabled={!canRequestPayout}
+            title={
+              !canRequestPayout
+                ? manualOpen
+                  ? "No eligible earnings yet"
+                  : "Your manual request window opens with the next payout run"
+                : ""
+            }
+            className={cn(
+              "inline-flex items-center justify-center gap-2 px-5 sm:px-6 py-3 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap",
+              canRequestPayout
+                ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                : "bg-gray-100 text-gray-400 cursor-not-allowed",
+            )}
+          >
+            <Banknote size={15} />
+            Request payout · {formatCurrency(available, currency)}
+          </button>
+        )}
+        <Link
+          to="/settings?tab=payouts"
+          className="inline-flex items-center justify-center gap-2 px-5 sm:px-6 py-3 rounded-lg text-sm font-semibold bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all whitespace-nowrap"
+        >
+          <Pencil size={15} />
+          Change schedule
+          <ChevronRight size={15} />
+        </Link>
+      </div>
     </div>
   );
 }
