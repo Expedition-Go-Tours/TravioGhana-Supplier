@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  AlertTriangle, Banknote, Calendar, Check, ChevronRight, Clock, Info, Loader2, PauseCircle, Pencil,
+  AlertTriangle, Banknote, Calendar, Check, Clock, Info, Loader2, PauseCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -357,7 +357,7 @@ export function PayoutScheduleSummary({
           </div>
         </div>
       </div>
-      <div className="flex flex-col gap-2 shrink-0">
+      <div className="flex shrink-0">
         {onRequestPayout && (
           <button
             type="button"
@@ -367,11 +367,11 @@ export function PayoutScheduleSummary({
               !canRequestPayout
                 ? manualOpen
                   ? "No eligible earnings yet"
-                  : "Your manual request window opens with the next payout run"
+                  : "You can request a payout on your next payout day, for 24 hours"
                 : ""
             }
             className={cn(
-              "inline-flex items-center justify-center gap-2 px-5 sm:px-6 py-3 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap",
+              "inline-flex items-center justify-center gap-2 px-5 sm:px-6 py-3 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap w-full sm:w-auto",
               canRequestPayout
                 ? "bg-emerald-500 text-white hover:bg-emerald-600"
                 : "bg-gray-100 text-gray-400 cursor-not-allowed",
@@ -381,14 +381,6 @@ export function PayoutScheduleSummary({
             Request payout · {formatCurrency(available, currency)}
           </button>
         )}
-        <Link
-          to="/settings?tab=payouts"
-          className="inline-flex items-center justify-center gap-2 px-5 sm:px-6 py-3 rounded-lg text-sm font-semibold bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all whitespace-nowrap"
-        >
-          <Pencil size={15} />
-          Change schedule
-          <ChevronRight size={15} />
-        </Link>
       </div>
     </div>
   );
