@@ -240,7 +240,7 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
                   >
                     <img src={site.favicon} alt="" width={16} height={16} className="shrink-0 rounded-[3px]" />
                     <span className="text-sm">{site.name}</span>
-                    <span className="ml-auto text-[10px] text-slate-400">{site.domain}</span>
+                    <span className="ml-auto text-[10px] text-slate-500">{site.domain}</span>
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
