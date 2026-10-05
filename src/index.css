@@ -809,6 +809,19 @@
 .scrollbar-none {-ms-overflow-style: none;scrollbar-width: none;}
 .scrollbar-none::-webkit-scrollbar {display: none;}
 
+/* Stays property builder, phones/tablets: hide the themed scrollbar on its
+   scroll areas — the desktop layout switch is at lg (1024px), and below that
+   the 6px scrollbar sits over the content instead of auto-hiding. */
+@media (max-width: 1023px) {
+  .scrollbar-none-mobile {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none-mobile::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 /* Global focus outline reset — outside @layer to override Tailwind preflight */
 *:focus {
   outline: none;

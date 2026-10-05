@@ -125,7 +125,7 @@ export default function StaysBuilderFrame({
           </div>
 
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-white lg:ml-6">
-            <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8">
+            <div className="scrollbar-none-mobile flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8">
               {children}
             </div>
           </div>
