@@ -152,7 +152,7 @@ export default function RefundClaimsPage() {
             onClick={() => setFilter(s.key)}
             className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${
               filter === s.key
-                ? "bg-emerald-600 text-white"
+                ? "bg-emerald-700 text-white"
                 : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
             }`}
           >
@@ -183,7 +183,7 @@ export default function RefundClaimsPage() {
             <Undo2 size={20} className="text-emerald-600" />
           </div>
           <p className="text-sm font-semibold text-slate-700">No refund requests</p>
-          <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
+          <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
             Requests customers file after completed trips will appear here for you to review.
           </p>
         </div>
@@ -204,7 +204,7 @@ export default function RefundClaimsPage() {
                           <Icon size={12} /> {pill.label}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-400 mt-1">
+                      <p className="text-xs text-slate-500 mt-1">
                         Ref {claim.booking.bookingNumber} · {claim.booking.customerName}
                         {claim.booking.customerEmail ? ` · ${claim.booking.customerEmail}` : ""}
                       </p>
@@ -215,13 +215,13 @@ export default function RefundClaimsPage() {
                           ? `Full refund · ${money(claim.booking.total, claim.booking.currency)}`
                           : `Partial · requested ${money(claim.requestedAmount, claim.booking.currency)}`}
                       </p>
-                      <p className="text-xs text-slate-400 mt-0.5">of {money(claim.booking.total, claim.booking.currency)} paid</p>
+                      <p className="text-xs text-slate-500 mt-0.5">of {money(claim.booking.total, claim.booking.currency)} paid</p>
                     </div>
                   </div>
 
                   <div className="mt-3 rounded-lg bg-slate-50 border border-slate-100 p-3 text-sm">
                     <p className="flex items-center gap-1.5 font-semibold text-slate-700">
-                      <MessageSquareText size={14} className="text-slate-400" />
+                      <MessageSquareText size={14} className="text-slate-500" />
                       {REASON_LABELS[claim.reason] || claim.reason}
                     </p>
                     {claim.details && <p className="text-slate-600 mt-1 text-[13px] leading-relaxed">{claim.details}</p>}
@@ -233,11 +233,11 @@ export default function RefundClaimsPage() {
                   </div>
 
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
-                    <div className="flex items-center gap-2 text-xs text-slate-400">
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
                       <Ticket size={13} />
                       {claim.claimNumber} · filed {new Date(claim.createdAt).toLocaleDateString()}
                       {claim.releasedAmount > 0 && claim.status === "RELEASED" && (
-                        <span className="flex items-center gap-1 text-emerald-600 font-semibold">
+                        <span className="flex items-center gap-1 text-emerald-700 font-semibold">
                           <DollarSign size={12} /> {money(claim.releasedAmount, claim.booking.currency)} released
                         </span>
                       )}
@@ -257,7 +257,7 @@ export default function RefundClaimsPage() {
                             type="button"
                             onClick={() => openDecision(claim, "approve")}
                             disabled={busyId === claim.id}
-                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-700 text-white text-xs font-semibold hover:bg-emerald-800 disabled:opacity-50 transition-colors"
                           >
                             {busyId === claim.id && <Loader2 size={12} className="animate-spin" />}
                             Approve

@@ -147,7 +147,7 @@ function BookingCombobox({ options, value, onChange }) {
         ) : (
           <span>Select a booking…</span>
         )}
-        <ChevronDown size={16} className={cn("text-gray-400 shrink-0 transition-transform", open && "rotate-180")} />
+        <ChevronDown size={16} className={cn("text-gray-500 shrink-0 transition-transform", open && "rotate-180")} />
       </button>
 
       {open && createPortal(
@@ -158,19 +158,19 @@ function BookingCombobox({ options, value, onChange }) {
         >
           <div className="p-2 border-b border-gray-100 shrink-0">
             <div className="relative">
-              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500" />
               <input
                 autoFocus
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search booking #, tour or customer…"
-                className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-md text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+                className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-md text-sm text-gray-700 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
               />
             </div>
           </div>
           <div className="overflow-y-auto">
             {filtered.length === 0 ? (
-              <p className="px-3 py-6 text-center text-sm text-gray-400">No bookings match “{query.trim()}”</p>
+              <p className="px-3 py-6 text-center text-sm text-gray-500">No bookings match “{query.trim()}”</p>
             ) : (
               filtered.map((b) => (
                 <button
@@ -519,7 +519,7 @@ export default function FinancePage() {
               <p className="text-sm text-gray-500">Available for payout</p>
               <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{formatCurrency(stats.available)}</p>
               {summary?.availableBalance?.bookingCount > 0 && (
-                <p className="text-xs text-gray-400 mt-0.5">{summary.availableBalance.bookingCount} booking(s)</p>
+                <p className="text-xs text-gray-500 mt-0.5">{summary.availableBalance.bookingCount} booking(s)</p>
               )}
             </div>
             <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
@@ -721,7 +721,7 @@ export default function FinancePage() {
                   <Banknote size={22} className="text-emerald-600" />
                 </div>
                 <button ref={requestDialog.closeRef} aria-label="Close" onClick={() => setShowRequestModal(false)} disabled={submittingRequest}
-                  className="text-gray-400 hover:text-gray-600 transition-colors">
+                  className="-m-1.5 p-1.5 text-gray-500 hover:text-gray-600 transition-colors">
                   <X size={18} />
                 </button>
               </div>
@@ -791,7 +791,7 @@ export default function FinancePage() {
                     <Undo2 size={22} className="text-emerald-600" />
                   </div>
                   <button type="button" onClick={() => setShowRefundModal(false)} disabled={submittingRefund}
-                    className="-m-1.5 p-1.5 text-gray-400 hover:text-gray-600 transition-colors">
+                    className="-m-1.5 p-1.5 text-gray-500 hover:text-gray-600 transition-colors">
                     <X size={18} />
                   </button>
                 </div>
@@ -849,14 +849,14 @@ export default function FinancePage() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Explanation <span className="font-normal text-gray-400">(optional)</span>
+                      Explanation <span className="font-normal text-gray-500">(optional)</span>
                     </label>
                     <textarea
                       rows={3}
                       placeholder="Add context that helps the reviewer decide: what happened, what the customer asked for…"
                       value={refundForm.description}
                       onChange={(e) => setRefundForm((p) => ({ ...p, description: e.target.value }))}
-                      className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all resize-none"
+                      className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all resize-none"
                     />
                   </div>
                 </div>
@@ -1133,7 +1133,7 @@ export default function FinancePage() {
                     <CheckCircle2 size={22} className="text-emerald-400" />
                   </div>
                   <h4 className="text-sm font-semibold text-gray-700 mb-1">No cancellation fees yet</h4>
-                  <p className="text-sm text-gray-400 max-w-[380px]">
+                  <p className="text-sm text-gray-500 max-w-[380px]">
                     When you cancel a booking, the 25% fee is recorded here and settled automatically from your next payout request.
                   </p>
                 </div>
@@ -1156,7 +1156,7 @@ export default function FinancePage() {
                           <tr key={charge.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
                             <td className="py-3 px-4 text-sm text-gray-500 whitespace-nowrap">{formatDate(charge.createdAt)}</td>
                             <td className="py-3 px-4">
-                              <span className="font-mono text-xs font-medium text-emerald-600">{charge.bookingNumber}</span>
+                              <span className="font-mono text-xs font-medium text-emerald-700">{charge.bookingNumber}</span>
                             </td>
                             <td className="py-3 px-4 text-right text-sm font-semibold text-red-600 tabular-nums whitespace-nowrap">
                               -{formatCurrency(charge.amount, charge.currency)}
@@ -1171,7 +1171,7 @@ export default function FinancePage() {
                               ) : charge.status === "WAIVED" ? (
                                 "Waived"
                               ) : (
-                                <span className="text-gray-300">—</span>
+                                <span className="text-gray-500">—</span>
                               )}
                             </td>
                           </tr>
@@ -1201,7 +1201,7 @@ export default function FinancePage() {
                   <Banknote size={26} className="text-emerald-300" />
                 </div>
                 <h3 className="text-base font-semibold text-gray-700 mb-1">No payout requests yet</h3>
-                <p className="text-sm text-gray-400 max-w-[260px]">
+                <p className="text-sm text-gray-500 max-w-[260px]">
                   {showSchedule
                     ? "Payouts are generated automatically on your schedule — your next run will appear here."
                     : "Submit a request during an open withdrawal window to receive your earnings."}
@@ -1233,7 +1233,7 @@ export default function FinancePage() {
                         >
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-2">
-                              <span className="font-mono text-xs font-medium text-emerald-600">{r.requestNumber}</span>
+                              <span className="font-mono text-xs font-medium text-emerald-700">{r.requestNumber}</span>
                               {r.autoGenerated && (
                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-sky-50 text-sky-700">
                                   <RefreshCw size={10} /> Automatic
@@ -1241,7 +1241,7 @@ export default function FinancePage() {
                               )}
                             </div>
                             {r.reference && (
-                              <p className="text-[11px] text-gray-400 mt-0.5">Ref: {r.reference}</p>
+                              <p className="text-[11px] text-gray-500 mt-0.5">Ref: {r.reference}</p>
                             )}
                           </td>
                           <td className="py-3 px-4 text-sm text-gray-700">{r.cycleLabel}</td>
@@ -1261,7 +1261,7 @@ export default function FinancePage() {
                               </button>
                             )}
                             {r.status === "REJECTED" && r.rejectedReason && (
-                              <span title={r.rejectedReason} className="text-xs text-gray-400 underline decoration-dotted">Reason</span>
+                              <span title={r.rejectedReason} className="text-xs text-gray-500 underline decoration-dotted">Reason</span>
                             )}
                           </td>
                         </motion.tr>
@@ -1330,7 +1330,7 @@ export default function FinancePage() {
                   <Undo2 size={26} className="text-emerald-300" />
                 </div>
                 <h3 className="text-base font-semibold text-gray-700 mb-1">No refund requests</h3>
-                <p className="text-sm text-gray-400 max-w-[280px]">Requests you file will appear here while they await review.</p>
+                <p className="text-sm text-gray-500 max-w-[280px]">Requests you file will appear here while they await review.</p>
               </div>
             ) : (
               <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
@@ -1365,11 +1365,11 @@ export default function FinancePage() {
                               )}
                             >
                               <td className="py-3 px-4">
-                                <span className="font-mono text-xs font-medium text-emerald-600">{d.disputeNumber}</span>
+                                <span className="font-mono text-xs font-medium text-emerald-700">{d.disputeNumber}</span>
                               </td>
                               <td className="py-3 px-4">
                                 <p className="text-sm font-medium text-gray-700">{d.bookingNumber}</p>
-                                <p className="text-xs text-gray-400 mt-0.5">{d.tourTitle}</p>
+                                <p className="text-xs text-gray-500 mt-0.5">{d.tourTitle}</p>
                               </td>
                               <td className="py-3 px-4">
                                 <RefundReasonBadge reason={d.reason} />
@@ -1378,7 +1378,7 @@ export default function FinancePage() {
                                 {d.refundAmount != null ? (
                                   <span className="font-semibold text-red-600">-{formatCurrency(d.refundAmount, d.currency)}</span>
                                 ) : (
-                                  <span className="text-gray-300">—</span>
+                                  <span className="text-gray-500">—</span>
                                 )}
                               </td>
                               <td className="py-3 px-4 text-center"><RefundStatusBadge status={d.status} /></td>
@@ -1401,26 +1401,26 @@ export default function FinancePage() {
                                 <td colSpan={7} className="px-4 pb-4 pt-1">
                                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
-                                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Travel date</p>
+                                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Travel date</p>
                                       <p className="text-sm font-medium text-gray-700 mt-1">{formatDate(d.travelDate)}</p>
                                     </div>
                                     <div>
-                                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Booking total</p>
+                                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Booking total</p>
                                       <p className="text-sm font-medium text-gray-700 mt-1">{formatCurrency(d.grossAmount, d.currency)}</p>
                                     </div>
                                     <div>
-                                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Resolved</p>
+                                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Resolved</p>
                                       <p className="text-sm font-medium text-gray-700 mt-1">{d.resolvedAt ? formatDate(d.resolvedAt) : "Awaiting review"}</p>
                                     </div>
                                     {d.description && (
                                       <div className="md:col-span-3">
-                                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Your explanation</p>
+                                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Your explanation</p>
                                         <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">{d.description}</p>
                                       </div>
                                     )}
                                     {d.resolution && (
                                       <div className="md:col-span-3">
-                                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Admin decision</p>
+                                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Admin decision</p>
                                         <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">{d.resolution}</p>
                                       </div>
                                     )}
@@ -1495,7 +1495,7 @@ export default function FinancePage() {
                     <CreditCard size={26} className="text-emerald-300" />
                   </div>
                   <h3 className="text-base font-semibold text-gray-700 mb-1">No payout methods</h3>
-                  <p className="text-sm text-gray-400 max-w-[220px]">Add a payout method to start receiving payments.</p>
+                  <p className="text-sm text-gray-500 max-w-[220px]">Add a payout method to start receiving payments.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -1527,7 +1527,7 @@ export default function FinancePage() {
                                 <div className="flex flex-wrap items-center gap-2">
                                   <p className="text-sm font-semibold text-gray-900 truncate">
                                     {payoutTypeLabel(method.type)}
-                                    <span className="font-normal text-gray-400"> · {method.currency || "USD"}</span>
+                                    <span className="font-normal text-gray-500"> · {method.currency || "USD"}</span>
                                   </p>
                                   {method.isDefault && (
                                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -1551,7 +1551,7 @@ export default function FinancePage() {
                                 <span className={cn("w-1.5 h-1.5 rounded-full", method.verified ? "bg-emerald-500" : "bg-amber-500")} />
                                 {method.verified ? "Verified" : "Pending"}
                               </div>
-                              <ChevronDown size={16} className={cn("text-gray-400 transition-transform duration-200", isExpanded && "rotate-180")} />
+                              <ChevronDown size={16} className={cn("text-gray-500 transition-transform duration-200", isExpanded && "rotate-180")} />
                             </div>
                           </div>
                         </div>
@@ -1660,7 +1660,7 @@ function DetailRow({ label, value, mono, masked }) {
 
   return (
     <div className="min-w-0">
-      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{label}</p>
       {masked ? (
         <button
           type="button"
@@ -1669,7 +1669,7 @@ function DetailRow({ label, value, mono, masked }) {
           className="mt-1 flex items-center gap-1.5 text-left font-mono text-sm font-medium text-gray-700 hover:text-emerald-700"
         >
           <span className="truncate">{display}</span>
-          {revealed ? <EyeOff size={13} className="shrink-0 text-gray-400" /> : <Eye size={13} className="shrink-0 text-gray-400" />}
+          {revealed ? <EyeOff size={13} className="shrink-0 text-gray-500" /> : <Eye size={13} className="shrink-0 text-gray-500" />}
         </button>
       ) : (
         <p className={cn("mt-1 truncate text-sm font-medium text-gray-700", mono && "font-mono")}>{value}</p>
