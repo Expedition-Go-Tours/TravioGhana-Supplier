@@ -421,7 +421,7 @@ export function PayoutScheduleSummary({
                 className={cn(
                   "inline-flex items-center justify-center gap-2 px-5 sm:px-6 py-3 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap w-full sm:w-auto",
                   canRequestPayout
-                    ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                    ? "bg-emerald-700 text-white hover:bg-emerald-800"
                     : "bg-gray-100 text-gray-400 cursor-not-allowed",
                 )}
               >

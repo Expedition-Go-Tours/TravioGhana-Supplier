@@ -11,7 +11,7 @@ function KeywordChip({ kw, selected, onClick }) {
       onClick={onClick}
       className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[13px] font-medium border transition-colors cursor-pointer ${
         selected
-          ? 'bg-emerald-500 text-white border-emerald-500'
+          ? 'bg-emerald-700 text-white border-emerald-700'
           : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
       }`}
     >
@@ -250,7 +250,7 @@ export default function Step06Keywords() {
                 onClick={() => setQuickCategory(isActive ? null : name)}
                 className={`px-2.5 py-1 rounded-full text-[12px] font-medium border transition-colors ${
                   isActive
-                    ? 'bg-emerald-500 border-emerald-500 text-white'
+                    ? 'bg-emerald-700 border-emerald-700 text-white'
                     : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
                 }`}
               >

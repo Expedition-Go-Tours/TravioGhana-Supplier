@@ -637,7 +637,7 @@ export default function FinancePage() {
             className={cn(
               "flex items-center justify-center gap-2 px-5 sm:px-6 py-3 sm:py-3.5 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap",
               canRequestPayout
-                ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                ? "bg-emerald-700 text-white hover:bg-emerald-800"
                 : "bg-gray-100 text-gray-400 cursor-not-allowed"
             )}
           >
@@ -668,7 +668,7 @@ export default function FinancePage() {
             <p className="text-base font-semibold text-gray-900">Accumulating</p>
             <p className="text-sm text-gray-500 mt-0.5">
               <span>{summary?.pendingClearance?.bookingCount || 0} booking(s) clearing · </span>
-              <span className="font-semibold text-emerald-500">{formatCurrency(stats.pending)} pending</span>
+              <span className="font-semibold text-emerald-700">{formatCurrency(stats.pending)} pending</span>
             </p>
           </div>
         </div>
@@ -749,7 +749,7 @@ export default function FinancePage() {
                   Cancel
                 </button>
                 <button onClick={handleRequestPayout} disabled={submittingRequest}
-                  className="flex-1 py-2.5 bg-emerald-500 text-white rounded-lg text-sm font-semibold hover:bg-emerald-600 disabled:opacity-40 transition-colors flex items-center justify-center gap-2">
+                  className="flex-1 py-2.5 bg-emerald-700 text-white rounded-lg text-sm font-semibold hover:bg-emerald-800 disabled:opacity-40 transition-colors flex items-center justify-center gap-2">
                   {submittingRequest ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
                   {submittingRequest ? "Submitting..." : "Submit request"}
                 </button>
@@ -867,7 +867,7 @@ export default function FinancePage() {
                     Cancel
                   </button>
                   <button type="submit" disabled={submittingRefund || !refundForm.bookingId || !refundForm.reason}
-                    className="flex-1 py-2.5 bg-emerald-500 text-white rounded-lg text-sm font-semibold hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2">
+                    className="flex-1 py-2.5 bg-emerald-700 text-white rounded-lg text-sm font-semibold hover:bg-emerald-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2">
                     {submittingRefund ? <Loader2 size={16} className="animate-spin" /> : <Undo2 size={16} />}
                     {submittingRefund ? "Submitting..." : "Submit request"}
                   </button>
@@ -892,7 +892,7 @@ export default function FinancePage() {
               className={cn(
                 "flex items-center gap-2 pb-3 pt-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0",
                 isActive
-                  ? "border-emerald-500 text-emerald-600"
+                  ? "border-emerald-600 text-emerald-700"
                   : "border-transparent text-gray-500 hover:text-gray-700"
               )}
             >
@@ -934,7 +934,7 @@ export default function FinancePage() {
                     className={cn(
                       "px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors",
                       filterPill === pill.key
-                        ? "bg-emerald-500 text-white"
+                        ? "bg-emerald-700 text-white"
                         : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
                     )}
                   >
@@ -1046,7 +1046,7 @@ export default function FinancePage() {
                           className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors"
                         >
                           <td className="py-3 px-4">
-                            <span className="text-sm font-medium text-emerald-600">{e.bookingNumber}</span>
+                            <span className="text-sm font-medium text-emerald-700">{e.bookingNumber}</span>
                           </td>
                           <td className="py-3 px-4 text-sm text-gray-700">{e.tour}</td>
                           <td className="py-3 px-4 text-sm text-gray-500">{formatDate(e.travelDate)}</td>
@@ -1287,7 +1287,7 @@ export default function FinancePage() {
                     className={cn(
                       "px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors",
                       disputeStatusFilter === pill.key
-                        ? "bg-emerald-500 text-white"
+                        ? "bg-emerald-700 text-white"
                         : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
                     )}
                   >
@@ -1297,7 +1297,7 @@ export default function FinancePage() {
               </div>
               <button
                 onClick={openRefundModal}
-                className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 text-white rounded-lg text-sm font-semibold hover:bg-emerald-600 transition-colors"
+                className="flex items-center gap-2 px-4 py-2.5 bg-emerald-700 text-white rounded-lg text-sm font-semibold hover:bg-emerald-800 transition-colors"
               >
                 <Plus size={16} />
                 Request refund
@@ -1455,7 +1455,7 @@ export default function FinancePage() {
                   onClick={() => setShowMethodForm((v) => !v)}
                   className={cn(
                     "flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all",
-                    "bg-emerald-500 text-white hover:bg-emerald-600"
+                    "bg-emerald-700 text-white hover:bg-emerald-800"
                   )}
                 >
                   <Plus size={16} />
@@ -1686,7 +1686,7 @@ function EarningStatusBadge({ status }) {
     "REQUESTED": { bg: "bg-sky-50", text: "text-sky-700", label: "Requested" },
     "PAID": { bg: "bg-emerald-50", text: "text-emerald-700", label: "Paid" },
     "DISPUTED": { bg: "bg-red-50", text: "text-red-700", label: "On hold" },
-    "CANCELLED": { bg: "bg-gray-100", text: "text-gray-500", label: "Cancelled" },
+    "CANCELLED": { bg: "bg-gray-100", text: "text-gray-600", label: "Cancelled" },
     "FAILED": { bg: "bg-red-50", text: "text-red-700", label: "Failed" },
   };
 
