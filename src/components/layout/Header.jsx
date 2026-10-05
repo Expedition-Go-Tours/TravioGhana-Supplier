@@ -64,7 +64,7 @@ export default function Header() {
         <a
           href="/"
           onClick={(e) => { e.preventDefault(); navigate('/') }}
-          className="flex items-center"
+          className="flex items-center py-1"
         >
           <img src={logoSrc} alt="Travio Ghana" className="w-[100px] sm:w-[140px] lg:w-[180px] h-auto" />
         </a>
@@ -86,7 +86,7 @@ export default function Header() {
             <button className="flex items-center gap-2 sm:gap-3 pl-1.5 sm:pl-3 border-l border-[#eaeaea] hover:bg-[#f5f5f5] rounded-lg py-1 pr-1.5 sm:pr-2 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[#065f46]/30">
               <div className="text-right hidden sm:block">
                 <p className="text-xs font-medium text-slate-700">{displayName}</p>
-                <p className="text-[10px] text-slate-400 capitalize">{displayRole}</p>
+                <p className="text-[10px] text-slate-500 capitalize">{displayRole}</p>
               </div>
               <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full overflow-hidden bg-[#044b3b] shrink-0 ring-2 ring-[#044b3b]/10">
                 {(user?.avatar || user?.photoURL) ? (
@@ -95,7 +95,7 @@ export default function Header() {
                   <div className="w-full h-full flex items-center justify-center text-white font-medium text-[11px]">{avatarLetter}</div>
                 )}
               </div>
-              <ChevronDown size={11} className="text-slate-400 hidden sm:block" />
+              <ChevronDown size={11} className="text-slate-500 hidden sm:block" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-64 p-0 overflow-hidden">
