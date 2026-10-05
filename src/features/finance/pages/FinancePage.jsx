@@ -8,11 +8,13 @@ import {
   TrendingUp, Landmark, Smartphone, Eye, EyeOff,
   CheckCircle2, AlertTriangle, X, ChevronDown, ChevronLeft, ChevronRight, Banknote,
   Calendar, Info, Search, Lock, XCircle, Undo2,
+  ListFilter as FilterIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import StatusBadge from "@/components/shared/StatusBadge";
+import { useModalDialog } from "@/components/shared/useModalDialog";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
-import { PayoutScheduleSummary } from "../components/PayoutScheduleCard";
+import { PayoutScheduleEditor, PayoutScheduleSummary } from "../components/PayoutScheduleCard";
 import PayoutMethodFormSheet from "../components/PayoutMethodFormSheet";
 import {
   cancelPayoutRequest, createPayoutMethod, createPayoutRequest, createRefundRequest, deletePayoutMethod,
@@ -31,7 +33,13 @@ const TABS = [
   { key: "methods", label: "Payout Methods", icon: CreditCard },
 ];
 
+// "All" comes first and is the default. The list used to open on "Eligible
+// now", the narrowest bucket in the set, so a supplier whose money was already
+// in a payout request saw an empty table and was told they had no earnings.
+// An empty key means no `payoutStatus` param, which the endpoint reads as "every
+// bucket".
 const FILTER_PILLS = [
+  { key: "", label: "All" },
   { key: "ELIGIBLE", label: "Eligible now" },
   { key: "PENDING", label: "Pending clearance" },
   { key: "REQUESTED", label: "In payout request" },
@@ -233,9 +241,21 @@ export default function FinancePage() {
   const [methods, setMethods] = useState([]);
   const [showMethodForm, setShowMethodForm] = useState(false);
   const [expandedMethod, setExpandedMethod] = useState(null);
-  const [filterPill, setFilterPill] = useState("ELIGIBLE");
+  const [filterPill, setFilterPill] = useState("");
   const [showRequestModal, setShowRequestModal] = useState(false);
+  // The cadence chooser, reachable from the card. It used to live only in
+  // Settings, which meant a supplier reading "paid automatically on your
+  // weekly schedule" had to go hunting through a separate settings tab to
+  // change it or to find out what "automatic" actually commits them to.
+  const [showScheduleEditor, setShowScheduleEditor] = useState(false);
   const [submittingRequest, setSubmittingRequest] = useState(false);
+  // Escape locked while submitting, so a half-sent request cannot be dismissed
+  // out from under itself.
+  const requestDialog = useModalDialog({
+    open: showRequestModal,
+    onClose: () => setShowRequestModal(false),
+    enabled: !submittingRequest,
+  });
   const [cancellingRequestId, setCancellingRequestId] = useState(null);
   const [disputes, setDisputes] = useState([]);
   const [disputeStatusFilter, setDisputeStatusFilter] = useState("");
@@ -244,6 +264,11 @@ export default function FinancePage() {
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [refundForm, setRefundForm] = useState(INITIAL_REFUND_FORM);
   const [submittingRefund, setSubmittingRefund] = useState(false);
+  const refundDialog = useModalDialog({
+    open: showRefundModal,
+    onClose: () => setShowRefundModal(false),
+    enabled: !submittingRefund,
+  });
   const [eligibleBookings, setEligibleBookings] = useState([]);
   const [loadingEligible, setLoadingEligible] = useState(false);
   const [page, setPage] = useState(1);
@@ -349,6 +374,31 @@ export default function FinancePage() {
   const windowInfo = summary?.withdrawalWindow || null;
   const windowOpen = Boolean(windowInfo?.open);
   const canRequestPayout = windowOpen && stats.available > 0;
+
+  // A payout that finance is already holding. While this exists the supplier has
+  // no balance to ask for — the bookings have moved to REQUESTED — so the page
+  // must lead with the request's progress instead of offering another one.
+  const inFlightRequest = summary?.inReview?.latestRequest || null;
+
+  // Booking counts per payout bucket, so an empty table can say where the
+  // bookings went rather than claiming there are none.
+  const payoutCounts = summary?.payoutCounts || {};
+  const totalBookings = Object.values(payoutCounts).reduce((s, n) => s + (Number(n) || 0), 0);
+  const activePillLabel = FILTER_PILLS.find((p) => p.key === filterPill)?.label || "earnings";
+
+  // Why the request button is unavailable, in words. A `title` attribute is not
+  // an option: a disabled button does not emit pointer events, so the tooltip
+  // never shows and the supplier is left with an unexplained grey box.
+  const requestBlockedReason = useMemo(() => {
+    if (inFlightRequest) return "Your payout is already in review.";
+    if (stats.available <= 0) return "Nothing is eligible to request yet.";
+    if (!windowOpen) {
+      return windowInfo?.opensAt
+        ? `You can request early from ${formatDate(windowInfo.opensAt)}.`
+        : "Early requests are not open right now.";
+    }
+    return null;
+  }, [inFlightRequest, stats.available, windowOpen, windowInfo]);
 
   // Automated payout schedule (weekly / twice a month / monthly).
   //
@@ -485,8 +535,17 @@ export default function FinancePage() {
             <div>
               <p className="text-sm text-gray-500">Pending clearance</p>
               <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{formatCurrency(stats.pending)}</p>
-              {summary?.pendingClearance?.clearanceBufferDays > 0 && (
-                <p className="text-xs text-gray-400 mt-0.5">+{summary.pendingClearance.clearanceBufferDays}d buffer</p>
+              {stats.pending > 0 && summary?.nextEligibleAt && (
+                // gray-400 is the house muted colour and lands at 2.60:1 on white,
+                // below AA. gray-500 clears 4.5:1 at the same visual weight.
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Next clears {formatDate(summary.nextEligibleAt)}
+                </p>
+              )}
+              {summary?.pendingClearance?.bookingCount > 0 && (
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {summary.pendingClearance.bookingCount} booking(s) after their travel date
+                </p>
               )}
             </div>
             <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
@@ -503,7 +562,11 @@ export default function FinancePage() {
               <p className="text-sm text-gray-500">In review</p>
               <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{formatCurrency(stats.inReview)}</p>
               {summary?.inReview?.requestCount > 0 && (
-                <p className="text-xs text-gray-400 mt-0.5">{summary.inReview.requestCount} request(s)</p>
+                // gray-600 when this is the request reference: it is the number a
+                // supplier quotes to support, and gray-400 sits at 2.60:1.
+                <p className={cn("text-xs mt-0.5", inFlightRequest?.reference ? "text-gray-600 tabular-nums" : "text-gray-500")}>
+                  {inFlightRequest?.reference || `${summary.inReview.requestCount} request(s)`}
+                </p>
               )}
             </div>
             <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
@@ -538,6 +601,9 @@ export default function FinancePage() {
             requestWindow={windowInfo}
             canRequestPayout={canRequestPayout}
             onRequestPayout={() => setShowRequestModal(true)}
+            inFlightRequest={inFlightRequest}
+            blockedReason={requestBlockedReason}
+            onManageSchedule={() => setShowScheduleEditor((v) => !v)}
           />
         ) : (
         <>
@@ -564,10 +630,10 @@ export default function FinancePage() {
               <p className="text-xs text-gray-500 mt-1.5">Only completed bookings past their travel date are eligible.</p>
             </div>
           </div>
-          <button
+          <div className="flex flex-col items-end gap-1.5 shrink-0">
+            <button
             onClick={() => setShowRequestModal(true)}
             disabled={!canRequestPayout}
-            title={!windowOpen ? "The withdrawal window is currently closed" : stats.available <= 0 ? "No eligible earnings yet" : ""}
             className={cn(
               "flex items-center justify-center gap-2 px-5 sm:px-6 py-3 sm:py-3.5 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap",
               canRequestPayout
@@ -575,9 +641,17 @@ export default function FinancePage() {
                 : "bg-gray-100 text-gray-400 cursor-not-allowed"
             )}
           >
-            {!windowOpen && <Lock size={15} />}
-            Request payout · {formatCurrency(stats.available)}
+            {!canRequestPayout && <Lock size={15} />}
+            {canRequestPayout
+              ? `Request payout · ${formatCurrency(stats.available)}`
+              : "Request payout"}
           </button>
+            {/* Visible, not a tooltip: a disabled button emits no pointer events,
+                so a `title` never reaches the supplier. */}
+            {requestBlockedReason && (
+              <p className="text-xs text-gray-500 text-right max-w-[240px]">{requestBlockedReason}</p>
+            )}
+          </div>
         </div>
         </>
         )}
@@ -600,6 +674,22 @@ export default function FinancePage() {
         </div>
       </div>
 
+      {/* The cadence chooser, opened from the card. Rendered inline rather than
+          pushed to Settings so that "paid automatically" and the control that
+          changes it are on the same screen. */}
+      {showSchedule && showScheduleEditor && (
+        <PayoutScheduleEditor
+          plan={payoutPlan}
+          available={stats.available}
+          onSaved={() => {
+            setShowScheduleEditor(false);
+            // The plan feeds the summary the whole page renders from, so it has
+            // to be refetched or the card keeps describing the old schedule.
+            loadData();
+          }}
+        />
+      )}
+
       {/* Payout Request Confirmation Modal */}
       {createPortal(
         <AnimatePresence>
@@ -612,6 +702,13 @@ export default function FinancePage() {
               onClick={() => !submittingRequest && setShowRequestModal(false)}
             >
             <motion.div
+              ref={requestDialog.panelRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="payout-request-dialog-title"
+              // Focus has to be able to land here when the dialog has no enabled
+              // control of its own to take it.
+              tabIndex={-1}
               initial={{ opacity: 0, scale: 0.95, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 8 }}
@@ -623,12 +720,12 @@ export default function FinancePage() {
                 <div className="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center">
                   <Banknote size={22} className="text-emerald-600" />
                 </div>
-                <button onClick={() => setShowRequestModal(false)} disabled={submittingRequest}
+                <button ref={requestDialog.closeRef} aria-label="Close" onClick={() => setShowRequestModal(false)} disabled={submittingRequest}
                   className="text-gray-400 hover:text-gray-600 transition-colors">
                   <X size={18} />
                 </button>
               </div>
-              <h3 className="text-lg font-bold text-gray-900">Request payout</h3>
+              <h3 id="payout-request-dialog-title" className="text-lg font-bold text-gray-900">Request payout</h3>
               <p className="text-sm text-gray-500 mt-1">
                 This bundles all your eligible bookings into a withdrawal request for review.
               </p>
@@ -676,6 +773,11 @@ export default function FinancePage() {
               onClick={() => !submittingRefund && setShowRefundModal(false)}
             >
             <motion.div
+              ref={refundDialog.panelRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="refund-request-dialog-title"
+              tabIndex={-1}
               initial={{ opacity: 0, scale: 0.95, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 8 }}
@@ -689,11 +791,11 @@ export default function FinancePage() {
                     <Undo2 size={22} className="text-emerald-600" />
                   </div>
                   <button type="button" onClick={() => setShowRefundModal(false)} disabled={submittingRefund}
-                    className="text-gray-400 hover:text-gray-600 transition-colors">
+                    className="-m-1.5 p-1.5 text-gray-400 hover:text-gray-600 transition-colors">
                     <X size={18} />
                   </button>
                 </div>
-                <h3 className="text-lg font-bold text-gray-900">Request a refund</h3>
+                <h3 id="refund-request-dialog-title" className="text-lg font-bold text-gray-900">Request a refund</h3>
                 <p className="text-sm text-gray-500 mt-1">
                   An admin will review your request. While it is open, the booking's funds are on hold.
                 </p>
@@ -837,6 +939,11 @@ export default function FinancePage() {
                     )}
                   >
                     {pill.label}
+                    {pill.key && (payoutCounts[pill.key] || 0) > 0 && (
+                      <span className={cn("ml-1.5 tabular-nums", filterPill === pill.key ? "text-emerald-100" : "text-gray-500")}>
+                        {payoutCounts[pill.key]}
+                      </span>
+                    )}
                   </button>
                 ))}
             </div>
@@ -847,8 +954,15 @@ export default function FinancePage() {
               <p className="text-sm text-teal-700">
                 {showSchedule
                   ? `Payouts are generated automatically on your ${(payoutPlan?.scheduleShortLabel || "chosen").toLowerCase()} schedule — the next run is ${formatDate(payoutPlan?.nextRunAt)}.`
-                    + (windowInfo
-                        ? ` You can also request one by hand between ${formatDate(windowInfo.opensAt)} and ${formatDate(windowInfo.closesAt)}.`
+                    // Only mention the early-request route when there is
+                    // something to request through it, and name the date it opens
+                    // rather than a range. The old copy printed
+                    // "between <opens> and <closes>", which for a 24-hour window
+                    // that opened and closed on the same day rendered as
+                    // "between 05 Oct 2026 and 05 Oct 2026" and read as a
+                    // zero-length window that was somehow always open.
+                    + (windowInfo?.opensAt && stats.available > 0 && !inFlightRequest
+                        ? ` You can also request one early from ${formatDate(windowInfo.opensAt)}${windowOpen ? "" : `, for 24 hours`}.`
                         : "")
                   : "Payouts can be requested twice monthly during open withdrawal windows."}{" "}
                 Bookings with an open refund request are held until it is resolved.
@@ -869,13 +983,44 @@ export default function FinancePage() {
                 </div>
               </div>
             ) : earnings.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 text-center bg-white border border-gray-200 rounded-xl">
-                <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center mb-4">
-                  <DollarSign size={26} className="text-emerald-300" />
+              // Two different situations, one of which used to be a lie. An empty
+              // *filter* is not an empty ledger: with "Eligible now" as the
+              // default, a supplier whose money had already gone into a payout
+              // request saw this and was told they had no earnings at all.
+              totalBookings === 0 ? (
+                <div className="flex flex-col items-center justify-center py-24 text-center bg-white border border-gray-200 rounded-xl">
+                  <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center mb-4">
+                    <DollarSign size={26} className="text-emerald-300" />
+                  </div>
+                  <h3 className="text-base font-semibold text-gray-700 mb-1">No earnings yet</h3>
+                  <p className="text-sm text-gray-500 max-w-[220px]">Earnings will appear once bookings start coming in.</p>
                 </div>
-                <h3 className="text-base font-semibold text-gray-700 mb-1">No earnings yet</h3>
-                <p className="text-sm text-gray-400 max-w-[220px]">Earnings will appear once bookings start coming in.</p>
-              </div>
+              ) : (
+                <div data-testid="earnings-empty-state" className="flex flex-col items-center justify-center py-16 text-center bg-white border border-gray-200 rounded-xl">
+                  <div className="w-14 h-14 rounded-2xl bg-amber-50 flex items-center justify-center mb-4">
+                    <FilterIcon size={24} className="text-amber-400" />
+                  </div>
+                  <h3 className="text-base font-semibold text-gray-700 mb-1">
+                    Nothing {activePillLabel.toLowerCase()} yet
+                  </h3>
+                  <p className="text-sm text-gray-500 max-w-[340px]">
+                    You have {totalBookings} booking{totalBookings === 1 ? "" : "s"} in total — none in this
+                    filter. They are here:
+                  </p>
+                  <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
+                    {FILTER_PILLS.filter((p) => p.key && (payoutCounts[p.key] || 0) > 0).map((p) => (
+                      <button
+                        key={p.key}
+                        onClick={() => setFilterPill(p.key)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+                      >
+                        {p.label}
+                        <span className="tabular-nums">{payoutCounts[p.key]}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
             ) : (
               <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                 <div className="overflow-x-auto">
