@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -11,20 +11,22 @@ import StaysStatCard from "../components/StaysStatCard";
 import StaysSeg from "../components/StaysSeg";
 import StaysRow from "../components/StaysRow";
 import StaysEmptyState from "../components/StaysEmptyState";
-import OfferModal from "../components/OfferModal";
+import OfferForm from "../components/OfferForm";
 import { listOffers, saveOffer, deleteOffer, listProperties, STAYS_KEYS } from "../api";
 
 /**
  * Special Offers — the prototype's Promotions page with its four status
- * tiles, status filter and offer cards. `?create=1&property=<id>` opens the
- * create modal with the property preselected (the Properties page's "Create
- * offer" button deep-links here).
+ * tiles, status filter and offer cards. Create/Edit open the inline,
+ * spread-out OfferForm at the top of the page (no modal):
+ * `?create=1&property=<id>` opens it in create mode with the property
+ * preselected (the Properties page's "Create offer" button deep-links here).
  */
 export default function StaysOffersPage() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const [filter, setFilter] = useState("All");
-  const [modal, setModal] = useState(null); // { offer?, openKey }
+  const [form, setForm] = useState(null); // { offer?, openKey }
+  const formRef = useRef(null);
 
   const { data: allOffers = [], isLoading } = useQuery({
     queryKey: STAYS_KEYS.offers("All"),
@@ -38,12 +40,12 @@ export default function StaysOffersPage() {
     staleTime: 60_000,
   });
 
-  // Deep link from the Properties page (`?create=1&property=<id>`): the modal
+  // Deep link from the Properties page (`?create=1&property=<id>`): the form
   // opens straight away and the params are cleared when it closes, so a
   // refresh does not re-open it. No effect needed.
   const deepLinkCreate = searchParams.get("create");
   const preselectedProperty = searchParams.get("property");
-  const modalOpen = Boolean(modal) || Boolean(deepLinkCreate);
+  const formOpen = Boolean(form) || Boolean(deepLinkCreate);
 
   const clearDeepLink = () => {
     if (!deepLinkCreate && !preselectedProperty) return;
@@ -57,6 +59,24 @@ export default function StaysOffersPage() {
       { replace: true },
     );
   };
+
+  const openKeyRef = useRef(0);
+  const openForm = (offer) => {
+    openKeyRef.current += 1;
+    setForm({ offer, openKey: openKeyRef.current });
+  };
+  const openCreate = () => openForm();
+  const openEdit = (offer) => openForm(offer);
+  const closeForm = () => {
+    setForm(null);
+    clearDeepLink();
+  };
+
+  // The form sits at the top of the page; bring it into view when it opens.
+  useEffect(() => {
+    if (!formOpen) return;
+    formRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  }, [formOpen]);
 
   const counts = useMemo(
     () => ({
@@ -92,7 +112,7 @@ export default function StaysOffersPage() {
         title="Special Offers"
         subtitle="Create property offers and manage their booking windows."
         actions={
-          <StaysButton variant="primary" onClick={() => setModal({ openKey: Date.now() })}>
+          <StaysButton variant="primary" onClick={openCreate}>
             + Create offer
           </StaysButton>
         }
@@ -104,6 +124,19 @@ export default function StaysOffersPage() {
         <StaysStatCard compact label="Scheduled" value={counts.Scheduled} />
         <StaysStatCard compact label="Ended" value={counts.Ended} />
       </div>
+
+      {formOpen && (
+        <div ref={formRef}>
+          <OfferForm
+            key={form?.openKey ?? "deep-link"}
+            offer={form?.offer}
+            properties={properties}
+            defaultPropertyId={preselectedProperty}
+            onClose={closeForm}
+            onSave={(offer) => saveMutation.mutateAsync(offer)}
+          />
+        </div>
+      )}
 
       <StaysSeg
         className="mb-[18px]"
@@ -140,7 +173,7 @@ export default function StaysOffersPage() {
                 <b className="text-[14px]">{offer.limit || "Unlimited"}</b>
               </StaysRow>
               <div className="mt-4 flex flex-wrap gap-[9px]">
-                <StaysButton size="small" onClick={() => setModal({ offer, openKey: Date.now() })}>
+                <StaysButton size="small" onClick={() => openEdit(offer)}>
                   Edit
                 </StaysButton>
                 <StaysButton
@@ -161,19 +194,6 @@ export default function StaysOffersPage() {
           </StaysEmptyState>
         </StaysCard>
       )}
-
-      <OfferModal
-        key={modal?.openKey ?? (deepLinkCreate ? "deep-link" : "closed")}
-        open={modalOpen}
-        offer={modal?.offer}
-        properties={properties}
-        defaultPropertyId={preselectedProperty}
-        onClose={() => {
-          setModal(null);
-          clearDeepLink();
-        }}
-        onSave={(offer) => saveMutation.mutateAsync(offer)}
-      />
     </StaysSurface>
   );
 }

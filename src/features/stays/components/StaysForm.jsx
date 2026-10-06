@@ -19,7 +19,7 @@ import {
  * without it, clicking the label does not focus the field and screen readers
  * announce the input as unlabelled.
  */
-export function StaysField({ label, hint, wide = false, className, children }) {
+export function StaysField({ label, hint, error, wide = false, className, children }) {
   const id = useId();
   const control = isValidElement(children) ? cloneElement(children, { id }) : children;
 
@@ -27,7 +27,11 @@ export function StaysField({ label, hint, wide = false, className, children }) {
     <div className={cn("space-y-2", wide && "col-span-full", className)}>
       {label && <FormLabel htmlFor={id}>{label}</FormLabel>}
       {control}
-      {hint && <p className="text-xs text-slate-500">{hint}</p>}
+      {error ? (
+        <p className="text-xs font-medium text-red-600">{error}</p>
+      ) : hint ? (
+        <p className="text-xs text-slate-500">{hint}</p>
+      ) : null}
     </div>
   );
 }
