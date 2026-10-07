@@ -54,15 +54,16 @@ const allNavItems = [
 
 const SEARCHABLE_TEXT = (item) => [item.label, item.parent, item.keywords || []].flat().join(" ").toLowerCase();
 
-// Stays workspace pages — the palette is account-wide, so they are searchable
-// from either workspace, but they lead the list while Stays is active (see the
-// ordering in `navItems` below).
+// Stays workspace pages, including the settings tabs (flattened below). The
+// palette offers the active workspace only — each workspace owns its account
+// pages now, so merging the two lists would show duplicate Settings entries.
 const staysSearchItems = STAYS_NAV_ITEMS.map((item) => ({
   label: item.label,
   path: item.path,
   iconName: item.iconName,
   permission: item.permission,
   keywords: item.keywords,
+  children: item.children,
 }));
 
 function flattenNavItems(items) {
@@ -179,10 +180,9 @@ export default function SearchDropdown() {
 
   const navItems = useMemo(() => {
     // Pages first, then the settings tabs this role can actually open.
-    // In the Stays workspace the property pages lead the list.
-    const pool = isStays
-      ? [...staysSearchItems, ...allNavItems]
-      : [...allNavItems, ...staysSearchItems];
+    // Each workspace shows its own pages: the Experiences list already covers
+    // the Experiences account pages, and the Stays list covers the Stays ones.
+    const pool = isStays ? staysSearchItems : allNavItems;
     const filtered = pool
       .filter((item) => {
         if (!item.permission) return true;

@@ -11,8 +11,9 @@ import { WORKSPACES } from "@/config/staysWorkspace";
  *
  *   - visiting `/stays/**`      → `syncWorkspace(stays)`
  *   - visiting an Experiences page → `syncWorkspace(experiences)`
- *   - shared pages (finance, reviews, …) keep whatever workspace is active,
- *     exactly like the prototype's SHARED ACCOUNT group.
+ *
+ * The account pages exist in both workspaces (`/stays/settings` vs
+ * `/settings`), so the URL alone decides — nothing is shared.
  *
  * `userOverride` records an explicit switch through the workspace card; the
  * landing gate on `/` reads it so an accommodation supplier who deliberately

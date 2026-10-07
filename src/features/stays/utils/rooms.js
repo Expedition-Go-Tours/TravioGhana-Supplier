@@ -1,6 +1,5 @@
 /**
- * Room helpers shared by the builder step, the standalone Rooms page and the
- * rate-plan defaults.
+ * Room helpers used by the rate-plan defaults.
  */
 
 /**
@@ -10,10 +9,4 @@
  */
 export function roomPeople(room) {
   return (Number(room?.adults) || 0) + (Number(room?.children) || 0);
-}
-
-/** "1 person" / "3 people" — for the room cards and rows. */
-export function peopleLabel(room) {
-  const people = roomPeople(room);
-  return `${people} ${people === 1 ? "person" : "people"}`;
 }

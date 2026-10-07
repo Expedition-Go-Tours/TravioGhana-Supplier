@@ -117,9 +117,6 @@ function WorkspaceSwitch({ isStays, isCollapsed, onSelect }) {
           <ArrowUpRight size={14} className="ml-auto shrink-0 text-slate-400" />
         )}
       </button>
-      <p className="px-2 pt-1.5 text-[11px] leading-snug text-slate-400">
-        Shared account tools stay the same in both workspaces.
-      </p>
     </div>
   );
 }
@@ -373,7 +370,13 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
             plain tinted surface instead. The blur is gone deliberately — it was
             only ever there to let the dark background show through. */}
         <div
-          onClick={() => navigate(canEditBusiness ? "/settings?tab=profile" : "/settings")}
+          onClick={() =>
+            navigate(
+              isStays
+                ? (canEditBusiness ? "/stays/settings?tab=profile" : "/stays/settings")
+                : (canEditBusiness ? "/settings?tab=profile" : "/settings"),
+            )
+          }
           className={`shrink-0 cursor-pointer ${
             isCollapsed
               ? "py-3 px-2"

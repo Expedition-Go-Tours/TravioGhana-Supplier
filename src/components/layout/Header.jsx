@@ -1,8 +1,11 @@
 import { ChevronDown, LogOut, User, Mail, Loader2, Menu } from "lucide-react";
 import NotificationBell from "@/features/notifications/components/NotificationBell";
+import StaysNotificationBell from "@/features/stays/components/notifications/StaysNotificationBell";
 import SearchDropdown from "@/components/layout/SearchDropdown";
 import { useSidebarStore } from "@/stores/sidebarStore";
 import { useAuthStore } from "@/stores/authStore";
+import { useStaysWorkspaceStore } from "@/stores/staysWorkspaceStore";
+import { WORKSPACES } from "@/config/staysWorkspace";
 import { useTeamRole } from "@/hooks/useTeamRole";
 import { describeRoles } from "@/config/teamRoles";
 import { useState } from "react";
@@ -23,6 +26,10 @@ export default function Header() {
   const { isCollapsed, isMobileOpen, toggleMobile } = useSidebarStore();
   const user = useAuthStore((state) => state.user);
   const [logoutLoading, setLogoutLoading] = useState(false);
+  // The notification inbox is per-workspace now: Stays has its own page and
+  // its own event links, so the bell answers to the active workspace.
+  const isStaysWorkspace =
+    useStaysWorkspaceStore((state) => state.workspace) === WORKSPACES.STAYS;
 
   const displayName = user?.name || "Admin User";
   // A team member's own account carries `roles: ["customer"]` — the role they hold
@@ -79,7 +86,7 @@ export default function Header() {
 
       {/* Right: Notifications + Profile */}
       <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 ml-2 lg:ml-4">
-        <NotificationBell />
+        {isStaysWorkspace ? <StaysNotificationBell /> : <NotificationBell />}
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -114,7 +121,10 @@ export default function Header() {
               </div>
             </div>
             <div className="p-1.5">
-              <DropdownMenuItem onClick={() => navigate("/settings")} className="rounded-lg">
+              <DropdownMenuItem
+                onClick={() => navigate(isStaysWorkspace ? "/stays/settings" : "/settings")}
+                className="rounded-lg"
+              >
                 <User size={15} className="text-slate-400" />
                 Profile Settings
               </DropdownMenuItem>

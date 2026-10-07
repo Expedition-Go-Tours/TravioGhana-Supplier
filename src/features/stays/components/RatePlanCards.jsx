@@ -7,7 +7,7 @@ import { formatMoney } from "../utils/money";
 
 /**
  * Rate plans grouped by room type — the prototype's `.rate-room` sections,
- * shared by the Rates & availability page and the builder step so the two can
+ * shared by the Rate page and the builder step so the two can
  * never render a plan differently.
  *
  * The create/edit form opens inline inside the owning room's card (no modal),

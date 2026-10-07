@@ -9,14 +9,14 @@
  */
 import { STAYS_BUILDER_STEP_COUNT } from "../config/staysSteps";
 import { computeOfferStatus } from "../utils/offerStatus";
-import { defaultRatePlan, seedStays } from "./seed";
+import { seedStays } from "./seed";
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const delay = (ms = 120) => new Promise((resolve) => setTimeout(resolve, ms));
 const uid = (prefix) => `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 /** Bump when the seed or stored shape changes — old payloads reseed. */
-const STORAGE_VERSION = 5;
+const STORAGE_VERSION = 6;
 export const STAYS_MOCK_STORAGE_KEY = "stays-mock-db-v1";
 
 /**
@@ -220,7 +220,10 @@ export const staysMock = {
         total: db.bookings.length,
       },
       actionRequired: {
-        messagesAwaitingReply: db.messages.filter((m) => !m.reply).length,
+        messagesAwaitingReply: (db.conversations || []).reduce(
+          (total, conversation) => total + (conversation.unreadCount || 0),
+          0,
+        ),
         bookingsToReview: db.bookings.filter((b) => b.status === "New").length,
         draftProperties: db.properties.filter((p) => p.status === "Draft").length,
       },
@@ -359,33 +362,6 @@ export const staysMock = {
     db.bookings = db.bookings.filter((b) => b.propertyId !== id);
     persist();
     return { ok: true };
-  },
-
-  // ── Rooms ─────────────────────────────────────────────────────────────
-  async saveRoom(propertyId, room) {
-    await delay();
-    const p = property(propertyId);
-    const existingIndex = p.rooms.findIndex((r) => r.id === room.id);
-    if (existingIndex >= 0) {
-      p.rooms[existingIndex] = { ...p.rooms[existingIndex], ...room };
-    } else {
-      const created = { ...room, id: room.id || uid("r"), meal: room.meal || "Room only" };
-      p.rooms.push(created);
-      // The prototype gives every new room a Standard rate plan automatically.
-      p.ratePlans = p.ratePlans || [];
-      p.ratePlans.push(defaultRatePlan(created));
-    }
-    persist();
-    return clone(p);
-  },
-
-  async deleteRoom(propertyId, roomId) {
-    await delay();
-    const p = property(propertyId);
-    p.rooms = p.rooms.filter((r) => r.id !== roomId);
-    p.ratePlans = (p.ratePlans || []).filter((plan) => plan.roomId !== roomId);
-    persist();
-    return clone(p);
   },
 
   // ── Rate plans ────────────────────────────────────────────────────────
@@ -527,39 +503,357 @@ export const staysMock = {
     return { ok: true };
   },
 
-  // ── Messages / reviews ────────────────────────────────────────────────
-  async listMessages({ filter = "All" } = {}) {
+  // ── Customers (conversations) ─────────────────────────────────────────
+  async listConversations() {
     await delay();
-    const rows = db.messages.filter((m) =>
-      filter === "All" ? true : filter === "Unread" ? !m.reply : Boolean(m.reply),
+    return clone(
+      (db.conversations || []).map((conversation) => ({
+        ...conversation,
+        messages: conversation.messages.slice(-1),
+      })),
     );
-    return clone(rows);
   },
 
-  async replyToMessage(id, reply) {
+  async listConversationMessages({ conversationId, limit = 50 } = {}) {
     await delay();
-    const message = db.messages.find((m) => m.id === id);
-    if (!message) throw new Error("Message not found");
-    message.reply = reply;
+    const conversation = (db.conversations || []).find((row) => row.id === conversationId);
+    if (!conversation) throw new Error("Conversation not found");
+    return {
+      messages: clone(conversation.messages.slice(-limit)),
+      cursor: null,
+      hasMore: false,
+    };
+  },
+
+  async sendConversationMessage({ conversationId, content, attachment } = {}) {
+    await delay();
+    const conversation = (db.conversations || []).find((row) => row.id === conversationId);
+    if (!conversation) throw new Error("Conversation not found");
+    const message = {
+      id: uid("msg"),
+      conversationId,
+      senderId: "stays-supplier",
+      sender: { id: "stays-supplier", name: "Akwaaba Coast Hotel" },
+      content: content || "",
+      attachmentUrl: attachment?.url || null,
+      attachmentType: attachment?.type || null,
+      createdAt: new Date().toISOString(),
+    };
+    conversation.messages.push(message);
+    conversation.updatedAt = message.createdAt;
     persist();
     return clone(message);
   },
 
+  async markConversationRead(conversationId) {
+    await delay();
+    const conversation = (db.conversations || []).find((row) => row.id === conversationId);
+    if (conversation) {
+      conversation.unreadCount = 0;
+      persist();
+    }
+    return { ok: true };
+  },
+
+  async deleteConversation(conversationId) {
+    await delay();
+    db.conversations = (db.conversations || []).filter((row) => row.id !== conversationId);
+    persist();
+    return { ok: true };
+  },
+
+  // ── Reviews ───────────────────────────────────────────────────────────
   async listReviews({ filter = "All" } = {}) {
     await delay();
-    const rows = db.reviews.filter((r) =>
-      filter === "All" ? true : filter === "Replied" ? Boolean(r.reply) : !r.reply,
+    const rows = db.reviews.filter((review) =>
+      filter === "All" ? true : filter === "Replied" ? Boolean(review.reply) : !review.reply,
     );
     return clone(rows);
   },
 
   async replyToReview(id, reply) {
     await delay();
-    const review = db.reviews.find((r) => r.id === id);
+    const review = db.reviews.find((row) => row.id === id);
     if (!review) throw new Error("Review not found");
     review.reply = reply;
     persist();
     return clone(review);
+  },
+
+  // ── Notifications ─────────────────────────────────────────────────────
+  async listNotifications({ limit = 50, unreadOnly = false } = {}) {
+    await delay();
+    const all = [...(db.notifications || [])].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+    const unreadCount = all.filter((row) => !row.read).length;
+    const rows = unreadOnly ? all.filter((row) => !row.read) : all;
+    return { notifications: clone(rows.slice(0, limit)), unreadCount };
+  },
+
+  async markNotificationRead(id) {
+    await delay();
+    const row = (db.notifications || []).find((notification) => notification.id === id);
+    if (row) {
+      row.read = true;
+      persist();
+    }
+    return { ok: true };
+  },
+
+  async markAllNotificationsRead() {
+    await delay();
+    (db.notifications || []).forEach((notification) => {
+      notification.read = true;
+    });
+    persist();
+    return { ok: true };
+  },
+
+  async deleteNotification(id) {
+    await delay();
+    db.notifications = (db.notifications || []).filter((notification) => notification.id !== id);
+    persist();
+    return { ok: true };
+  },
+
+  // ── Verification ──────────────────────────────────────────────────────
+  async getVerification() {
+    await delay();
+    return clone(
+      db.verification || {
+        profile: { supplierType: "ACCOMMODATION_PROVIDER", documents: [], properties: [] },
+        requirements: null,
+      },
+    );
+  },
+
+  async replaceDocument(docId, file) {
+    await delay();
+    const doc = (db.verification?.profile?.documents || []).find((row) => row.id === docId);
+    if (!doc) throw new Error("Document not found");
+    doc.status = "PENDING";
+    doc.reviewNote = null;
+    if (file?.name) doc.fileName = file.name;
+    doc.uploadedAt = new Date().toISOString();
+    persist();
+    return clone(doc);
+  },
+
+  async addDocument({ type, file, expiryDate, ownerType, ownerId } = {}) {
+    await delay();
+    if (!db.verification) {
+      db.verification = {
+        profile: { supplierType: "ACCOMMODATION_PROVIDER", documents: [], properties: [] },
+        requirements: null,
+      };
+    }
+    if (!db.verification.profile) db.verification.profile = { documents: [], properties: [] };
+    if (!db.verification.profile.documents) db.verification.profile.documents = [];
+    const doc = {
+      id: uid("doc"),
+      type,
+      ownerType: ownerType || "SUPPLIER",
+      ownerId: ownerId || null,
+      status: "PENDING",
+      url: "",
+      fileName: file?.name || null,
+      expiryDate: expiryDate || null,
+      reviewNote: null,
+      uploadedAt: new Date().toISOString(),
+    };
+    db.verification.profile.documents.push(doc);
+    persist();
+    return clone(doc);
+  },
+
+  // ── Account (settings) ────────────────────────────────────────────────
+  async getAccount() {
+    await delay();
+    const account = db.account || {};
+    return clone({
+      user: account.user || null,
+      business: account.business || null,
+      notificationPreferences: account.notificationPreferences || null,
+      taxInfo: account.taxInfo || null,
+    });
+  },
+
+  async updateAccountUser(patch = {}) {
+    await delay();
+    if (!db.account) db.account = {};
+    db.account.user = { ...(db.account.user || {}), ...clone(patch) };
+    persist();
+    return clone(db.account.user);
+  },
+
+  async updateBusinessProfile(payload = {}) {
+    await delay();
+    if (!db.account) db.account = {};
+    const business = db.account.business || {};
+    db.account.business = {
+      ...business,
+      ...clone(payload),
+      businessInfo: { ...(business.businessInfo || {}), ...(payload.businessInfo || {}) },
+      operatingInfo: { ...(business.operatingInfo || {}), ...(payload.operatingInfo || {}) },
+      representativeInfo: {
+        ...(business.representativeInfo || {}),
+        ...(payload.representativeInfo || {}),
+      },
+    };
+    persist();
+    return clone(db.account.business);
+  },
+
+  async uploadLogo() {
+    await delay();
+    // The demo keeps the initial mark; the live branch returns a hosted URL.
+    return { logoUrl: null };
+  },
+
+  async getNotificationPreferences() {
+    await delay();
+    return clone(db.account?.notificationPreferences || null);
+  },
+
+  async updateNotificationPreferences(preferences = {}) {
+    await delay();
+    if (!db.account) db.account = {};
+    db.account.notificationPreferences = {
+      ...(db.account.notificationPreferences || {}),
+      ...clone(preferences),
+    };
+    persist();
+    return clone(db.account.notificationPreferences);
+  },
+
+  async listNotificationRecipients() {
+    await delay();
+    return clone(db.account?.notificationRecipients || []);
+  },
+
+  async addNotificationRecipient({ email, name, preferences } = {}) {
+    await delay();
+    if (!db.account) db.account = {};
+    if (!db.account.notificationRecipients) db.account.notificationRecipients = [];
+    const recipient = {
+      id: uid("rec"),
+      email,
+      name: name || "",
+      status: "PENDING",
+      preferences: preferences || {},
+    };
+    db.account.notificationRecipients.push(recipient);
+    persist();
+    return clone(recipient);
+  },
+
+  async updateNotificationRecipient(id, patch = {}) {
+    await delay();
+    const recipient = (db.account?.notificationRecipients || []).find((row) => row.id === id);
+    if (!recipient) throw new Error("Recipient not found");
+    Object.assign(recipient, clone(patch));
+    persist();
+    return clone(recipient);
+  },
+
+  async resendNotificationRecipient(id) {
+    await delay();
+    const recipient = (db.account?.notificationRecipients || []).find((row) => row.id === id);
+    if (!recipient) throw new Error("Recipient not found");
+    return clone(recipient);
+  },
+
+  async removeNotificationRecipient(id) {
+    await delay();
+    if (db.account?.notificationRecipients) {
+      db.account.notificationRecipients = db.account.notificationRecipients.filter(
+        (row) => row.id !== id,
+      );
+      persist();
+    }
+    return { ok: true };
+  },
+
+  async getTaxInfo() {
+    await delay();
+    return clone({ taxInfo: db.account?.taxInfo || null });
+  },
+
+  async updateTaxInfo(payload = {}) {
+    await delay();
+    if (!db.account) db.account = {};
+    db.account.taxInfo = { ...(db.account.taxInfo || {}), ...clone(payload) };
+    persist();
+    return clone({ taxInfo: db.account.taxInfo });
+  },
+
+  // ── Team ──────────────────────────────────────────────────────────────
+  async listTeamMembers() {
+    await delay();
+    return clone(db.team || []);
+  },
+
+  async inviteTeamMember({ email, roles } = {}) {
+    await delay();
+    const member = {
+      id: uid("tm"),
+      email,
+      name: "",
+      roles: clone(roles) || [],
+      status: "PENDING",
+      invitedAt: new Date().toISOString(),
+    };
+    db.team.push(member);
+    persist();
+    return { member: clone(member), emailSent: true };
+  },
+
+  async directAddTeamMember({ email, roles } = {}) {
+    await delay();
+    const member = {
+      id: uid("tm"),
+      email,
+      name: "",
+      roles: clone(roles) || [],
+      status: "ACTIVE",
+      joinedAt: new Date().toISOString(),
+    };
+    db.team.push(member);
+    persist();
+    return clone(member);
+  },
+
+  async resendInvite() {
+    await delay();
+    return { emailSent: true };
+  },
+
+  async updateTeamMemberRoles(id, roles = []) {
+    await delay();
+    const member = (db.team || []).find((row) => row.id === id);
+    if (!member) throw new Error("Team member not found");
+    member.roles = clone(roles);
+    member.role = member.roles[0];
+    persist();
+    return clone(member);
+  },
+
+  async removeTeamMember(id) {
+    await delay();
+    db.team = (db.team || []).filter((row) => row.id !== id);
+    persist();
+    return { ok: true };
+  },
+
+  async revokeTeamInvite(id) {
+    await delay();
+    const member = (db.team || []).find((row) => row.id === id);
+    if (member) {
+      member.status = "REVOKED";
+      persist();
+    }
+    return clone(member || null);
   },
 
   // ── Reporting ─────────────────────────────────────────────────────────
@@ -916,6 +1210,65 @@ export const staysMock = {
     claim.reviewNote = note || "";
     persist();
     return clone(claim);
+  },
+
+  // ── Analytics (the Experiences analytics page's three endpoints) ──────
+  async getAnalyticsSummary() {
+    await delay();
+    const valid = nonCancelled();
+    const reviews = db.reviews || [];
+    const averageRating = reviews.length
+      ? Math.round((reviews.reduce((total, review) => total + review.rating, 0) / reviews.length) * 10) /
+        10
+      : 0;
+    return {
+      properties: {
+        active: db.properties.filter((property) => property.status === "Live").length,
+        total: db.properties.length,
+      },
+      bookings: { total: valid.length },
+      earnings: { totalEarnings: valid.reduce((total, booking) => total + booking.amount, 0) },
+      reviews: { averageRating, total: reviews.length },
+    };
+  },
+
+  async getPropertyAnalytics() {
+    await delay();
+    return db.properties.map((property) => {
+      const rows = db.bookings.filter(
+        (booking) =>
+          booking.propertyId === property.id &&
+          booking.status !== "Cancelled" &&
+          booking.status !== "No-show",
+      );
+      return {
+        propertyId: property.id,
+        name: property.name,
+        bookings: rows.length,
+        revenue: rows.reduce((total, booking) => total + booking.amount, 0),
+        photo: property.photos?.[0] || "",
+      };
+    });
+  },
+
+  async getMonthlyRevenue({ months = 12 } = {}) {
+    await delay();
+    const now = new Date();
+    const buckets = [];
+    for (let index = months - 1; index >= 0; index -= 1) {
+      const date = new Date(now.getFullYear(), now.getMonth() - index, 1);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      const revenue = db.bookings
+        .filter(
+          (booking) =>
+            booking.status !== "Cancelled" &&
+            booking.status !== "No-show" &&
+            String(booking.from).startsWith(key),
+        )
+        .reduce((total, booking) => total + booking.amount, 0);
+      buckets.push({ month: key, revenue });
+    }
+    return buckets;
   },
 
   async getAnalytics({ period = "90 days" } = {}) {

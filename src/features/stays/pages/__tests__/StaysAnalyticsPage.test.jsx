@@ -1,61 +1,86 @@
 /**
- * Analytics — the Stays workspace's own reporting page: metric tiles, the
- * revenue trend, the per-property breakdown and best sellers, with the period
- * buttons re-querying the supplier analytics endpoint.
+ * Analytics — the Stays mirror of the Experiences analytics page: the four
+ * stat cards, the revenue-trend bar chart, the bookings-by-property donut and
+ * the best-selling-properties table, all fed by the workspace mock and shown
+ * in USD.
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { formatCurrency } from "@/lib/utils";
 
 import StaysAnalyticsPage from "../StaysAnalyticsPage";
 import { staysMock } from "../../mock/store";
-import { formatMoney } from "../../utils/money";
 
-beforeEach(() => staysMock.reset());
+beforeEach(() => {
+  staysMock.reset();
+  localStorage.setItem("auth_token", "test-token");
+});
+
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location">{`${location.pathname}${location.search}`}</div>;
+}
 
 function renderPage() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
-        <StaysAnalyticsPage />
-      </MemoryRouter>
-    </QueryClientProvider>,
+    <MemoryRouter initialEntries={["/stays/analytics"]}>
+      <LocationProbe />
+      <Routes>
+        <Route path="/stays/analytics" element={<StaysAnalyticsPage />} />
+        <Route path="/stays/properties/build/:id" element={<div>Builder</div>} />
+      </Routes>
+    </MemoryRouter>,
   );
 }
 
-describe("StaysAnalyticsPage — stays reporting", () => {
-  it("renders the stays analytics payload", async () => {
-    const expected = await staysMock.getAnalytics({ period: "90 days" });
+describe("StaysAnalyticsPage — experiences-parity analytics", () => {
+  it("renders the four stat cards from the workspace data", async () => {
+    const summary = await staysMock.getAnalyticsSummary();
     renderPage();
 
-    expect(await screen.findByText("Total bookings")).toBeTruthy();
-    expect(screen.getAllByText(String(expected.totalBookings)).length).toBeGreaterThan(0);
+    expect(await screen.findByRole("heading", { name: "Analytics" })).toBeTruthy();
     expect(
-      screen.getAllByText(formatMoney(expected.grossBookingValue)).length,
-    ).toBeGreaterThan(0);
-    expect(screen.getAllByText(String(expected.liveProperties)).length).toBeGreaterThan(0);
-    expect(screen.getByText("Revenue trend")).toBeTruthy();
-    expect(screen.getByText("Bookings by property")).toBeTruthy();
+      screen.getByText("Track revenue, bookings and property growth with modern analytics."),
+    ).toBeTruthy();
 
-    const table = await screen.findByRole("table", { name: "Best selling properties" });
-    expect(within(table).getByText(expected.bestSelling[0].name)).toBeTruthy();
+    await screen.findAllByText(formatCurrency(summary.earnings.totalEarnings));
+    expect(screen.getAllByText(String(summary.bookings.total)).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(`${summary.reviews.averageRating} ★`).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText(String(summary.properties.active)).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Earnings").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Rating").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Live Properties").length).toBeGreaterThan(0);
   });
 
-  it("re-queries when the period changes", async () => {
+  it("renders the revenue trend, the property donut and the best sellers", async () => {
+    const properties = await staysMock.getPropertyAnalytics();
+    const first = properties[0];
+    renderPage();
+
+    expect(await screen.findByText("Revenue Trend")).toBeTruthy();
+    expect(screen.getByText("Bookings by Property")).toBeTruthy();
+    expect(screen.getByText("Best Selling Properties")).toBeTruthy();
+
+    // The best-sellers table row: full name + USD revenue + the drill-in action.
+    expect((await screen.findAllByText(first.name)).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(formatCurrency(first.revenue)).length).toBeGreaterThan(0);
+    expect(await screen.findByRole("button", { name: "View details" })).toBeTruthy();
+  });
+
+  it("opens the property builder from a best seller's View details", async () => {
+    const properties = await staysMock.getPropertyAnalytics();
     const user = userEvent.setup();
     renderPage();
 
-    await screen.findByText("Total bookings");
-    await user.click(screen.getByRole("button", { name: "30 days" }));
+    const viewDetails = await screen.findByRole("button", { name: "View details" });
+    await user.click(viewDetails);
 
-    await waitFor(() => {
-      expect(screen.getByText(/over the last 30 days/)).toBeTruthy();
-    });
-    expect(screen.getByRole("button", { name: "30 days" }).getAttribute("aria-pressed")).toBe(
-      "true",
+    expect(screen.getByTestId("location").textContent).toBe(
+      `/stays/properties/build/${properties[0].propertyId}`,
     );
   });
 });

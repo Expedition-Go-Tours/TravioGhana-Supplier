@@ -25,7 +25,6 @@ import {
   getProperty,
   removePropertyPhoto,
   saveRatePlan,
-  saveRoom,
   submitProperty,
   STAYS_KEYS,
 } from "../api";
@@ -258,14 +257,6 @@ export default function PropertyBuilderPage() {
     onError: () => toast.error("Could not submit the property"),
   });
 
-  const saveRoomMutation = useMutation({
-    mutationFn: (room) => saveRoom(draft.id, room),
-    onSuccess: (updated) => {
-      patch({ rooms: updated.rooms, ratePlans: updated.ratePlans });
-      queryClient.invalidateQueries({ queryKey: ["stays", "properties"] });
-    },
-  });
-
   const savePlanMutation = useMutation({
     mutationFn: (plan) => saveRatePlan(draft.id, plan),
     onSuccess: (updated) => patch({ ratePlans: updated.ratePlans }),
@@ -493,7 +484,6 @@ export default function PropertyBuilderPage() {
                       onSubmit={handleSubmit}
                       submitting={submitMutation.isPending}
                       onExit={handleExit}
-                      onSaveRoom={(room) => saveRoomMutation.mutateAsync(room)}
                       onSavePlan={(plan) => savePlanMutation.mutateAsync(plan)}
                       onDeletePlan={(plan) => deletePlanMutation.mutateAsync(plan)}
                       onAddPhotos={(dataUrls) => addPhotosMutation.mutateAsync(dataUrls)}

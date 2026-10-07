@@ -23,6 +23,8 @@ export function useRealtimeNotifications() {
     const socket = getChatSocket(userId);
     const markStale = () => {
       invalidateNotifications(queryClient);
+      // The Stays inbox has its own query key; keep it fresh too.
+      queryClient.invalidateQueries({ queryKey: ["stays", "notifications"] });
     };
 
     socket.on("notification", markStale);

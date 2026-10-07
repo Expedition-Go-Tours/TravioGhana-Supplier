@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
  * on Radix Dialog so every modal gets a focus trap, Escape handling, scroll
  * locking and `aria-modal` semantics for free.
  *
- * Widths: 540px default, 780px for `wide` (rate plans, policies). The body
+ * Widths: 540px default, 780px for `wide` (rate plans). The body
  * scrolls inside the panel (90vh cap); the footer stays with the content.
  */
 export default function StaysModal({

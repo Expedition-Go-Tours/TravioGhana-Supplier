@@ -4,7 +4,7 @@ import { STAYS_BUILDER_STEP_COUNT } from "./staysSteps";
  * Prototype option lists for the Stays workspace — property types, the nine
  * builder steps and their hints, facilities, Ghana's regions, room kinds and
  * the plan/rate vocabularies. Kept in one module so the builder, the modals
- * and the policies page can never disagree about what "Lodge" or "Half board"
+ * and the builder can never disagree about what "Lodge" or "Half board"
  * means.
  */
 
@@ -461,24 +461,6 @@ export const FACILITY_GROUPS = [
 
 export const FACILITIES = FACILITY_GROUPS.flatMap((group) => group.items);
 
-export const ROOM_KINDS = [
-  "Single Room",
-  "Double Room",
-  "Twin Room",
-  "Deluxe Room",
-  "King Room",
-  "Family Room",
-  "Suite",
-  "Studio",
-  "Apartment",
-  "Villa",
-  "Dormitory bed",
-  "Entire home",
-  "Custom",
-];
-
-export const BATHROOM_TYPES = ["Private", "Shared"];
-
 export const MEAL_PLANS = [
   "Room only",
   "Breakfast included",
@@ -535,31 +517,6 @@ export const HOST_PROFILE_FOCUS = [
   "The host",
   "The neighbourhood",
   "None of the above / I'll add these later",
-];
-
-/* ── Room detail (Booking splits these across bedroom/bathroom/amenities) ── */
-
-export const BATHROOM_AMENITIES = [
-  "Toilet paper",
-  "Shower",
-  "Bath",
-  "Toilet",
-  "Hairdryer",
-  "Free toiletries",
-];
-
-export const ROOM_AMENITIES = [
-  "Air conditioning",
-  "Heating",
-  "Wardrobe or closet",
-  "Towels",
-  "Linen",
-  "Flat-screen TV",
-  "Desk",
-  "Socket near the bed",
-  "Private entrance",
-  "Balcony",
-  "Kitchenette",
 ];
 
 /* ── Payments & the closing agreement ────────────────────────────────────── */

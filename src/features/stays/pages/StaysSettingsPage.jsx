@@ -1,0 +1,2072 @@
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import {
+  User, Bell, CreditCard, Shield, FileText, Users,
+  Loader2, Upload, Trash2, X, Plus, Building2,
+  Wallet, Globe, MapPin, Clock, Phone, Save, Key, Eye, EyeOff,
+  Landmark, Banknote, AlertTriangle, RefreshCw, Smartphone,
+  IdCard, ShieldCheck
+} from "lucide-react";
+import { toast } from "sonner";
+import PhoneInput from "@/components/forms/PhoneInput";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Select, SelectTrigger, SelectValue, SelectContent, SelectItem
+} from "@/components/ui/select";
+import OptimizedImage from "@/components/shared/OptimizedImage";
+import {
+  fetchCurrentUser, updateCurrentUser, uploadSupplierLogo,
+  fetchBusinessProfile, updateBusinessProfile,
+  fetchNotificationPreferences, updateNotificationPreferences,
+  fetchNotificationRecipients, addNotificationRecipient, updateNotificationRecipient,
+  resendNotificationRecipient, removeNotificationRecipient,
+  fetchTaxInfo, updateTaxInfo,
+  fetchPayoutMethods, createPayoutMethod, deletePayoutMethod,
+  fetchPayouts, fetchPayoutSettings, fetchFinanceSummary,
+  fetchTeamMembers, inviteTeamMember, removeTeamMember, updateTeamMemberRole,
+  directAddTeamMember, resendInvite, revokeTeamInvite,
+  changeStaysPassword,
+} from "../settingsApi";
+import { getAuthToken, useAuthStore } from "@/stores/authStore";
+import { cn, formatCurrency } from "@/lib/utils";
+import { config } from "@/config";
+import { useTeamRole } from "@/hooks/useTeamRole";
+import { canOpenSettingsTab } from "@/config/pageAccess";
+import PayoutMethodFormSheet from "../components/finance/StaysPayoutMethodFormSheet";
+import { maskTail } from "../config/payoutMethodForm";
+import { TEAM_ROLE_LABELS, TEAM_ROLE_COLORS, MAX_TEAM_ROLES, describeRoles, sortTeamRoles } from "@/config/teamRoles";
+import TeamRolePicker from "@/features/settings/components/TeamRolePicker";
+import SocialMediaManager from "@/features/settings/components/SocialMediaManager";
+import OperatingHoursEditor from "@/features/settings/components/OperatingHoursEditor";
+import { emptyWeeklyHours, normalizeWeeklyHours, validateOperatingHours } from "@/features/settings/utils/operatingHours";
+import { PayoutScheduleEditor } from "../components/finance/StaysPayoutScheduleCard";
+import { GHANA_REGIONS } from "@/features/settings/utils/regions";
+import { isIndividualSupplier } from "@/features/settings/utils/supplierKind";
+
+/**
+ * Masks an ID number so verification data is visible without being exposed in
+ * full: "GA-123456789" -> "•••••••6789". Anything short of 5 chars hides
+ * entirely.
+ */
+function maskId(value) {
+  if (!value) return "";
+  if (String(value).length <= 4) return "••••";
+  return `${"•".repeat(String(value).length - 4)}${String(value).slice(-4)}`;
+}
+
+const TABS = [
+  { key: "profile", label: "Profile", icon: User },
+  { key: "notifications", label: "Notifications", icon: Bell },
+  { key: "payouts", label: "Payout Settings", icon: Banknote },
+  { key: "security", label: "Security", icon: Shield },
+  { key: "tax", label: "Tax Information", icon: FileText },
+  { key: "team", label: "Team", icon: Users },
+];
+
+/**
+ * Stays role copy — the same account roles, described in property terms and
+ * passed to the shared picker so it reads correctly on this side.
+ */
+const STAYS_ROLE_SUMMARIES = {
+  admin: "Full access — team, properties, bookings, payouts and settings",
+  editor: "Manage properties, bookings and rates",
+  finance: "See earnings, payouts and payout methods",
+  support: "Handle guest chat and reviews",
+};
+
+/**
+ * Stays payout statuses (COMPLETED, IN_REVIEW, …) mapped onto the same tones
+ * the Experiences page uses for PAID / PENDING / APPROVED / FAILED.
+ */
+const PAYOUT_STATUS_TONES = {
+  COMPLETED: "emerald",
+  PAID: "emerald",
+  APPROVED: "blue",
+  IN_REVIEW: "amber",
+  PENDING: "amber",
+  CANCELLED: "red",
+  REJECTED: "red",
+  FAILED: "red",
+};
+const payoutTone = (status) => PAYOUT_STATUS_TONES[status] || "slate";
+const PAYOUT_TONES = {
+  emerald: { iconBg: "bg-emerald-100", icon: "text-emerald-600", chip: "bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
+  blue: { iconBg: "bg-blue-100", icon: "text-blue-600", chip: "bg-blue-50 text-blue-700", dot: "bg-blue-500" },
+  amber: { iconBg: "bg-amber-100", icon: "text-amber-600", chip: "bg-amber-50 text-amber-700", dot: "bg-amber-500" },
+  red: { iconBg: "bg-red-100", icon: "text-red-600", chip: "bg-red-50 text-red-700", dot: "bg-red-500" },
+  slate: { iconBg: "bg-slate-100", icon: "text-slate-600", chip: "bg-slate-100 text-slate-600", dot: "bg-slate-400" },
+};
+
+const FADE_UP = {
+  initial: { opacity: 0, y: 16 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.3, ease: "easeOut" } },
+  exit: { opacity: 0, y: -8, transition: { duration: 0.2, ease: "easeIn" } },
+};
+
+/**
+ * The masked identifier for a saved method. Picks whichever identifier that
+ * method actually has — a SEPA account only has an IBAN, so falling back to
+ * `accountNumber` alone used to render a bare "****" with nothing after it.
+ */
+function settingsMethodIdentifier(method) {
+  return maskTail(method.iban || method.sortCode || method.routingNumber || method.accountNumber || method.mobileNumber);
+}
+
+export default function StaysSettingsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get("tab") || "profile";
+  const { hasPermission, isOwner, teamRoles } = useTeamRole();
+
+  // One rule per tab, shared with the search palette (config/pageAccess.js): a
+  // tab is only offered to a role whose API calls on it will actually succeed.
+  const filteredTabs = TABS.filter((tab) => canOpenSettingsTab(hasPermission, tab.key));
+  // Guard against a stale, removed or forbidden tab in the URL — including a
+  // tab this role cannot open. A member with no business rights lands on the
+  // first tab they do have (Security for support, and so on).
+  const activeTab = filteredTabs.some((t) => t.key === requestedTab)
+    ? requestedTab
+    : (filteredTabs[0]?.key || "security");
+
+  return (
+    <div className="max-w-5xl">
+      {/* Header */}
+      <div className="flex items-center gap-4 mb-6">
+        <div className="w-1 h-10 bg-linear-to-b from-emerald-500 to-emerald-300 rounded-full" />
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-800">Settings</h1>
+          <p className="text-sm text-slate-500 mt-0.5">Manage your account and business settings</p>
+        </div>
+        {!isOwner && teamRoles.length > 0 && (
+          <span className={cn("text-[10px] font-medium px-2 py-1 rounded-full bg-slate-100 text-slate-600")}>
+            {describeRoles(teamRoles)} Access
+          </span>
+        )}
+      </div>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-1 bg-slate-100/80 rounded-xl p-1 mb-6 overflow-x-auto scrollbar-none">
+        {filteredTabs.map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <button key={tab.key} onClick={() => setSearchParams({ tab: tab.key })}
+              className={cn(
+                "relative flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap shrink-0",
+                activeTab === tab.key ? "text-white" : "text-slate-500 hover:text-slate-700"
+              )}
+            >
+              {activeTab === tab.key && (
+                <motion.span
+                  layoutId="settingsTab"
+                  className="absolute inset-0 rounded-lg bg-emerald-600"
+                  transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-1.5">
+                <Icon size={14} />
+                {tab.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Tab Content */}
+      <AnimatePresence mode="wait">
+        {activeTab === "profile" && <ProfileTab key="profile" />}
+        {activeTab === "notifications" && <NotificationsTab key="notifications" />}
+        {activeTab === "payouts" && <PayoutsTab key="payouts" />}
+        {activeTab === "security" && <SecurityTab key="security" />}
+        {activeTab === "tax" && <TaxTab key="tax" />}
+        {activeTab === "team" && <TeamTab key="team" />}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function ProfileTab() {
+  const authUser = useAuthStore((state) => state.user);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    name: "", phone: "", language: "en", timezone: "UTC", email: "",
+    brandName: "", description: "", address: "", city: "", country: "", region: "",
+    legalBusinessName: "", businessType: "", registrationNumber: "", tin: "", yearEstablished: "",
+    website: "", operatingHours: emptyWeeklyHours(),
+    instagram: "", facebook: "", twitter: "",
+    tiktok: "", youtube: "", linkedin: "", whatsapp: "", pinterest: "",
+  });
+  const [initialForm, setInitialForm] = useState(null);
+  const [operatingRegions, setOperatingRegions] = useState([]);
+  const [initialOperatingRegions, setInitialOperatingRegions] = useState([]);
+  const [operatingMeta, setOperatingMeta] = useState({ services: [], tourCategories: [] });
+  const [representativeInfo, setRepresentativeInfo] = useState({
+    fullName: "", email: "", phoneNumber: "", dateOfBirth: "", idType: "", idNumber: "",
+  });
+  const [supplierType, setSupplierType] = useState(null);
+  const [supplierChoice, setSupplierChoice] = useState(null);
+  const isIndividual = isIndividualSupplier({ supplierType, supplierChoice }) === true;
+  const [logoFile, setLogoFile] = useState(null);
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [currentLogoUrl, setCurrentLogoUrl] = useState(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [hoursErrors, setHoursErrors] = useState({});
+  const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    async function load() {
+      if (!getAuthToken()) { setLoading(false); return; }
+      try {
+        const [user, biz] = await Promise.all([
+          fetchCurrentUser(),
+          fetchBusinessProfile(),
+        ]);
+        if (user) {
+          const bi = biz?.businessInfo || {};
+          const oi = biz?.operatingInfo || {};
+          const ri = biz?.representativeInfo || {};
+          const cached = useAuthStore.getState().supplierProfile;
+          // The application writes the address as { line1, city, state, ... };
+          // some legacy rows kept a flat string. Normalise either into the
+          // form so what the supplier submitted comes back into the inputs.
+          const addr =
+            bi.address && typeof bi.address === "object" && !Array.isArray(bi.address)
+              ? bi.address
+              : typeof bi.address === "string"
+                ? { line1: bi.address }
+                : {};
+          setSupplierType(biz?.supplierType || cached?.supplierType || null);
+          setSupplierChoice(bi?.supplierChoice || cached?.businessInfo?.supplierChoice || null);
+          const loaded = {
+            name: user.name || "", phone: user.phone || bi.phoneNumber || "",
+            language: user.language || "en", timezone: user.timezone || "UTC",
+            email: user.email || "",
+            brandName: bi.displayName || (typeof bi.businessName === "string" ? bi.businessName : "") || "",
+            description: bi.description || "",
+            address: addr.line1 || "",
+            city: addr.city || bi.city || "",
+            country: bi.country || "",
+            region: addr.state || bi.region || "",
+            website: bi.website || "",
+            legalBusinessName: bi.legalBusinessName || "",
+            businessType: bi.businessType || "",
+            registrationNumber: bi.registrationNumber || "",
+            tin: bi.tin || "",
+            yearEstablished: bi.yearEstablished != null ? String(bi.yearEstablished) : "",
+            instagram: bi.instagram || "", facebook: bi.facebook || "",
+            twitter: bi.twitter || "", operatingHours: normalizeWeeklyHours(bi.operatingHours),
+            tiktok: bi.tiktok || "", youtube: bi.youtube || "",
+            linkedin: bi.linkedin || "", whatsapp: bi.whatsapp || "",
+            pinterest: bi.pinterest || "",
+          };
+          setForm(loaded);
+          setInitialForm(loaded);
+          setOperatingRegions(Array.isArray(oi.regions) ? oi.regions : []);
+          setInitialOperatingRegions(Array.isArray(oi.regions) ? [...oi.regions] : []);
+          setOperatingMeta({
+            services: Array.isArray(oi.services) ? oi.services : [],
+            tourCategories: Array.isArray(oi.tourCategories) ? oi.tourCategories : [],
+          });
+          setRepresentativeInfo({
+            fullName: ri.fullName || user.name || "",
+            email: ri.email || user.email || "",
+            phoneNumber: ri.phoneNumber || user.phone || "",
+            dateOfBirth: ri.dateOfBirth || "",
+            idType: ri.idType || "",
+            idNumber: ri.idNumber || "",
+          });
+          setCurrentLogoUrl(user.logoUrl || null);
+        }
+      } catch { /* ignore */ }
+      finally { setLoading(false); }
+    }
+    load();
+  }, []);
+
+  const handleSavePersonal = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await updateCurrentUser({ name: form.name, phone: form.phone, language: form.language, timezone: form.timezone });
+      const user = await fetchCurrentUser();
+      if (user) useAuthStore.getState().updateUser(user);
+      toast.success("Personal info updated");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to update personal info");
+    } finally { setSaving(false); }
+  };
+
+  const handleSaveBusiness = async () => {
+    // Operating regions are required in the application form ("Select at
+    // least one region") — the settings page must not let them save blank.
+    if (operatingRegions.length === 0) {
+      toast.error("Select at least one region you operate in");
+      return;
+    }
+    // The schedule is optional, but a range that ends before it starts must not
+    // be stored — surface it on the offending day instead of saving junk.
+    const errorsFound = validateOperatingHours(form.operatingHours);
+    if (Object.keys(errorsFound).length > 0) {
+      setHoursErrors(errorsFound);
+      toast.error("Fix your operating hours before saving");
+      return;
+    }
+    setHoursErrors({});
+    setSaving(true);
+    try {
+      await updateBusinessProfile({
+        businessInfo: {
+          // displayName is the "Business / Brand name" the application
+          // collects from everyone, including individual tour guides.
+          displayName: form.brandName,
+          legalBusinessName: form.legalBusinessName,
+          businessType: form.businessType,
+          registrationNumber: form.registrationNumber,
+          tin: form.tin,
+          yearEstablished: form.yearEstablished,
+          description: form.description,
+          // The application stores the address as a nested object
+          // { line1, city, state, ... }. Keep that shape — writing a flat
+          // string here corrupts the public profile and re-validation.
+          address: { line1: form.address, line2: "", city: form.city, state: form.region, postalCode: "" },
+          country: form.country,
+          website: form.website,
+          operatingHours: form.operatingHours,
+          instagram: form.instagram, facebook: form.facebook, twitter: form.twitter,
+          tiktok: form.tiktok, youtube: form.youtube, linkedin: form.linkedin,
+          whatsapp: form.whatsapp, pinterest: form.pinterest,
+        },
+        operatingInfo: {
+          regions: operatingRegions,
+          services: operatingMeta.services,
+          tourCategories: operatingMeta.tourCategories,
+        },
+      });
+      setInitialForm((prev) => (prev ? { ...prev, brandName: form.brandName } : prev));
+      setInitialOperatingRegions([...operatingRegions]);
+      toast.success(isIndividual ? "Profile updated" : "Business profile updated");
+    } catch (err) {
+      toast.error(err.response?.data?.message || (isIndividual ? "Failed to update profile" : "Failed to update business profile"));
+    } finally { setSaving(false); }
+  };
+
+  // Social links persist to the backend immediately on add / edit / remove.
+  const handlePersistSocials = async (socials) => {
+    await updateBusinessProfile({ businessInfo: socials });
+    setInitialForm((prev) => (prev ? { ...prev, ...socials } : prev));
+  };
+
+  const handleLogoSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > config.upload.maxFileSize) { toast.error("Logo must be smaller than 5MB"); return; }
+    if (!file.type.startsWith("image/")) { toast.error("Please select an image file"); return; }
+    setLogoFile(file);
+    setLogoPreview(URL.createObjectURL(file));
+  };
+
+  const handleUploadLogo = async () => {
+    if (!logoFile) return;
+    setUploadingLogo(true);
+    try {
+      const formData = new FormData();
+      formData.append("logo", logoFile);
+      const result = await uploadSupplierLogo(formData);
+      if (result?.logoUrl) {
+        setCurrentLogoUrl(result.logoUrl);
+        useAuthStore.getState().updateUser({ logoUrl: result.logoUrl });
+        toast.success("Logo uploaded");
+        setLogoFile(null); setLogoPreview(null);
+      }
+    } catch (err) { toast.error(err.response?.data?.message || "Failed to upload logo"); }
+    finally { setUploadingLogo(false); }
+  };
+
+  const handleRemoveLogo = async () => {
+    try {
+      await updateCurrentUser({ logoUrl: null });
+      setCurrentLogoUrl(null);
+      useAuthStore.getState().updateUser({ logoUrl: null });
+      toast.success("Logo removed");
+    } catch { toast.error("Failed to remove logo"); }
+  };
+
+  const hasPersonalChanges = initialForm && JSON.stringify({
+    name: form.name, phone: form.phone, language: form.language, timezone: form.timezone,
+    email: form.email,
+  }) !== JSON.stringify({
+    name: initialForm.name, phone: initialForm.phone,
+    language: initialForm.language, timezone: initialForm.timezone,
+    email: initialForm.email,
+  });
+
+  const hasBusinessChanges = initialForm && JSON.stringify({
+    brandName: form.brandName,
+    description: form.description, address: form.address, city: form.city,
+    country: form.country, region: form.region, website: form.website,
+    operatingHours: form.operatingHours,
+    legalBusinessName: form.legalBusinessName, businessType: form.businessType,
+    registrationNumber: form.registrationNumber, tin: form.tin,
+    yearEstablished: form.yearEstablished,
+    instagram: form.instagram, facebook: form.facebook, twitter: form.twitter,
+    tiktok: form.tiktok, youtube: form.youtube, linkedin: form.linkedin,
+    whatsapp: form.whatsapp, pinterest: form.pinterest,
+  }) !== JSON.stringify({
+    brandName: initialForm.brandName,
+    description: initialForm.description, address: initialForm.address, city: initialForm.city,
+    country: initialForm.country, region: initialForm.region, website: initialForm.website,
+    operatingHours: initialForm.operatingHours,
+    legalBusinessName: initialForm.legalBusinessName, businessType: initialForm.businessType,
+    registrationNumber: initialForm.registrationNumber, tin: initialForm.tin,
+    yearEstablished: initialForm.yearEstablished,
+    instagram: initialForm.instagram, facebook: initialForm.facebook, twitter: initialForm.twitter,
+    tiktok: initialForm.tiktok, youtube: initialForm.youtube, linkedin: initialForm.linkedin,
+    whatsapp: initialForm.whatsapp, pinterest: initialForm.pinterest,
+  });
+
+  const hasRegionsChanges = JSON.stringify(operatingRegions) !== JSON.stringify(initialOperatingRegions);
+  const hasProfileChanges = hasBusinessChanges || hasRegionsChanges;
+
+  if (loading) return <LoadingSkeleton />;
+
+  return (
+    <motion.div variants={FADE_UP} initial="initial" animate="animate" exit="exit" className="space-y-6">
+      {/* Personal Info */}
+      <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
+            <User size={16} className="text-emerald-600" />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-slate-800">Personal Information</h2>
+            <p className="text-xs text-slate-500">Update your personal details</p>
+          </div>
+        </div>
+        <form onSubmit={handleSavePersonal} className="px-6 py-5 space-y-5">
+          <div className="flex flex-col items-center mb-2">
+            <div className="w-20 h-20 rounded-full overflow-hidden shadow-lg bg-slate-50 ring-2 ring-emerald-100">
+              {(authUser?.photoURL || authUser?.avatar) ? (
+                <OptimizedImage src={authUser.photoURL || authUser.avatar} width={80} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <span className="text-2xl font-bold text-emerald-600">{(authUser?.name || "S").charAt(0).toUpperCase()}</span>
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-slate-400 mt-2">Photo from your Google account</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Full Name</label>
+              <input type="text" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Email</label>
+              <input type="email" value={form.email || authUser?.email || ""} disabled
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 text-slate-500 cursor-not-allowed" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                <Phone size={13} className="inline mr-1 text-slate-400" />Phone
+              </label>
+              <PhoneInput
+                value={form.phone || ''}
+                onChange={(val) => setForm((p) => ({ ...p, phone: val }))}
+                defaultCountry="US"
+                placeholder="Phone number"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  <Globe size={13} className="inline mr-1 text-slate-400" />Language
+                </label>
+                <Select value={form.language} onValueChange={(v) => setForm((p) => ({ ...p, language: v }))}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select language" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="en">English</SelectItem>
+                    <SelectItem value="fr">French</SelectItem>
+                    <SelectItem value="sw">Swahili</SelectItem>
+                    <SelectItem value="pt">Portuguese</SelectItem>
+                    <SelectItem value="ar">Arabic</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  <Clock size={13} className="inline mr-1 text-slate-400" />Timezone
+                </label>
+                <input type="text" value={form.timezone} onChange={(e) => setForm((p) => ({ ...p, timezone: e.target.value }))}
+                  placeholder="e.g. Africa/Accra"
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
+              </div>
+            </div>
+          </div>
+          <div className="pt-2">
+            <button type="submit" disabled={saving || !hasPersonalChanges}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
+              {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+              Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Company Logo / Profile Logo */}
+      <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="px-6 py-5 border-b border-slate-100">
+          <h2 className="text-sm font-semibold text-slate-800">{isIndividual ? "Profile Logo" : "Company Logo"}</h2>
+          <p className="text-xs text-slate-500">{isIndividual ? "Upload a profile image for public display" : "Upload your business logo for public display"}</p>
+        </div>
+        <div className="px-6 py-5">
+          <div className="flex items-start gap-6">
+            <div className="shrink-0">
+              {logoPreview ? (
+                <div className="relative w-24 h-24 rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                  <img src={logoPreview} alt="Preview" loading="lazy" className="w-full h-full object-cover" />
+                </div>
+              ) : currentLogoUrl ? (
+                <div className="relative w-24 h-24 rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                  <OptimizedImage src={currentLogoUrl} width={96} className="w-full h-full object-cover"
+                    onError={(e) => { e.target.style.display = "none"; }} />
+                </div>
+              ) : null}
+            </div>
+            <div className="flex-1 space-y-3">
+              {logoPreview ? (
+                <div className="flex items-center gap-2">
+                  <button onClick={handleUploadLogo} disabled={uploadingLogo}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-medium hover:bg-emerald-700 transition-all disabled:opacity-50">
+                    {uploadingLogo ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
+                    {uploadingLogo ? "Uploading..." : "Upload Logo"}
+                  </button>
+                  <button onClick={() => { setLogoFile(null); setLogoPreview(null); }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-slate-600 rounded-xl text-xs font-medium hover:bg-slate-50 transition-all">
+                    <X size={16} /> Cancel
+                  </button>
+                </div>
+              ) : currentLogoUrl ? (
+                <div className="flex items-center gap-2">
+                  <button onClick={() => fileInputRef.current?.click()}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-medium hover:bg-emerald-700 transition-all">
+                    <Upload size={13} /> Change Logo
+                  </button>
+                  <button onClick={handleRemoveLogo}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-red-600 rounded-xl text-xs font-medium hover:bg-red-50 transition-all">
+                    <Trash2 size={16} /> Remove
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-medium hover:bg-emerald-700 transition-all">
+                  <Upload size={13} /> Select Logo
+                </button>
+              )}
+              <p className="text-xs text-slate-400">Supports JPG, PNG, WebP. Max 5MB. Square images work best.</p>
+            </div>
+          </div>
+          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoSelect} />
+        </div>
+      </div>
+
+      {/* Business Profile / Public Profile */}
+      <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
+            <Building2 size={16} className="text-emerald-600" />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-slate-800">{isIndividual ? "Public Profile" : "Business Profile"}</h2>
+            <p className="text-xs text-slate-500">
+              {isIndividual
+                ? "How you appear to travelers on your public profile"
+                : "Information displayed to customers on your public profile"}
+            </p>
+          </div>
+        </div>
+        <div className="px-6 py-5 space-y-5">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Business / Brand name</label>
+            <input type="text" value={form.brandName}
+              onChange={(e) => setForm((p) => ({ ...p, brandName: e.target.value }))}
+              placeholder="Your public brand or business name"
+              className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
+            <p className="mt-1.5 text-xs text-slate-400">The name from your supplier application, shown to travelers on your public profile.</p>
+          </div>
+
+          {!isIndividual && (
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Business details</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Legal Business Name</label>
+                  <input type="text" value={form.legalBusinessName}
+                    onChange={(e) => setForm((p) => ({ ...p, legalBusinessName: e.target.value }))}
+                    placeholder="As registered with the Registrar General"
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Business Type</label>
+                  <Select value={form.businessType || "individual"}
+                    onValueChange={(v) => setForm((p) => ({ ...p, businessType: v }))}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select business type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="individual">Individual</SelectItem>
+                      <SelectItem value="company">Registered Company</SelectItem>
+                      <SelectItem value="non_profit">Non-profit</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Registration Number</label>
+                  <input type="text" value={form.registrationNumber}
+                    onChange={(e) => setForm((p) => ({ ...p, registrationNumber: e.target.value }))}
+                    placeholder="e.g. CS123456789"
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Tax Identification Number (TIN)</label>
+                  <input type="text" value={form.tin}
+                    onChange={(e) => setForm((p) => ({ ...p, tin: e.target.value }))}
+                    placeholder="e.g. C0012345678"
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Year Established</label>
+                  <input type="text" inputMode="numeric" value={form.yearEstablished}
+                    onChange={(e) => setForm((p) => ({ ...p, yearEstablished: e.target.value.replace(/[^0-9]/g, "").slice(0, 4) }))}
+                    placeholder="e.g. 2019"
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-slate-400">
+                Taken from your supplier application. Update anything that has changed since you applied.
+              </p>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Business Description</label>
+            <textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+              rows={3} placeholder="Tell travelers about your business, your story, and what makes your property special..."
+              className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all resize-none" />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                <MapPin size={13} className="inline mr-1 text-slate-400" />Address
+              </label>
+              <input type="text" value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))}
+                placeholder="Street address"
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">City</label>
+                <input type="text" value={form.city} onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))}
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Country</label>
+                <input type="text" value={form.country} onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))}
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Region</label>
+                <input type="text" value={form.region} onChange={(e) => setForm((p) => ({ ...p, region: e.target.value }))}
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                <Globe size={13} className="inline mr-1 text-slate-400" />Website
+              </label>
+              <input type="url" value={form.website} onChange={(e) => setForm((p) => ({ ...p, website: e.target.value }))}
+                placeholder="https://yourbusiness.com"
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              <MapPin size={13} className="inline mr-1 text-slate-400" />Where do you mainly operate?
+            </label>
+            <p className="text-xs text-slate-400 mb-3">
+              Select at least one region — the choices you made when applying. Shown to guests and used to match bookings.
+            </p>
+            <div className="flex flex-wrap gap-2" id="operatingRegions" data-field="operatingRegions">
+              {GHANA_REGIONS.map((region) => {
+                const selected = operatingRegions.includes(region);
+                return (
+                  <button key={region} type="button" aria-pressed={selected}
+                    onClick={() => setOperatingRegions((prev) => (selected ? prev.filter((r) => r !== region) : [...prev, region]))}
+                    className={cn(
+                      "px-3.5 py-1.5 rounded-full text-xs font-medium border transition-all",
+                      selected
+                        ? "bg-emerald-600 text-white border-emerald-600"
+                        : "bg-white text-slate-600 border-slate-200 hover:border-emerald-300"
+                    )}>
+                    {region}
+                  </button>
+                );
+              })}
+            </div>
+            {operatingRegions.length === 0 && (
+              <p className="mt-2 text-xs text-amber-600">You have not selected any regions yet.</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              <Clock size={13} className="inline mr-1 text-slate-400" />Operating Hours
+            </label>
+            <p className="text-xs text-slate-400 mb-3">
+              The hours your business is open. Leave a day empty if you are closed.
+            </p>
+            <OperatingHoursEditor
+              value={form.operatingHours}
+              onChange={(next) => {
+                setForm((p) => ({ ...p, operatingHours: next }));
+                if (Object.keys(hoursErrors).length > 0) setHoursErrors({});
+              }}
+              errors={hoursErrors}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Social Media Links</label>
+            <SocialMediaManager
+              value={{
+                twitter: form.twitter, instagram: form.instagram, facebook: form.facebook,
+                tiktok: form.tiktok, youtube: form.youtube, linkedin: form.linkedin,
+                whatsapp: form.whatsapp, pinterest: form.pinterest,
+              }}
+              onChange={(next) => setForm((p) => ({ ...p, ...next }))}
+              onPersist={handlePersistSocials}
+            />
+            <p className="mt-2 text-xs text-slate-400">
+              Social links are saved to your public business profile automatically.
+            </p>
+          </div>
+
+          <div className="pt-2">
+            <button onClick={handleSaveBusiness} disabled={saving || !hasProfileChanges}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
+              {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+              {isIndividual ? "Save Profile" : "Save Business Profile"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Verification identity — read-only record of the application's identity details */}
+      {(representativeInfo.fullName || representativeInfo.dateOfBirth || representativeInfo.idType || representativeInfo.idNumber) && (
+        <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
+              <IdCard size={16} className="text-emerald-600" />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-slate-800">Verification Identity</h2>
+              <p className="text-xs text-slate-500">Submitted in your supplier application</p>
+            </div>
+          </div>
+          <div className="px-6 py-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Full name (as shown on ID)</label>
+                <input value={representativeInfo.fullName} disabled
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 text-slate-600 cursor-not-allowed" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Email</label>
+                <input value={representativeInfo.email} disabled
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 text-slate-600 cursor-not-allowed" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Phone</label>
+                <input value={representativeInfo.phoneNumber} disabled
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 text-slate-600 cursor-not-allowed" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Date of birth</label>
+                <input value={representativeInfo.dateOfBirth} disabled
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 text-slate-600 cursor-not-allowed" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">ID type</label>
+                <input value={representativeInfo.idType} disabled
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 text-slate-600 cursor-not-allowed" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">ID number</label>
+                <input value={maskId(representativeInfo.idNumber)} disabled
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 text-slate-600 cursor-not-allowed" />
+              </div>
+            </div>
+            <p className="mt-3 flex items-start gap-1.5 text-xs text-slate-400">
+              <ShieldCheck size={14} className="mt-0.5 shrink-0 text-emerald-500" />
+              Submitted during registration and used for identity verification. Contact support if any of these details have changed.
+            </p>
+          </div>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+function NotificationsTab() {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [initialPrefs, setInitialPrefs] = useState(null);
+  const [prefs, setPrefs] = useState({
+    emailNotifications: { bookings: true, reviews: true, payments: true, systemAlerts: true },
+    pushNotifications: { bookings: true, reviews: true, payments: true, systemAlerts: true },
+  });
+
+  useEffect(() => {
+    fetchNotificationPreferences()
+      .then((data) => {
+        if (data) {
+          setPrefs(data);
+          setInitialPrefs(data);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const toggle = (channel, category) => {
+    setPrefs((prev) => ({
+      ...prev,
+      [channel]: { ...prev[channel], [category]: !prev[channel][category] },
+    }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const data = await updateNotificationPreferences({
+        emailNotifications: prefs.emailNotifications,
+        pushNotifications: prefs.pushNotifications,
+      });
+      if (data) setPrefs(data);
+      toast.success("Notification preferences updated");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to update preferences");
+    } finally { setSaving(false); }
+  };
+
+  const categories = [
+    { key: "bookings", label: "New Bookings", desc: "When a customer makes a booking" },
+    { key: "reviews", label: "Reviews & Ratings", desc: "When you receive a new review" },
+    { key: "payments", label: "Payments & Payouts", desc: "Payment received, payout approved or released" },
+    { key: "systemAlerts", label: "System Alerts", desc: "Important updates and announcements" },
+  ];
+
+  if (loading) return <LoadingSkeleton />;
+
+  return (
+    <motion.div variants={FADE_UP} initial="initial" animate="animate" exit="exit" className="space-y-6">
+      <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
+            <Bell size={16} className="text-emerald-600" />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-slate-800">Notification Preferences</h2>
+            <p className="text-xs text-slate-500">Choose which notifications you want to receive and how</p>
+          </div>
+        </div>
+
+        <div className="px-6 py-5">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-100">
+                  <th className="text-left py-3 pr-4 text-xs font-semibold text-slate-500">Notification Type</th>
+                  <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500">Email</th>
+                  <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500">Push</th>
+                </tr>
+              </thead>
+              <tbody>
+                {categories.map((cat) => (
+                  <tr key={cat.key} className="border-b border-slate-50 last:border-0">
+                    <td className="py-4 pr-4">
+                      <p className="text-sm font-medium text-slate-700">{cat.label}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{cat.desc}</p>
+                    </td>
+                    <td className="text-center px-4">
+                      <ToggleSwitch
+                        checked={prefs.emailNotifications[cat.key]}
+                        onChange={() => toggle("emailNotifications", cat.key)}
+                      />
+                    </td>
+                    <td className="text-center px-4">
+                      <ToggleSwitch
+                        checked={prefs.pushNotifications[cat.key]}
+                        onChange={() => toggle("pushNotifications", cat.key)}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between">
+          <p className="text-xs text-slate-400">Push notifications are delivered via the mobile app and browser</p>
+          <button onClick={handleSave} disabled={saving || (initialPrefs && JSON.stringify(prefs) === JSON.stringify(initialPrefs))}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-medium hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
+            {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+            Save Preferences
+          </button>
+        </div>
+      </div>
+
+      <NotificationEmailsCard />
+
+      <div className="bg-emerald-50/50 border border-emerald-200/50 rounded-xl p-4">
+        <div className="flex items-start gap-3">
+          <Bell size={16} className="text-emerald-600 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-emerald-800">Email Notifications</p>
+            <p className="text-xs text-emerald-600 mt-0.5">
+              Review-related emails are sent to your registered email address.
+              Payment and booking notifications include important transaction details.
+            </p>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+const NOTIFICATION_EMAIL_TYPES = [
+  { key: "bookings", label: "Bookings & operations", description: "New bookings, changes, cancellations and check-in updates", Icon: Users },
+  { key: "reviews", label: "Reviews & ratings", description: "New reviews and replies to your reviews", Icon: Bell },
+  { key: "payments", label: "Payments & payouts", description: "Payments received, payouts approved or sent", Icon: Wallet },
+  { key: "systemAlerts", label: "Account & system alerts", description: "Property reviews, document expiry and account updates", Icon: Shield },
+];
+
+const RECIPIENT_STATUS = {
+  VERIFIED: { label: "Confirmed", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  PENDING: { label: "Pending confirmation", className: "bg-amber-50 text-amber-700 border-amber-200" },
+  DISABLED: { label: "Disabled", className: "bg-slate-100 text-slate-500 border-slate-200" },
+};
+
+function NotificationEmailsCard() {
+  const [recipients, setRecipients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [busyId, setBusyId] = useState(null);
+  const [newTypes, setNewTypes] = useState({ bookings: true, reviews: true, payments: true, systemAlerts: true });
+
+  const enabledCount = (recipient) =>
+    NOTIFICATION_EMAIL_TYPES.filter((t) => recipient.preferences?.[t.key] !== false).length;
+
+  useEffect(() => {
+    fetchNotificationRecipients()
+      .then(setRecipients)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleAdd = async (e) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setAdding(true);
+    try {
+      const created = await addNotificationRecipient({ email: email.trim(), name: name.trim(), preferences: newTypes });
+      if (created) setRecipients((prev) => [...prev, created]);
+      setEmail("");
+      setName("");
+      setNewTypes({ bookings: true, reviews: true, payments: true, systemAlerts: true });
+      toast.success("Confirmation email sent");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Could not add that email");
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const handleRemove = async (id) => {
+    setBusyId(id);
+    try {
+      await removeNotificationRecipient(id);
+      setRecipients((prev) => prev.filter((r) => r.id !== id));
+      toast.success("Email removed");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Could not remove that email");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleResend = async (id) => {
+    setBusyId(id);
+    try {
+      const updated = await resendNotificationRecipient(id);
+      if (updated) setRecipients((prev) => prev.map((r) => (r.id === id ? updated : r)));
+      toast.success("Confirmation email resent");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Could not resend");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleToggleCategory = async (recipient, category) => {
+    const current = recipient.preferences?.[category] !== false;
+    const next = { ...(recipient.preferences || {}), [category]: !current };
+    setRecipients((prev) => prev.map((r) => (r.id === recipient.id ? { ...r, preferences: next } : r)));
+    setBusyId(recipient.id);
+    try {
+      const updated = await updateNotificationRecipient(recipient.id, { preferences: { [category]: !current } });
+      if (updated) setRecipients((prev) => prev.map((r) => (r.id === recipient.id ? updated : r)));
+    } catch (err) {
+      setRecipients((prev) => prev.map((r) => (r.id === recipient.id ? recipient : r)));
+      toast.error(err.response?.data?.message || "Could not update that email");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+      <div className="px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
+            <Bell size={16} className="text-emerald-600" />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-slate-800">Additional notification emails</h2>
+            <p className="text-xs text-slate-500 mt-0.5 max-w-xl">
+              Invite another inbox to receive your notifications, and choose exactly which types of emails each address gets.
+              Every address must be confirmed before we send anything to it.
+            </p>
+          </div>
+        </div>
+        {recipients.length > 0 && (
+          <span className="shrink-0 text-[11px] font-medium text-slate-500 bg-slate-100 rounded-full px-2.5 py-1">
+            {recipients.length} of 5
+          </span>
+        )}
+      </div>
+
+      <div className="px-6 py-5 space-y-5">
+        {loading ? (
+          <div className="flex items-center gap-2 text-sm text-slate-400 py-2">
+            <Loader2 size={14} className="animate-spin" /> Loading email addresses…
+          </div>
+        ) : recipients.length === 0 ? (
+          <div className="text-center py-6">
+            <div className="w-11 h-11 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-3">
+              <Bell size={18} className="text-emerald-500" />
+            </div>
+            <p className="text-sm font-medium text-slate-700">No additional emails yet</p>
+            <p className="text-xs text-slate-400 mt-1">Add a colleague below so they stay in the loop.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {recipients.map((r) => {
+              const status = RECIPIENT_STATUS[r.status] || RECIPIENT_STATUS.PENDING;
+              const busy = busyId === r.id;
+              return (
+                <div key={r.id} className="rounded-xl border border-slate-200 overflow-hidden">
+                  <div className="flex items-center justify-between gap-3 px-4 py-3 bg-slate-50/70">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm font-semibold shrink-0">
+                        {(r.email || "?").charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-semibold text-slate-800 truncate">{r.email}</span>
+                          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${status.className}`}>
+                            {status.label}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-400 truncate mt-0.5">
+                          {r.name ? `${r.name} · ` : ""}Receives {enabledCount(r)} of {NOTIFICATION_EMAIL_TYPES.length} email types
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {r.status !== "VERIFIED" && (
+                        <button
+                          onClick={() => handleResend(r.id)}
+                          disabled={busy}
+                          type="button"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:bg-white disabled:opacity-50"
+                        >
+                          {busy ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />} Resend
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleRemove(r.id)}
+                        disabled={busy}
+                        type="button"
+                        className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-50"
+                        aria-label={`Remove ${r.email}`}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="px-4 py-3">
+                    {r.status !== "VERIFIED" && (
+                      <p className="flex items-center gap-1.5 text-xs text-amber-600 mb-3">
+                        <AlertTriangle size={12} />
+                        This address starts receiving emails only after it is confirmed.
+                      </p>
+                    )}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {NOTIFICATION_EMAIL_TYPES.map(({ key, label, description, Icon }) => {
+                        const on = r.preferences?.[key] !== false;
+                        return (
+                          <label
+                            key={key}
+                            className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
+                              on ? "border-emerald-200 bg-emerald-50/40" : "border-slate-200 bg-white hover:border-slate-300"
+                            } ${busy ? "opacity-60 pointer-events-none" : ""}`}
+                          >
+                            <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${on ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-400"}`}>
+                              <Icon size={14} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-semibold text-slate-700">{label}</p>
+                              <p className="text-[11px] text-slate-400 leading-snug mt-0.5">{description}</p>
+                            </div>
+                            <ToggleSwitch checked={on} onChange={() => handleToggleCategory(r, key)} />
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <form onSubmit={handleAdd} className="rounded-xl border border-dashed border-slate-200 bg-slate-50/40 p-4 space-y-3">
+          <p className="text-xs font-semibold text-slate-700">Add an email address</p>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="name@company.com"
+              className="h-10 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+            />
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Name (optional)"
+              className="h-10 sm:w-44 rounded-lg border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+            />
+            <button
+              type="submit"
+              disabled={adding || !email.trim()}
+              className="inline-flex items-center justify-center gap-2 h-10 px-4 bg-emerald-600 text-white rounded-lg text-xs font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {adding ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Send confirmation
+            </button>
+          </div>
+          <div>
+            <p className="text-xs text-slate-500 mb-2">Emails this address should receive</p>
+            <div className="flex flex-wrap gap-2">
+              {NOTIFICATION_EMAIL_TYPES.map(({ key, label }) => {
+                const on = newTypes[key] !== false;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setNewTypes((prev) => ({ ...prev, [key]: !on }))}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                      on
+                        ? "bg-emerald-600 text-white border-emerald-600"
+                        : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function PayoutsTab() {
+  const [loading, setLoading] = useState(true);
+  const [methods, setMethods] = useState([]);
+  const [payouts, setPayouts] = useState([]);
+  const [payoutsSummary, setPayoutsSummary] = useState({});
+  const [showMethodForm, setShowMethodForm] = useState(false);
+  const [plan, setPlan] = useState(null);
+  const [available, setAvailable] = useState(0);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [m, p, settings, summary] = await Promise.all([
+        fetchPayoutMethods(),
+        fetchPayouts({ limit: 10 }),
+        fetchPayoutSettings().catch(() => null),
+        fetchFinanceSummary().catch(() => null),
+      ]);
+      setMethods(m);
+      setPayouts(p?.payouts || []);
+      setPayoutsSummary(p?.summary || {});
+      setPlan(settings);
+      setAvailable(Number(summary?.availableBalance?.amount) || 0);
+    } catch { /* ignore */ }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { Promise.resolve().then(() => loadData()); }, []);
+
+  const handleDeleteMethod = async (id) => {
+    try {
+      await deletePayoutMethod(id);
+      toast.success("Payout method removed");
+      await loadData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to remove payout method");
+    }
+  };
+
+  if (loading) return <LoadingSkeleton />;
+
+  return (
+    <motion.div variants={FADE_UP} initial="initial" animate="animate" exit="exit" className="space-y-6">
+      {/* Summary */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-white border border-emerald-100/60 rounded-xl p-4">
+          <div className="w-9 h-9 rounded-lg bg-emerald-50 border border-emerald-200/60 flex items-center justify-center mb-2.5">
+            <Banknote size={16} className="text-emerald-600" />
+          </div>
+          <p className="text-lg font-bold text-slate-800">
+            {formatCurrency(Number(payoutsSummary.totalEarned) || 0, payoutsSummary.currency || "USD")}
+          </p>
+          <p className="text-[11px] font-medium text-slate-500 mt-0.5">Total Paid Out</p>
+        </div>
+        <div className="bg-white border border-emerald-100/60 rounded-xl p-4">
+          <div className="w-9 h-9 rounded-lg bg-emerald-50 border border-emerald-200/60 flex items-center justify-center mb-2.5">
+            <CreditCard size={16} className="text-emerald-600" />
+          </div>
+          <p className="text-lg font-bold text-slate-800">{methods.length}</p>
+          <p className="text-[11px] font-medium text-slate-500 mt-0.5">Payout Methods</p>
+        </div>
+      </div>
+
+      {/* Automated payout schedule (weekly / twice a month / monthly) */}
+      {plan && <PayoutScheduleEditor plan={plan} available={available} onSaved={setPlan} />}
+
+      {/* Payout Methods */}
+      <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
+              <CreditCard size={16} className="text-emerald-600" />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-slate-800">Payout Methods</h2>
+              <p className="text-xs text-slate-500">Manage how you receive payments</p>
+            </div>
+          </div>
+          <button onClick={() => setShowMethodForm(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all shadow-sm bg-emerald-600 text-white hover:bg-emerald-700">
+            <Plus size={14} />
+            Add method
+          </button>
+        </div>
+
+        <div className="px-6 py-4">
+          <PayoutMethodFormSheet
+            open={showMethodForm}
+            onClose={() => setShowMethodForm(false)}
+            onSubmit={async (payload) => {
+              await createPayoutMethod(payload);
+              toast.success("Payout method added — we'll check it before your first payout.");
+              setShowMethodForm(false);
+              await loadData();
+            }}
+            title="Add payout method"
+            submitLabel="Add payout method"
+          />
+
+          {methods.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center mb-3">
+                <CreditCard size={24} className="text-emerald-300" />
+              </div>
+              <h3 className="text-sm font-semibold text-slate-700 mb-1">No payout methods</h3>
+              <p className="text-xs text-slate-400 max-w-[220px]">Add a bank account or PayPal to receive payouts.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {methods.map((method) => (
+                <div key={method.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center">
+                      {method.type === "BANK_TRANSFER"
+                        ? <Landmark size={18} className="text-slate-600" />
+                        : method.type === "MOBILE_MONEY"
+                          ? <Smartphone size={18} className="text-slate-600" />
+                          : <Wallet size={18} className="text-slate-600" />}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-700 truncate">
+                        {method.type === "BANK_TRANSFER"
+                          ? method.bankName || "Bank Account"
+                          : method.type === "MOBILE_MONEY"
+                            ? method.mobileProvider || "Mobile Money"
+                            : "PayPal"}
+                        <span className="font-normal text-slate-400"> · {method.currency || "USD"}</span>
+                        {method.isDefault && <span className="ml-2 text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md font-medium">Default</span>}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5 truncate">
+                        {method.type === "PAYPAL"
+                          ? method.paypalEmail
+                          : [method.accountName, settingsMethodIdentifier(method)].filter(Boolean).join(" · ")}
+                        <span
+                          className={cn(
+                            "ml-2 align-middle text-[10px] font-medium",
+                            method.verified ? "text-emerald-600" : "text-amber-600"
+                          )}
+                        >
+                          {method.verified ? "Verified" : "Pending"}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                  <button onClick={() => handleDeleteMethod(method.id)}
+                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all">
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Recent Payouts */}
+      <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
+            <Banknote size={16} className="text-emerald-600" />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-slate-800">Recent Payouts</h2>
+            <p className="text-xs text-slate-500">Your latest payout transactions</p>
+          </div>
+        </div>
+        <div className="px-6 py-4">
+          {payouts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <Banknote size={28} className="text-slate-200 mb-2" />
+              <p className="text-sm font-medium text-slate-500">No payouts yet</p>
+              <p className="text-xs text-slate-400 mt-0.5">Payouts are processed once bookings are completed.</p>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {payouts.map((p) => (
+                <div key={p.id} className="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-200 transition-all">
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "w-9 h-9 rounded-lg flex items-center justify-center shrink-0",
+                      PAYOUT_TONES[payoutTone(p.status)].iconBg,
+                    )}>
+                      <Banknote size={16} className={PAYOUT_TONES[payoutTone(p.status)].icon} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-700">{p.bookingNumber || "Payout"}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{p.tour || ""}</p>
+                    </div>
+                  </div>
+                  <div className="text-right flex items-center gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">
+                        {formatCurrency(Number(p.amount) || 0, p.currency || "USD")}
+                      </p>
+                      {p.date && (
+                        <p className="text-[10px] text-slate-400 mt-0.5">{new Date(p.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</p>
+                      )}
+                    </div>
+                    <span className={cn(
+                      "inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-lg min-w-[68px] justify-center",
+                      PAYOUT_TONES[payoutTone(p.status)].chip,
+                    )}>
+                      <span className={cn(
+                        "w-1.5 h-1.5 rounded-full",
+                        PAYOUT_TONES[payoutTone(p.status)].dot,
+                      )} />
+                      {String(p.status || "").replace(/_/g, " ")}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function SecurityTab() {
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    if (form.newPassword !== form.confirmPassword) {
+      toast.error("New passwords don't match");
+      return;
+    }
+    if (form.newPassword.length < 8) {
+      toast.error("Password must be at least 8 characters");
+      return;
+    }
+    setSaving(true);
+    try {
+      await changeStaysPassword({
+        currentPassword: form.currentPassword,
+        newPassword: form.newPassword,
+      });
+      toast.success("Password updated successfully");
+      setForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+    } catch (err) {
+      const msg = err.response?.data?.message || "Failed to update password";
+      toast.error(msg);
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <motion.div variants={FADE_UP} initial="initial" animate="animate" exit="exit" className="space-y-6">
+      <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
+            <Key size={16} className="text-emerald-600" />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-slate-800">Change Password</h2>
+            <p className="text-xs text-slate-500">Update your account password</p>
+          </div>
+        </div>
+        <form onSubmit={handleChangePassword} className="px-6 py-5 space-y-4 max-w-md">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Current Password</label>
+            <div className="relative">
+              <input type={showCurrent ? "text" : "password"} value={form.currentPassword}
+                onChange={(e) => setForm((p) => ({ ...p, currentPassword: e.target.value }))}
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm pr-10 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" required />
+              <button type="button" onClick={() => setShowCurrent((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                {showCurrent ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">New Password</label>
+            <div className="relative">
+              <input type={showNew ? "text" : "password"} value={form.newPassword}
+                onChange={(e) => setForm((p) => ({ ...p, newPassword: e.target.value }))}
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm pr-10 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" required />
+              <button type="button" onClick={() => setShowNew((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                {showNew ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">Minimum 8 characters with at least one uppercase, lowercase, and number</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Confirm New Password</label>
+            <div className="relative">
+              <input type={showConfirm ? "text" : "password"} value={form.confirmPassword}
+                onChange={(e) => setForm((p) => ({ ...p, confirmPassword: e.target.value }))}
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm pr-10 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" required />
+              <button type="button" onClick={() => setShowConfirm((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+          <div className="pt-2">
+            <button type="submit" disabled={saving}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-all disabled:opacity-50 shadow-sm">
+              {saving ? <Loader2 size={16} className="animate-spin" /> : <Key size={16} />}
+              Update Password
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center">
+            <AlertTriangle size={16} className="text-amber-600" />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-slate-800">Danger Zone</h2>
+            <p className="text-xs text-slate-500">Irreversible account actions</p>
+          </div>
+        </div>
+        <div className="px-6 py-5">
+          <div className="flex items-center justify-between p-4 bg-red-50/50 border border-red-100 rounded-xl">
+            <div>
+              <p className="text-sm font-semibold text-red-800">Delete Account</p>
+              <p className="text-xs text-red-600 mt-0.5">Permanently delete your account and all associated data</p>
+            </div>
+            <button className="px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-medium hover:bg-red-700 transition-all shadow-sm">
+              Delete Account
+            </button>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function TaxTab() {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [initialForm, setInitialForm] = useState(null);
+  const [form, setForm] = useState({
+    taxId: "", taxCountry: "", legalBusinessName: "", businessType: "individual",
+  });
+
+  useEffect(() => {
+    fetchTaxInfo()
+      .then((data) => {
+        if (data?.taxInfo) {
+          const loaded = {
+            taxId: data.taxInfo.taxId || "", taxCountry: data.taxInfo.taxCountry || "",
+            legalBusinessName: data.taxInfo.legalBusinessName || "",
+            businessType: data.taxInfo.businessType || "individual",
+          };
+          setForm(loaded);
+          setInitialForm(loaded);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await updateTaxInfo(form);
+      toast.success("Tax information updated");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to update tax info");
+    } finally { setSaving(false); }
+  };
+
+  if (loading) return <LoadingSkeleton />;
+
+  return (
+    <motion.div variants={FADE_UP} initial="initial" animate="animate" exit="exit" className="space-y-6">
+      <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
+            <FileText size={16} className="text-emerald-600" />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-slate-800">Tax Information</h2>
+            <p className="text-xs text-slate-500">Your tax details for payment processing and reporting</p>
+          </div>
+        </div>
+        <div className="px-6 py-5 space-y-4 max-w-lg">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Legal Business Name</label>
+            <input type="text" value={form.legalBusinessName}
+              onChange={(e) => setForm((p) => ({ ...p, legalBusinessName: e.target.value }))}
+              placeholder="Your registered business name"
+              className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Business Type</label>
+            <Select value={form.businessType} onValueChange={(v) => setForm((p) => ({ ...p, businessType: v }))}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select business type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="individual">Individual / Sole Proprietor</SelectItem>
+                <SelectItem value="company">Registered Company</SelectItem>
+                <SelectItem value="non_profit">Non-Profit Organization</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Tax ID / VAT Number</label>
+              <input type="text" value={form.taxId}
+                onChange={(e) => setForm((p) => ({ ...p, taxId: e.target.value }))}
+                placeholder="e.g. 123-45-6789"
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Tax Country</label>
+              <input type="text" value={form.taxCountry}
+                onChange={(e) => setForm((p) => ({ ...p, taxCountry: e.target.value }))}
+                placeholder="e.g. US, GH, UK"
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" />
+            </div>
+          </div>
+          <div className="pt-2">
+            <button onClick={handleSave} disabled={saving || (initialForm && JSON.stringify(form) === JSON.stringify(initialForm))}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
+              {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+              Save Tax Information
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-emerald-50/50 border border-emerald-200/50 rounded-xl p-4">
+        <div className="flex items-start gap-3">
+          <FileText size={16} className="text-emerald-600 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-emerald-800">Why we need this</p>
+            <p className="text-xs text-emerald-600 mt-0.5">
+              Your tax information is required for payment processing and regulatory compliance.
+              This information is kept secure and only shared with our payment partners when necessary.
+            </p>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function ResendButton({ email }) {
+  const [resending, setResending] = useState(false);
+
+  const handleResend = async () => {
+    setResending(true);
+    try {
+      const { emailSent } = await resendInvite(email);
+      if (emailSent) toast.success("Invitation resent to " + email);
+      else toast.warning("A new link was created for " + email + ", but the email could not be sent.");
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Failed to resend invitation");
+    } finally {
+      setResending(false);
+    }
+  };
+
+  return (
+    <button onClick={handleResend} disabled={resending}
+      className="p-1.5 text-slate-400 hover:text-emerald-600 rounded-lg hover:bg-emerald-50 transition-all disabled:opacity-50" title="Resend invitation">
+      {resending ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+    </button>
+  );
+}
+
+function memberRoles(member) {
+  const roles = sortTeamRoles(member?.roles);
+  return roles.length ? roles : sortTeamRoles(member?.role);
+}
+
+/**
+ * One column template for the team list, shared by the header and every row.
+ *
+ * This was a flex row whose columns were hand-matched per element — the header
+ * said `w-24` where the row said `w-56`, so the labels never lined up with their
+ * columns, and on a phone the row overflowed its card. The avatar was a fixed
+ * 32px flex item with the default `flex-shrink: 1`, so it absorbed that overflow
+ * and got squeezed narrower than it was tall; `rounded-full` then drew a sliver
+ * instead of a circle. A grid track is not compressed by its content, so the
+ * avatar is now pinned to a fixed 2rem track, and sharing a single template
+ * string means the header and the rows cannot drift apart again.
+ *
+ * Below `sm` the row becomes two lines — email above, roles + status below —
+ * because 32 + 176 + 88 + 64px of fixed columns plus gaps does not fit a phone.
+ */
+const TEAM_LIST_COLS =
+  "grid-cols-[2rem_minmax(0,1fr)_auto] sm:grid-cols-[2rem_minmax(0,1fr)_9rem_5.5rem_3.5rem]";
+const TEAM_LIST_ROW = "items-center gap-x-3 gap-y-1.5";
+
+function TeamTab() {
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showInvite, setShowInvite] = useState(false);
+  const [form, setForm] = useState({ email: "", roles: ["editor"] });
+  const [sending, setSending] = useState(false);
+  const [directAdd, setDirectAdd] = useState(false);
+  const [editingRole, setEditingRole] = useState(null);
+  const [memberToRemove, setMemberToRemove] = useState(null);
+
+  useEffect(() => {
+    fetchTeamMembers()
+      .then((rows) => setMembers(rows.map((row) => ({ ...row, roles: memberRoles(row) }))))
+      .catch(() => toast.error("Failed to load team members"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleInvite = async (e) => {
+    e.preventDefault();
+    setSending(true);
+    try {
+      if (form.roles.length === 0) {
+        toast.error("Select at least one role");
+        return;
+      }
+      // `role` mirrors roles[0] so an older API deploy still understands the request.
+      const payload = { email: form.email, roles: form.roles, role: form.roles[0] };
+      if (directAdd) {
+        const member = await directAddTeamMember(payload);
+        setMembers((prev) => [...prev, member]);
+        toast.success(form.email + " added as a team member");
+      } else {
+        const { member, emailSent } = await inviteTeamMember(payload);
+        setMembers((prev) => [...prev, member]);
+        if (emailSent) {
+          toast.success("Invitation sent to " + form.email);
+        } else {
+          toast.warning("Invitation created for " + form.email + ", but the email could not be sent — use Resend to try again.");
+        }
+      }
+      setForm({ email: "", roles: ["editor"] });
+      setShowInvite(false);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Failed to send invitation");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleRoleChange = async (memberId, nextRoles) => {
+    const roles = sortTeamRoles(nextRoles);
+    if (roles.length === 0) {
+      toast.error("A team member needs at least one role");
+      return;
+    }
+    try {
+      await updateTeamMemberRole(memberId, roles);
+      setMembers((prev) => prev.map((m) => m.id === memberId ? { ...m, role: roles[0], roles } : m));
+      setEditingRole(null);
+      toast.success("Roles updated successfully");
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Failed to update role");
+    }
+  };
+
+  const handleRemove = async () => {
+    if (!memberToRemove) return;
+    const isPending = memberToRemove.status === "PENDING";
+    try {
+      if (isPending) {
+        // Pending invitations are cancelled (row kept, invitee emailed) so the
+        // link dies immediately instead of silently working until it expires.
+        await revokeTeamInvite(memberToRemove.id);
+        setMembers((prev) => prev.map((m) => m.id === memberToRemove.id ? { ...m, status: "REVOKED" } : m));
+        toast.success("Invitation to " + memberToRemove.email + " cancelled");
+      } else {
+        await removeTeamMember(memberToRemove.id);
+        setMembers((prev) => prev.filter((m) => m.id !== memberToRemove.id));
+        toast.success("Removed " + memberToRemove.email);
+      }
+      setMemberToRemove(null);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || (isPending ? "Failed to cancel invitation" : "Failed to remove member"));
+    }
+  };
+
+  return (
+    <motion.div variants={FADE_UP} initial="initial" animate="animate" exit="exit" className="space-y-6">
+      <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 shrink-0 rounded-lg bg-emerald-50 flex items-center justify-center">
+              <Users size={16} className="text-emerald-600" />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-slate-800">Team Members</h2>
+              <p className="text-xs text-slate-500">Invite team members to manage your properties</p>
+            </div>
+          </div>
+          <button onClick={() => setShowInvite((v) => !v)}
+            className="flex items-center gap-1.5 shrink-0 px-3.5 py-2 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-700 transition-all shadow-sm">
+            <Plus size={14} /> Invite Member
+          </button>
+        </div>
+
+        <div className="px-4 sm:px-6 py-4">
+          <AnimatePresence>
+            {showInvite && (
+              <motion.form
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                onSubmit={handleInvite}
+                className="mb-5 bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 overflow-hidden"
+              >
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
+                  <input type="email" value={form.email}
+                    onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+                    placeholder="colleague@example.com"
+                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" required />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Roles <span className="font-normal text-slate-400">(up to 2)</span>
+                  </label>
+                  <TeamRolePicker
+                    value={form.roles}
+                    onChange={(roles) => setForm((p) => ({ ...p, roles }))}
+                    summaries={STAYS_ROLE_SUMMARIES}
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <label className="flex items-center gap-2 text-xs text-slate-500 cursor-pointer select-none">
+                    <div className="relative shrink-0">
+                      <input type="checkbox" checked={directAdd} onChange={(e) => setDirectAdd(e.target.checked)}
+                        className="sr-only peer" />
+                      <div className="w-8 h-4 bg-slate-200 rounded-full peer-checked:bg-emerald-500 transition-colors" />
+                      <div className="absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow-sm peer-checked:translate-x-4 transition-transform" />
+                    </div>
+                    Add directly (no email)
+                  </label>
+                  <div className="hidden flex-1 sm:block" />
+                  <button type="button" onClick={() => setShowInvite(false)}
+                    className="px-3 py-2 text-slate-600 rounded-xl text-xs font-medium hover:bg-slate-100 transition-all">
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={sending}
+                    className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-medium hover:bg-emerald-700 transition-all shadow-sm disabled:opacity-50">
+                    {sending ? <Loader2 size={14} className="animate-spin inline mr-1" /> : null}
+                    {directAdd ? "Add Member" : "Send Invitation"}
+                  </button>
+                </div>
+              </motion.form>
+            )}
+          </AnimatePresence>
+
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 size={24} className="animate-spin text-emerald-500" />
+            </div>
+          ) : members.length === 0 && !showInvite ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center mb-3">
+                <Users size={24} className="text-emerald-300" />
+              </div>
+              <h3 className="text-sm font-semibold text-slate-700 mb-1">No team members yet</h3>
+              <p className="text-xs text-slate-400 max-w-[240px]">Invite colleagues to help manage your properties, bookings, and customer communications.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className={cn("hidden sm:grid", TEAM_LIST_COLS, TEAM_LIST_ROW, "px-3 py-2.5 text-xs font-semibold text-slate-400 border-b border-slate-100")}>
+                <span className="col-start-2">Member</span>
+                <span className="col-start-3">Role</span>
+                <span className="col-start-4">Status</span>
+                <span className="col-start-5" />
+              </div>
+              {members.map((m) => {
+                const roles = memberRoles(m);
+                const isPending = m.status === "PENDING";
+                const isRevoked = m.status === "REVOKED";
+                return (
+                  <div
+                    key={m.id}
+                    className={cn(
+                      "rounded-lg transition-colors",
+                      editingRole === m.id ? "bg-slate-50" : "hover:bg-slate-50",
+                    )}
+                  >
+                    <div className={cn("grid", TEAM_LIST_COLS, TEAM_LIST_ROW, "px-3 py-3")}>
+                      <div className="col-start-1 row-start-1 row-span-2 sm:row-span-1 w-8 h-8 shrink-0 rounded-full bg-emerald-100 flex items-center justify-center select-none">
+                        <span className="text-xs font-bold text-emerald-700">{m.email.charAt(0).toUpperCase()}</span>
+                      </div>
+                      <span className="col-start-2 row-start-1 min-w-0 truncate text-sm text-slate-700" title={m.email}>
+                        {m.email}
+                      </span>
+                      {/* Phones: roles and status share one wrapped line under the
+                          email. From sm up this wrapper becomes display:contents, so
+                          each child is placed in its own column and lines up with the
+                          header above. */}
+                      <div className="col-start-2 row-start-2 flex flex-wrap items-center gap-1.5 sm:contents">
+                        <div className="min-w-0 sm:col-start-3 sm:row-start-1">
+                          <button
+                            onClick={() => setEditingRole(m.id)}
+                            className="flex flex-wrap items-center gap-1 text-left min-w-0"
+                            title="Change roles"
+                            aria-label={`Change roles for ${m.email}`}
+                          >
+                            {roles.length > 0 ? roles.map((role) => (
+                              <span
+                                key={role}
+                                className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap transition-opacity hover:opacity-80", TEAM_ROLE_COLORS[role] || "bg-slate-100 text-slate-600")}
+                              >
+                                {TEAM_ROLE_LABELS[role] || role}
+                              </span>
+                            )) : (
+                              <span className="inline-flex items-center rounded-full border border-dashed border-slate-300 px-2 py-0.5 text-[11px] font-medium text-slate-400">
+                                Set role
+                              </span>
+                            )}
+                          </button>
+                        </div>
+                        <div className="sm:col-start-4 sm:row-start-1">
+                          <span className={cn(
+                            "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap",
+                            isPending && "bg-amber-50 text-amber-700",
+                            isRevoked && "bg-slate-100 text-slate-500",
+                            !isPending && !isRevoked && "bg-emerald-50 text-emerald-700",
+                          )}>
+                            <span className={cn(
+                              "w-1.5 h-1.5 shrink-0 rounded-full",
+                              isPending ? "bg-amber-500" : isRevoked ? "bg-slate-400" : "bg-emerald-500",
+                            )} />
+                            {isPending ? "Pending" : isRevoked ? "Cancelled" : "Active"}
+                          </span>
+                        </div>
+                      </div>
+                      {/* justify-end pins the remove button to the same spot whether
+                          or not a pending member also shows the resend button. */}
+                      <div className="col-start-3 row-start-1 sm:col-start-5 flex items-center justify-end gap-0.5 shrink-0">
+                        {isPending && <ResendButton email={m.email} />}
+                        <button
+                          onClick={() => setMemberToRemove(m)}
+                          aria-label={isPending ? `Cancel invitation to ${m.email}` : `Remove ${m.email}`}
+                          className="p-1.5 shrink-0 text-slate-300 hover:text-red-500 rounded-lg hover:bg-red-50 transition-all"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    </div>
+                    {/* The editor gets its own full-width panel instead of living in
+                        the 9rem role column, where it used to force the column wider
+                        and shove the row out of the card. */}
+                    {editingRole === m.id && (
+                      <div className="px-3 pb-3 sm:pl-11">
+                        <div className="rounded-xl border border-slate-200 bg-white p-3">
+                          <TeamRolePicker
+                            compact
+                            value={roles}
+                            onChange={(next) => handleRoleChange(m.id, next)}
+                            summaries={STAYS_ROLE_SUMMARIES}
+                          />
+                          <div className="mt-2.5 flex items-center justify-between gap-3">
+                            <p className="text-[10px] text-slate-400">Up to {MAX_TEAM_ROLES} roles per member.</p>
+                            <button
+                              onClick={() => setEditingRole(null)}
+                              className="shrink-0 px-2.5 py-1 rounded-lg bg-slate-100 text-[11px] font-semibold text-slate-600 hover:bg-slate-200 transition-colors"
+                            >
+                              Done
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {memberToRemove && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => setMemberToRemove(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 shrink-0 rounded-full bg-red-100 flex items-center justify-center">
+                  <AlertTriangle size={20} className="text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-800">
+                    {memberToRemove.status === "PENDING" ? "Cancel Invitation" : "Remove Team Member"}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {memberToRemove.status === "PENDING" ? "Their invite link stops working immediately" : "This action cannot be undone"}
+                  </p>
+                </div>
+              </div>
+              <p className="text-sm text-slate-600 mb-6">
+                {memberToRemove.status === "PENDING"
+                  ? <>Cancel the invitation sent to <span className="font-medium">{memberToRemove.email}</span>?</>
+                  : <>Are you sure you want to remove <span className="font-medium">{memberToRemove.email}</span> from your team?</>}
+              </p>
+              <div className="flex items-center gap-3 justify-end">
+                <button onClick={() => setMemberToRemove(null)}
+                  className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
+                  Keep
+                </button>
+                <button onClick={handleRemove}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors">
+                  {memberToRemove.status === "PENDING" ? "Cancel Invitation" : "Remove"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+function ToggleSwitch({ checked, onChange }) {
+  return (
+    <button
+      type="button"
+      onClick={onChange}
+      className={cn(
+        "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+        checked ? "bg-emerald-500" : "bg-slate-200"
+      )}
+    >
+      <span
+        className={cn(
+          "pointer-events-none inline-block h-3.5 w-3.5 rounded-full bg-white shadow transform ring-0 transition duration-200 ease-in-out",
+          checked ? "translate-x-4" : "translate-x-0"
+        )}
+      />
+    </button>
+  );
+}
+
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-4 animate-pulse">
+      <div className="h-40 bg-slate-100 rounded-xl" />
+      <div className="h-40 bg-slate-100 rounded-xl" />
+    </div>
+  );
+}

@@ -178,7 +178,7 @@ export default function StaysDashboardPage() {
                 {actionRequired.messagesAwaitingReply} waiting for a reply
               </small>
             </div>
-            <StaysButton size="small" onClick={() => navigate("/stays/messages")}>
+            <StaysButton size="small" onClick={() => navigate("/stays/customers")}>
               Open
             </StaysButton>
           </StaysRow>
@@ -218,7 +218,7 @@ export default function StaysDashboardPage() {
           },
           {
             title: "Build your listing",
-            copy: "Add rooms, rates, policies and photos.",
+            copy: "Add rates, photos and your property details.",
             cta: "Open Properties",
             to: "/stays/properties",
           },

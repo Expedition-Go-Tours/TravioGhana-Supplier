@@ -15,7 +15,7 @@ import { formatMoney } from "../utils/money";
 /**
  * Create/edit a rate plan — the four-section form, conditional fields and
  * validation, rendered inline (no modal). Used by the builder's Rates & plans
- * step and the standalone Rates & availability page, inside the owning room's
+ * step and the standalone Rate page, inside the owning room's
  * card.
  *
  * Fixed vs derived pricing swaps the price inputs; the free-cancellation

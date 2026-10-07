@@ -16,8 +16,3 @@ export function formatMoney(amount, currency = "GHS") {
   }).format(value);
   return `${currency} ${formatted}`;
 }
-
-/** For inline "per night" copy: `formatMoney(750)` → "GHS 750 / night". */
-export function formatMoneyPerNight(amount, currency = "GHS") {
-  return `${formatMoney(amount, currency)} / night`;
-}

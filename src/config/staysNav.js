@@ -6,24 +6,22 @@
  *
  *   STAYS              the property workspace itself
  *   GROW YOUR BUSINESS offers, cancellation reporting and analytics
- *   SHARED ACCOUNT     the account-level pages that stay shared with the
- *                      Experiences workspace until their Stays versions land
- *                      (finance, notifications, verification, settings, team)
+ *   ACCOUNT            the Stays workspace's own account pages (notifications,
+ *                      verification, settings and team) — separate from the
+ *                      Experiences workspace's equivalents
  *
  * `permission` always comes from PAGE_ACCESS so the route guards, the
  * sidebar and search agree by construction.
  */
 import {
   LayoutDashboard,
+  Users,
   Home,
   Ticket,
   CalendarDays,
   LineChart,
-  Table,
-  NotebookText,
   BadgePercent,
   CalendarX2,
-  MessageSquare,
   DollarSign,
   Star,
   Bell,
@@ -65,12 +63,12 @@ export const STAYS_NAV_GROUPS = [
         keywords: ["reservations", "guests", "stays"],
       },
       {
-        label: "Messages",
-        path: "/stays/messages",
-        icon: MessageSquare,
-        iconName: "MessageSquare",
-        permission: PAGE_ACCESS["/stays/messages"],
-        keywords: ["guest", "inbox", "questions", "chat"],
+        label: "Customers",
+        path: "/stays/customers",
+        icon: Users,
+        iconName: "Users",
+        permission: PAGE_ACCESS["/stays/customers"],
+        keywords: ["chat", "messages", "inbox", "guests"],
       },
       {
         label: "Availability",
@@ -81,28 +79,12 @@ export const STAYS_NAV_GROUPS = [
         keywords: ["calendar", "inventory", "blocked", "dates"],
       },
       {
-        label: "Rates & availability",
+        label: "Rate",
         path: "/stays/rates",
         icon: LineChart,
         iconName: "LineChart",
         permission: PAGE_ACCESS["/stays/rates"],
         keywords: ["pricing", "rate plans", "nightly", "cancellation"],
-      },
-      {
-        label: "Rooms & units",
-        path: "/stays/rooms",
-        icon: Table,
-        iconName: "Table",
-        permission: PAGE_ACCESS["/stays/rooms"],
-        keywords: ["room types", "units", "beds", "capacity"],
-      },
-      {
-        label: "Policies",
-        path: "/stays/policies",
-        icon: NotebookText,
-        iconName: "NotebookText",
-        permission: PAGE_ACCESS["/stays/policies"],
-        keywords: ["house rules", "check-in", "children", "safety"],
       },
       {
         label: "Reviews",
@@ -152,46 +134,53 @@ export const STAYS_NAV_GROUPS = [
     ],
   },
   {
-    label: "SHARED ACCOUNT",
+    label: "ACCOUNT",
     items: [
       {
         label: "Notifications",
-        path: "/notifications",
+        path: "/stays/notifications",
         icon: Bell,
         iconName: "Bell",
-        permission: PAGE_ACCESS["/notifications"],
+        permission: PAGE_ACCESS["/stays/notifications"],
         keywords: ["alerts", "updates"],
       },
       {
         label: "Verification",
-        path: "/verification",
+        path: "/stays/verification",
         icon: ShieldCheck,
         iconName: "ShieldCheck",
-        permission: PAGE_ACCESS["/verification"],
-        keywords: ["verify", "identity", "badge", "kyc"],
+        permission: PAGE_ACCESS["/stays/verification"],
+        keywords: ["verify", "documents", "property", "kyc"],
       },
       {
         label: "Settings",
-        path: "/settings",
+        path: "/stays/settings",
         icon: Settings,
         iconName: "Settings",
-        permission: PAGE_ACCESS["/settings"],
+        permission: PAGE_ACCESS["/stays/settings"],
         keywords: ["account", "preferences", "configuration"],
-        // Settings and Team both live on /settings — the tab decides which
-        // row is current, otherwise both would highlight at once.
+        // Settings and Team both live on /stays/settings — the tab decides
+        // which row is current, otherwise both would highlight at once.
         match: (location) =>
-          location.pathname === "/settings" &&
+          location.pathname === "/stays/settings" &&
           new URLSearchParams(location.search).get("tab") !== "team",
+        children: [
+          { label: "Profile", tab: "profile", keywords: ["business", "contact", "info"] },
+          { label: "Notifications", tab: "notifications", keywords: ["alerts", "email"] },
+          { label: "Payout Settings", tab: "payouts", keywords: ["bank", "mobile money", "payout", "withdraw"] },
+          { label: "Security", tab: "security", keywords: ["password", "login"] },
+          { label: "Tax Information", tab: "tax", keywords: ["vat", "tin", "registration"] },
+        ],
       },
       {
         label: "Team",
-        path: "/settings?tab=team",
+        path: "/stays/settings?tab=team",
         icon: UserPlus,
         iconName: "UserPlus",
-        permission: PAGE_ACCESS["/settings"],
+        permission: PAGE_ACCESS["/stays/settings"],
         keywords: ["members", "roles", "invite", "staff"],
         match: (location) =>
-          location.pathname === "/settings" &&
+          location.pathname === "/stays/settings" &&
           new URLSearchParams(location.search).get("tab") === "team",
       },
     ],

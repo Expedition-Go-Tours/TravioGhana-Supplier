@@ -21,7 +21,7 @@ describe('dashboard aggregates', () => {
     });
     expect(data.cancellation).toEqual({ rate: 42.9, cancelled: 3, total: 7 });
     expect(data.actionRequired).toEqual({
-      messagesAwaitingReply: 2,
+      messagesAwaitingReply: 3,
       bookingsToReview: 1,
       draftProperties: 0,
     });
@@ -69,31 +69,7 @@ describe('properties', () => {
   });
 });
 
-describe('rooms and rate plans', () => {
-  it('gives a new room its default Standard rate plan', async () => {
-    const created = await staysMock.createProperty();
-    const property = await staysMock.saveRoom(created.id, {
-      kind: 'Double Room',
-      name: 'Garden Double',
-      count: 4,
-      adults: 2,
-      children: 0,
-      beds: '1 double bed',
-      size: 24,
-      price: 520,
-      weekend: 600,
-      bathroom: 'Private',
-    });
-    expect(property.rooms).toHaveLength(1);
-    expect(property.ratePlans).toHaveLength(1);
-    expect(property.ratePlans[0]).toMatchObject({
-      roomId: property.rooms[0].id,
-      name: 'Standard rate',
-      price: 520,
-      weekend: 600,
-    });
-  });
-
+describe('rate plans', () => {
   it("keeps the reference plan's weekend price derived from the room when skipped", async () => {
     const property = await staysMock.getProperty('p1');
     expect(property.ratePlans[0]).toMatchObject({ price: 750, weekend: 850 });

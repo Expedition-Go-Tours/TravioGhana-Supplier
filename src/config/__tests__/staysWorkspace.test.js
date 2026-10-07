@@ -5,7 +5,6 @@ import {
   extractSupplierServices,
   hasAccommodationService,
   isAccommodationService,
-  isSharedAccountRoute,
   workspaceForPath,
 } from '../staysWorkspace';
 
@@ -80,25 +79,16 @@ describe('workspaceForPath', () => {
     expect(workspaceForPath('/stays/properties')).toBe(WORKSPACES.STAYS);
   });
 
-  it('leaves shared and experiences routes unclaimed', () => {
+  it('claims the Stays account pages too — nothing is shared any more', () => {
+    expect(workspaceForPath('/stays/notifications')).toBe(WORKSPACES.STAYS);
+    expect(workspaceForPath('/stays/verification')).toBe(WORKSPACES.STAYS);
+    expect(workspaceForPath('/stays/settings')).toBe(WORKSPACES.STAYS);
+  });
+
+  it('leaves Experiences routes unclaimed', () => {
     expect(workspaceForPath('/')).toBe(null);
     expect(workspaceForPath('/products')).toBe(null);
     expect(workspaceForPath('/finance')).toBe(null);
-  });
-});
-
-describe('isSharedAccountRoute', () => {
-  it('keeps the workspace chrome on account pages', () => {
-    for (const route of ['/finance', '/reviews', '/chat', '/settings', '/notifications', '/analytics', '/verification']) {
-      expect(isSharedAccountRoute(route)).toBe(true);
-    }
-    expect(isSharedAccountRoute('/chat/thread-1')).toBe(true);
-    expect(isSharedAccountRoute('/finance?tab=payouts')).toBe(true);
-  });
-
-  it('does not cover workspace-owned pages', () => {
-    expect(isSharedAccountRoute('/')).toBe(false);
-    expect(isSharedAccountRoute('/products')).toBe(false);
-    expect(isSharedAccountRoute('/stays/bookings')).toBe(false);
+    expect(workspaceForPath('/settings')).toBe(null);
   });
 });

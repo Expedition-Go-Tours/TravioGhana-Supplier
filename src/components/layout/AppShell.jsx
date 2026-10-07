@@ -9,11 +9,7 @@ import { useTeamRole } from "@/hooks/useTeamRole";
 import { PAGE_ACCESS } from "@/config/pageAccess";
 import { useRealtimeNotifications } from "@/features/notifications/hooks/useRealtimeNotifications";
 import { useStaysWorkspaceStore } from "@/stores/staysWorkspaceStore";
-import {
-  WORKSPACES,
-  workspaceForPath,
-  isSharedAccountRoute,
-} from "@/config/staysWorkspace";
+import { WORKSPACES, workspaceForPath } from "@/config/staysWorkspace";
 
 export default function AppShell() {
   const { isCollapsed, isMobileOpen } = useSidebarStore();
@@ -23,19 +19,20 @@ export default function AppShell() {
   // Only the builder with a draft id owns the viewport; `/stays/properties/build`
   // is the category chooser and keeps the normal shell (support bubble included).
   const isStaysBuilder = /^\/stays\/properties\/build\/.+/.test(location.pathname);
-  const isChatPage = location.pathname.startsWith('/chat');
+  const isChatPage =
+    location.pathname.startsWith('/chat') || location.pathname.startsWith('/stays/customers');
   const syncWorkspace = useStaysWorkspaceStore((state) => state.syncWorkspace);
 
   // The URL is the source of truth for which workspace owns the current page
   // (this drives the sidebar's navigation set, nothing visual):
   //   - `/stays/**` switches to the Stays nav (deep links included);
-  //   - shared account pages (finance, reviews, …) keep the active workspace;
-  //   - anything else is an Experiences page.
+  //   - anything else is an Experiences page. The account pages exist in both
+  //     workspaces (`/stays/settings` vs `/settings`), so nothing is shared.
   useEffect(() => {
     const owned = workspaceForPath(location.pathname);
     if (owned) {
       syncWorkspace(owned);
-    } else if (!isSharedAccountRoute(location.pathname)) {
+    } else {
       syncWorkspace(WORKSPACES.EXPERIENCES);
     }
   }, [location.pathname, syncWorkspace]);

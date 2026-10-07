@@ -24,7 +24,7 @@ export const WORKSPACES = {
   STAYS: "stays",
 };
 
-/** Route prefix owned by each workspace. Shared routes belong to neither. */
+/** Route prefix owned by each workspace. */
 export const WORKSPACE_ROUTES = {
   [WORKSPACES.STAYS]: "/stays",
 };
@@ -84,32 +84,8 @@ export function defaultWorkspaceForProfile(profile) {
     : WORKSPACES.EXPERIENCES;
 }
 
-/** Which workspace owns a pathname, or null when the route is shared. */
+/** Which workspace owns a pathname: Stays for `/stays/**`, null otherwise. */
 export function workspaceForPath(pathname) {
   if (/^\/stays(\/|$)/.test(pathname || "")) return WORKSPACES.STAYS;
   return null;
-}
-
-/**
- * Pages that belong to the ACCOUNT rather than to one workspace. Opening one
- * of these keeps whichever workspace is active — the Stays sidebar stays on
- * screen when you jump into Finance. Mirrors the prototype's SHARED ACCOUNT
- * group and stays in sync with `config/staysNav.js`.
- */
-export const SHARED_ACCOUNT_ROUTES = [
-  "/chat",
-  "/finance",
-  "/reviews",
-  "/notifications",
-  "/analytics",
-  "/verification",
-  "/settings",
-];
-
-/** `/finance`, `/chat/123` → true; `/products` → false. */
-export function isSharedAccountRoute(pathname) {
-  const path = (pathname || "").split(/[?#]/)[0];
-  return SHARED_ACCOUNT_ROUTES.some(
-    (route) => path === route || path.startsWith(`${route}/`),
-  );
 }

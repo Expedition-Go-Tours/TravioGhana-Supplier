@@ -31,7 +31,6 @@ export const STAYS_KEYS = {
   bookings: (filters = {}) => ["stays", "bookings", filters],
   availability: (propertyId, from, to) => ["stays", "availability", propertyId, from, to],
   offers: (filter = "All") => ["stays", "offers", filter],
-  messages: (filter = "All") => ["stays", "messages", filter],
   reviews: (filter = "All") => ["stays", "reviews", filter],
   analytics: (period) => ["stays", "analytics", period],
   cancellation: (days, propertyId) => ["stays", "cancellation", days, propertyId || "all"],
@@ -97,21 +96,7 @@ export async function removePropertyPhoto(id, index) {
   return res.data?.data?.photos || [];
 }
 
-/* ── Rooms & rate plans ──────────────────────────────────────────────────── */
-export async function saveRoom(propertyId, room) {
-  if (staysUsesMockData) return staysMock.saveRoom(propertyId, room);
-  const res = room.id
-    ? await api.patch(`${BASE}/properties/${propertyId}/rooms/${room.id}`, room, requestConfig)
-    : await api.post(`${BASE}/properties/${propertyId}/rooms`, room, requestConfig);
-  return res.data?.data?.property;
-}
-
-export async function deleteRoom(propertyId, roomId) {
-  if (staysUsesMockData) return staysMock.deleteRoom(propertyId, roomId);
-  const res = await api.delete(`${BASE}/properties/${propertyId}/rooms/${roomId}`, requestConfig);
-  return res.data?.data?.property;
-}
-
+/* ── Rate plans ─────────────────────────────────────────────────────────── */
 export async function saveRatePlan(propertyId, plan) {
   if (staysUsesMockData) return staysMock.saveRatePlan(propertyId, plan);
   const res = plan.id
@@ -202,19 +187,7 @@ export async function deleteOffer(id) {
   return res.data?.data;
 }
 
-/* ── Guest messages & reviews ────────────────────────────────────────────── */
-export async function listGuestMessages(params = {}) {
-  if (staysUsesMockData) return staysMock.listMessages(params);
-  const res = await api.get(`${BASE}/messages`, { ...requestConfig, params });
-  return res.data?.data?.messages || [];
-}
-
-export async function replyToGuestMessage(id, reply) {
-  if (staysUsesMockData) return staysMock.replyToMessage(id, reply);
-  const res = await api.post(`${BASE}/messages/${id}/reply`, { reply }, requestConfig);
-  return res.data?.data?.message;
-}
-
+/* ── Reviews ─────────────────────────────────────────────────────────────── */
 export async function listStaysReviews(params = {}) {
   if (staysUsesMockData) return staysMock.listReviews(params);
   const res = await api.get(`${BASE}/reviews`, { ...requestConfig, params });
@@ -248,4 +221,25 @@ export async function fetchStaysAnalytics(params = {}) {
   if (staysUsesMockData) return staysMock.getAnalytics(params);
   const res = await api.get(`${BASE}/analytics`, { ...requestConfig, params });
   return res.data?.data;
+}
+
+export async function fetchStaysAnalyticsSummary() {
+  if (staysUsesMockData) return staysMock.getAnalyticsSummary();
+  const res = await api.get(`${BASE}/analytics/summary`, requestConfig);
+  return res.data?.data || null;
+}
+
+export async function fetchStaysPropertyAnalytics() {
+  if (staysUsesMockData) return staysMock.getPropertyAnalytics();
+  const res = await api.get(`${BASE}/analytics/properties`, requestConfig);
+  return res.data?.data?.properties || [];
+}
+
+export async function fetchStaysMonthlyRevenue(months = 12) {
+  if (staysUsesMockData) return staysMock.getMonthlyRevenue({ months });
+  const res = await api.get(`${BASE}/analytics/monthly-revenue`, {
+    ...requestConfig,
+    params: { months },
+  });
+  return res.data?.data?.months || [];
 }

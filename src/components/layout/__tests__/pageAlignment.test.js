@@ -32,6 +32,7 @@ const STANDALONE_PAGES = new Set([
 /** Bleed routes (see router.jsx) — their chrome must use the shared gutter. */
 const BLEED_PAGES = [
   "chat/pages/ChatPage.jsx",
+  "stays/pages/StaysCustomersPage.jsx",
   "products/pages/ProductBuilderPage.jsx",
   "products/pages/ProductDetailPage.jsx",
 ];

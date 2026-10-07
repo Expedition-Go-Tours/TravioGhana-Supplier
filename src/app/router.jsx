@@ -39,15 +39,16 @@ import PropertyOtherListingsPage from "@/features/stays/pages/PropertyOtherListi
 import StaysBookingsPage from "@/features/stays/pages/StaysBookingsPage";
 import StaysAvailabilityPage from "@/features/stays/pages/StaysAvailabilityPage";
 import StaysRatesPage from "@/features/stays/pages/StaysRatesPage";
-import StaysRoomsPage from "@/features/stays/pages/StaysRoomsPage";
-import StaysPoliciesPage from "@/features/stays/pages/StaysPoliciesPage";
 import StaysOffersPage from "@/features/stays/pages/StaysOffersPage";
 import StaysOfferBuilderPage from "@/features/stays/pages/StaysOfferBuilderPage";
 import StaysCancellationPage from "@/features/stays/pages/StaysCancellationPage";
 import StaysFinancePage from "@/features/stays/pages/StaysFinancePage";
-import StaysMessagesPage from "@/features/stays/pages/StaysMessagesPage";
+import StaysCustomersPage from "@/features/stays/pages/StaysCustomersPage";
 import StaysReviewsPage from "@/features/stays/pages/StaysReviewsPage";
 import StaysAnalyticsPage from "@/features/stays/pages/StaysAnalyticsPage";
+import StaysNotificationsPage from "@/features/stays/pages/StaysNotificationsPage";
+import StaysVerificationPage from "@/features/stays/pages/StaysVerificationPage";
+import StaysSettingsPage from "@/features/stays/pages/StaysSettingsPage";
 import StaysLandingGate from "@/features/stays/components/StaysLandingGate";
 
 import AuthCallback from "@/features/auth/pages/AuthCallback";
@@ -138,17 +139,18 @@ export const router = createBrowserRouter([
                 { path: "stays/properties/build/quick-start/other-listings", element: <PropertyOtherListingsPage /> },
                 { path: "stays/properties/build/:id", element: <PropertyBuilderPage />, handle: { bleed: true } },
                 { path: "stays/bookings", element: <StaysBookingsPage /> },
-                { path: "stays/messages", element: <StaysMessagesPage /> },
+                { path: "stays/customers", element: <StaysCustomersPage />, handle: { bleed: true } },
                 { path: "stays/reviews", element: <StaysReviewsPage /> },
                 { path: "stays/availability", element: <StaysAvailabilityPage /> },
                 { path: "stays/rates", element: <StaysRatesPage /> },
-                { path: "stays/rooms", element: <StaysRoomsPage /> },
-                { path: "stays/policies", element: <StaysPoliciesPage /> },
                 { path: "stays/special-offers", element: <StaysOffersPage /> },
                 { path: "stays/special-offers/build/:id?/:step?", element: <StaysOfferBuilderPage /> },
                 { path: "stays/cancellation", element: <StaysCancellationPage /> },
                 { path: "stays/finance", element: <StaysFinancePage /> },
                 { path: "stays/analytics", element: <StaysAnalyticsPage /> },
+                { path: "stays/notifications", element: <StaysNotificationsPage /> },
+                { path: "stays/verification", element: <StaysVerificationPage /> },
+                { path: "stays/settings", element: <StaysSettingsPage /> },
               ] },
               // The 404 owns its own full-screen centred layout.
               { path: "*", element: <NotFoundPage />, handle: { bleed: true } },

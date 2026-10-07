@@ -98,4 +98,13 @@ describe('the support bubble follows chat access', () => {
     // into a different rule for the bubble.
     expect(PAGE_ACCESS['/chat']).toBe('chat.view');
   });
+
+  it('hides it on the Stays Customers surface too', () => {
+    // Both customers surfaces own the full viewport; the bubble would float
+    // over the composer and poll the Experiences inbox from the Stays side.
+    signInAs(['admin'], { isOwner: true });
+    renderShell('/stays/customers');
+
+    expect(screen.queryByTestId('support-floating')).not.toBeInTheDocument();
+  });
 });

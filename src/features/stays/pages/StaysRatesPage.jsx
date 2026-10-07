@@ -11,7 +11,7 @@ import { usePropertyContext } from "../hooks/usePropertyContext";
 import { STAYS_KEYS, saveRatePlan, deleteRatePlan } from "../api";
 
 /**
- * Rates & availability — manage the bookable rate plans per room type.
+ * Rate — manage the bookable rate plans per room type.
  * The create/edit form opens inline inside the room card (no modal);
  * deletion keeps the prototype's rule that every room retains at least one
  * plan (enforced by the API layer, surfaced here as a toast).
@@ -38,7 +38,7 @@ export default function StaysRatesPage() {
   return (
     <StaysSurface>
       <StaysPageHeader
-        title="Rates & availability"
+        title="Rate"
         subtitle={
           property
             ? `Manage bookable rate plans for ${property.name}.`
@@ -67,7 +67,7 @@ export default function StaysRatesPage() {
           emptyState={
             <StaysCard>
               <StaysEmptyState title="Add a room before creating rate plans">
-                Rooms & units live under Properties → Edit listing, or the Rooms & units page.
+                Rooms & units live under Properties → Edit listing.
               </StaysEmptyState>
             </StaysCard>
           }

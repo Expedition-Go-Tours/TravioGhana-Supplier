@@ -19,7 +19,15 @@ import {
  * it cannot be combined. The picker explains what each role unlocks rather than
  * hiding it behind a tooltip — the invite email says the same thing.
  */
-export default function TeamRolePicker({ value, onChange, disabled = false, compact = false }) {
+export default function TeamRolePicker({
+  value,
+  onChange,
+  disabled = false,
+  compact = false,
+  // Workspace-specific copy: Stays passes its own summaries so the same roles
+  // read in property terms without forking the picker.
+  summaries = TEAM_ROLE_SUMMARIES,
+}) {
   const selected = sortTeamRoles(value);
 
   return (
@@ -61,7 +69,7 @@ export default function TeamRolePicker({ value, onChange, disabled = false, comp
               <li key={role} className="text-[11px] text-slate-500">
                 <span className="font-semibold text-slate-600">{TEAM_ROLE_LABELS[role]}</span>
                 {" — "}
-                {TEAM_ROLE_SUMMARIES[role]}
+                {summaries[role]}
               </li>
             ))
           )}

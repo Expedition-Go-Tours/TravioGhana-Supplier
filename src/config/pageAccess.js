@@ -45,7 +45,7 @@ export const PAGE_ACCESS = {
   // ── Stays workspace (property suppliers) ─────────────────────────────
   // Mirrors the Experiences rules one-for-one so team members see the same
   // shape of access in both workspaces: dashboard open to everyone, catalogue
-  // read-gated, operations (builder, rates, availability, policies, offers)
+  // read-gated, operations (builder, rates, availability, offers)
   // behind a stays operation key, and the cancellation gauge read-only.
   // The `stays.*` keys must exist in the API's permission model — see the
   // mirror in config/teamRoles.js (and the drift test in
@@ -54,18 +54,22 @@ export const PAGE_ACCESS = {
   "/stays/properties": "stays.view",
   "/stays/properties/build": "stays.manage",
   "/stays/bookings": "stays.bookings",
-  "/stays/messages": "stays.messages",
+  "/stays/customers": "chat.view",
   "/stays/reviews": "stays.reviews",
   "/stays/availability": "stays.availability",
   "/stays/rates": "stays.rates",
-  // Rooms & units is edited from the same rate workspace — one key governs both.
-  "/stays/rooms": "stays.rates",
-  "/stays/policies": "stays.policies",
   "/stays/special-offers": "stays.offers",
   // Cancellation gauge is a read-only rollup, like /cancellation-rate.
   "/stays/cancellation": null,
   "/stays/finance": "payouts.view",
   "/stays/analytics": "stays.analytics",
+  // Account pages are per-workspace: these are the Stays twins of
+  // /notifications, /verification and /settings. Notifications are per-account
+  // alerts (every member has their own inbox); verification is owner territory;
+  // the settings tabs are gated individually like their Experiences twins.
+  "/stays/notifications": null,
+  "/stays/verification": "settings.manage",
+  "/stays/settings": null,
 };
 
 /**

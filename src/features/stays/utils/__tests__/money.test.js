@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatMoney, formatMoneyPerNight } from '../money';
+import { formatMoney } from '../money';
 
 describe('formatMoney', () => {
   it('prints whole amounts the way the prototype does', () => {
@@ -17,11 +17,5 @@ describe('formatMoney', () => {
     expect(formatMoney(1000, 'USD')).toBe('USD 1,000');
     expect(formatMoney(undefined)).toBe('GHS 0');
     expect(formatMoney('not-a-number')).toBe('GHS 0');
-  });
-});
-
-describe('formatMoneyPerNight', () => {
-  it('appends the nightly suffix', () => {
-    expect(formatMoneyPerNight(750)).toBe('GHS 750 / night');
   });
 });

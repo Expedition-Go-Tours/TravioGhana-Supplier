@@ -56,8 +56,8 @@ export const TEAM_ROLE_PERMISSIONS = {
     // commit that ships the Stays routes; until then they are granted here
     // so the dashboards' drift tests and optimistic UI stay honest.
     'stays.view', 'stays.manage',
-    'stays.bookings', 'stays.availability', 'stays.rates', 'stays.policies',
-    'stays.offers', 'stays.messages', 'stays.reviews', 'stays.analytics',
+    'stays.bookings', 'stays.availability', 'stays.rates',
+    'stays.offers', 'stays.reviews', 'stays.analytics',
   ],
   [TEAM_ROLES.FINANCE]: [
     'earnings.view',
