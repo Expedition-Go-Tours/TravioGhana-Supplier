@@ -57,7 +57,7 @@ export const TEAM_ROLE_PERMISSIONS = {
     // so the dashboards' drift tests and optimistic UI stay honest.
     'stays.view', 'stays.manage',
     'stays.bookings', 'stays.availability', 'stays.rates', 'stays.policies',
-    'stays.offers',
+    'stays.offers', 'stays.messages', 'stays.reviews', 'stays.analytics',
   ],
   [TEAM_ROLES.FINANCE]: [
     'earnings.view',

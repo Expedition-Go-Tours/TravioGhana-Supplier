@@ -34,7 +34,8 @@ export const STAYS_KEYS = {
   messages: (filter = "All") => ["stays", "messages", filter],
   reviews: (filter = "All") => ["stays", "reviews", filter],
   analytics: (period) => ["stays", "analytics", period],
-  cancellation: (days) => ["stays", "cancellation", days],
+  cancellation: (days, propertyId) => ["stays", "cancellation", days, propertyId || "all"],
+  cancellationRecords: (filters = {}) => ["stays", "cancellation", "records", filters],
 };
 
 const requestConfig = { skipGlobalErrorHandler: true };
@@ -175,12 +176,24 @@ export async function listOffers(params = {}) {
   return res.data?.data?.offers || [];
 }
 
+export async function getOffer(id) {
+  if (staysUsesMockData) return staysMock.getOffer(id);
+  const res = await api.get(`${BASE}/offers/${id}`, requestConfig);
+  return res.data?.data?.offer;
+}
+
 export async function saveOffer(offer) {
   if (staysUsesMockData) return staysMock.saveOffer(offer);
   const res = offer.id
     ? await api.patch(`${BASE}/offers/${offer.id}`, offer, requestConfig)
     : await api.post(`${BASE}/offers`, offer, requestConfig);
   return res.data?.data?.offers || [];
+}
+
+export async function toggleOffer(id) {
+  if (staysUsesMockData) return staysMock.toggleOffer(id);
+  const res = await api.post(`${BASE}/offers/${id}/toggle`, {}, requestConfig);
+  return res.data?.data?.offer;
 }
 
 export async function deleteOffer(id) {
@@ -219,6 +232,16 @@ export async function fetchCancellationSummary(params = {}) {
   if (staysUsesMockData) return staysMock.getCancellationSummary(params);
   const res = await api.get(`${BASE}/cancellation`, { ...requestConfig, params });
   return res.data?.data;
+}
+
+export async function fetchCancellationRecords(params = {}) {
+  if (staysUsesMockData) return staysMock.listCancellationRecords(params);
+  const res = await api.get(`${BASE}/cancellation/records`, { ...requestConfig, params });
+  const payload = res.data?.data || {};
+  return {
+    records: payload.records || [],
+    pagination: payload.pagination || null,
+  };
 }
 
 export async function fetchStaysAnalytics(params = {}) {

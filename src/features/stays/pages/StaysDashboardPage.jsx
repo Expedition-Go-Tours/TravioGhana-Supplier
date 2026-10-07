@@ -178,7 +178,7 @@ export default function StaysDashboardPage() {
                 {actionRequired.messagesAwaitingReply} waiting for a reply
               </small>
             </div>
-            <StaysButton size="small" onClick={() => navigate("/chat")}>
+            <StaysButton size="small" onClick={() => navigate("/stays/messages")}>
               Open
             </StaysButton>
           </StaysRow>

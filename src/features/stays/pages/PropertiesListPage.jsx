@@ -155,7 +155,7 @@ export default function PropertiesListPage() {
               layout={layout}
               onEdit={() => navigate(`/stays/properties/build/${property.id}`)}
               onPreview={() => setPreview(property)}
-              onCreateOffer={() => navigate(`/stays/special-offers?create=1&property=${property.id}`)}
+              onCreateOffer={() => navigate(`/stays/special-offers/build/new?property=${property.id}`)}
               onDelete={() => setDeleteTarget(property)}
             />
           ))}

@@ -14,12 +14,12 @@ describe('dashboard aggregates', () => {
   it('reproduces the prototype numbers for the reference dataset', async () => {
     const data = await staysMock.getDashboard();
     expect(data.stats).toEqual({
-      upcomingArrivals: 3,
+      upcomingArrivals: 4,
       newReservations: 1,
       liveProperties: 1,
-      grossBookingValue: 6950,
+      grossBookingValue: 7650,
     });
-    expect(data.cancellation).toEqual({ rate: 0, cancelled: 0, total: 3 });
+    expect(data.cancellation).toEqual({ rate: 42.9, cancelled: 3, total: 7 });
     expect(data.actionRequired).toEqual({
       messagesAwaitingReply: 2,
       bookingsToReview: 1,
@@ -32,9 +32,9 @@ describe('dashboard aggregates', () => {
     });
     expect(data.topProperties[0]).toMatchObject({
       name: 'Akwaaba Coast Hotel',
-      bookings: 3,
+      bookings: 7,
       roomTypes: 1,
-      revenue: 6950,
+      revenue: 7650,
     });
   });
 });
@@ -145,7 +145,7 @@ describe('availability overrides', () => {
 describe('bookings', () => {
   it('filters by status and joins the property name', async () => {
     const all = await staysMock.listBookings();
-    expect(all).toHaveLength(3);
+    expect(all).toHaveLength(7);
     const newOnly = await staysMock.listBookings({ status: 'New' });
     expect(newOnly).toHaveLength(1);
     expect(newOnly[0].propertyName).toBe('Akwaaba Coast Hotel');

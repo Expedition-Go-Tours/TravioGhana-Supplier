@@ -1,0 +1,174 @@
+import { CalendarX2 } from "lucide-react";
+import StaysCancellationProgressBar from "./StaysCancellationProgressBar";
+
+/**
+ * The cancellation rate card — the Stays mirror of the Experiences
+ * `CancellationCard`: rate + performance badge, the Confirmed / Cancelled /
+ * Completed box with the no-show line, the period pills, "View details" and
+ * the threshold gauge.
+ */
+
+// Same vocabulary/thresholds as the Experiences page (and the backend):
+//   < 10 eligible bookings → Building performance record (rating waived)
+//   ≤ 1% → Excellent · ≤ 2% → Good · ≤ 5% → Needs attention · > 5% → High
+const STATUS_CONFIG = {
+  Excellent: { color: "bg-green-100 text-green-800 border-green-200", icon: "★", label: "Excellent" },
+  Good: { color: "bg-green-50 text-green-700 border-green-100", icon: "✓", label: "Good" },
+  "Needs attention": { color: "bg-amber-100 text-amber-800 border-amber-200", icon: "⚠", label: "Needs attention" },
+  High: { color: "bg-red-100 text-red-800 border-red-200", icon: "✗", label: "High" },
+  "Building performance record": { color: "bg-blue-100 text-blue-800 border-blue-200", icon: "📊", label: "Building performance record" },
+};
+
+const KNOWN_STATUSES = Object.keys(STATUS_CONFIG);
+
+const PERIOD_OPTIONS = [
+  { value: 30, label: "30 days" },
+  { value: 60, label: "60 days" },
+  { value: 90, label: "90 days" },
+];
+
+function deriveStatus(rate, eligible) {
+  if (eligible < 10) return "Building performance record";
+  if (rate <= 1) return "Excellent";
+  if (rate <= 2) return "Good";
+  if (rate <= 5) return "Needs attention";
+  return "High";
+}
+
+export default function StaysCancellationCard({ summary, days = 90, onDaysChange, onViewDetails }) {
+  const rate = summary?.cancellationRate ?? 0;
+  const confirmed = summary?.confirmed ?? 0;
+  const cancelled = summary?.cancelled ?? 0;
+  const completed = summary?.completed ?? 0;
+  const eligible = summary?.eligibleBookings ?? 0;
+  const noShowRate = summary?.noShowRate ?? 0;
+
+  const status = summary
+    ? KNOWN_STATUSES.includes(summary.status)
+      ? summary.status
+      : deriveStatus(rate, eligible)
+    : "Building performance record";
+  const statusConfig = STATUS_CONFIG[status];
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-[20px] shadow-none p-5 sm:p-6">
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4 mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center">
+            <CalendarX2 size={22} className="text-red-500" />
+          </div>
+          <div>
+            <h2 className="text-lg sm:text-xl font-bold text-slate-800">Cancellation rate</h2>
+            <p className="text-sm text-slate-500">Your booking performance over time</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          {onDaysChange && (
+            <div
+              className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5"
+              role="group"
+              aria-label="Reporting period"
+            >
+              {PERIOD_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => onDaysChange(option.value)}
+                  aria-pressed={days === option.value}
+                  className={`px-2 sm:px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    days === option.value
+                      ? "bg-white text-slate-800 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          )}
+          <button
+            onClick={onViewDetails}
+            className="inline-flex items-center gap-2 px-4 sm:px-5 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all"
+          >
+            View details
+          </button>
+        </div>
+      </div>
+
+      {/* Main content: rate + stats */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div className="space-y-4">
+          <div className="text-6xl font-bold text-slate-800 tracking-tight">{rate}%</div>
+          <div
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold border ${statusConfig.color}`}
+          >
+            <span>{statusConfig.icon}</span>
+            {statusConfig.label}
+          </div>
+          <div className="text-sm text-slate-500">
+            {eligible < 10 ? (
+              <span>
+                Your rating is waived below 10 bookings — we’re still building your performance
+                record.
+              </span>
+            ) : (
+              <span>
+                {cancelled} of {eligible} bookings cancelled
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="border border-slate-200 rounded-2xl p-4">
+          <div className="grid grid-cols-3 divide-x divide-slate-200">
+            <div className="text-center px-2 sm:px-4 py-3">
+              <div className="text-2xl sm:text-3xl font-bold text-slate-800">{confirmed}</div>
+              <div className="text-xs text-slate-500 mt-1">Confirmed</div>
+            </div>
+            <div className="text-center px-2 sm:px-4 py-3">
+              <div className="text-2xl sm:text-3xl font-bold text-slate-800">{cancelled}</div>
+              <div className="text-xs text-slate-500 mt-1">Cancelled</div>
+            </div>
+            <div className="text-center px-2 sm:px-4 py-3">
+              <div className="text-2xl sm:text-3xl font-bold text-slate-800">{completed}</div>
+              <div className="text-xs text-slate-500 mt-1">Completed</div>
+            </div>
+          </div>
+          <div className="border-t border-slate-100 mt-1 pt-2.5 text-center text-xs text-slate-500">
+            No-show rate <span className="font-semibold text-slate-700">{noShowRate}%</span>
+            <span className="text-slate-400"> · target ≤0.2%</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <StaysCancellationProgressBar rate={rate} />
+
+      {/* Legend + thresholds */}
+      <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 mt-6 text-xs text-slate-500">
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-full bg-green-700" />
+          Excellent ≤1%
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-full bg-green-300" />
+          Good ≤2%
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-full bg-amber-400" />
+          Needs attention ≤5%
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-full bg-red-500" />
+          High &gt;5%
+        </div>
+      </div>
+
+      {/* Performance tip */}
+      <div className="mt-4 text-xs text-slate-500 text-center">
+        Ratings are waived below 10 bookings. A High rating means we may reach out to help — your
+        properties are never removed automatically.
+      </div>
+    </div>
+  );
+}

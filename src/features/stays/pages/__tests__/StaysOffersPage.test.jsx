@@ -1,150 +1,124 @@
 /**
- * Special Offers — the create/edit form renders inline on the page (never a
- * dialog), saves through the offers API, prefills when editing, validates
- * inline, and honours the `?create=1&property=` deep link from the Properties
- * page with the property preselected.
+ * Special Offers — the Stays mirror of the Experiences offers page: header +
+ * Create Offer, three stat tiles, search/type/status filters, offer rows with
+ * the discount badge, the toggle/delete actions and the detail modal.
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 
 import StaysOffersPage from "../StaysOffersPage";
 import { staysMock } from "../../mock/store";
 
 beforeEach(() => staysMock.reset());
 
-function renderPage(initialEntry = "/stays/special-offers") {
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location">{`${location.pathname}${location.search}`}</div>;
+}
+
+function renderPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[initialEntry]}>
+      <MemoryRouter initialEntries={["/stays/special-offers"]}>
+        <LocationProbe />
         <Routes>
           <Route path="/stays/special-offers" element={<StaysOffersPage />} />
+          <Route path="/stays/special-offers/build/:id?/:step?" element={<div>Builder</div>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   );
 }
 
-describe("StaysOffersPage — inline offer form", () => {
-  it("opens the create form inline on the page, not as a dialog", async () => {
+describe("StaysOffersPage — experiences-parity offers list", () => {
+  it("renders the header, stat tiles and the active seeded offers", async () => {
+    renderPage();
+
+    expect(screen.getByText("Special Offers")).toBeTruthy();
+    expect(screen.getByText("Manage promotional discounts and offers")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Create Offer/ })).toBeTruthy();
+
+    expect((await screen.findAllByText("Weekend escape")).length).toBeGreaterThan(0);
+    // The default status filter is Active — the scheduled offer is hidden.
+    expect(screen.queryByText("Early bird special")).toBeNull();
+    expect(screen.getByText("Showing 1 of 2 offers")).toBeTruthy();
+
+    for (const label of ["Total Offers", "Active", "Scheduled"]) {
+      expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("filters by status and search", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findAllByText("Weekend escape");
+
+    await user.selectOptions(screen.getByLabelText("Filter by status"), "");
+    expect((await screen.findAllByText("Early bird special")).length).toBeGreaterThan(0);
+    expect(screen.getByText("Showing 2 of 2 offers")).toBeTruthy();
+
+    await user.type(screen.getByPlaceholderText("Search offers..."), "early");
+    await waitFor(() => {
+      expect(screen.queryByText("Weekend escape")).toBeNull();
+      expect(screen.getAllByText("Early bird special").length).toBeGreaterThan(0);
+    });
+  });
+
+  it("opens the builder from Create Offer", async () => {
     const user = userEvent.setup();
     renderPage();
 
-    expect(screen.queryByText("Create an offer")).toBeNull();
-    await user.click(screen.getByRole("button", { name: "+ Create offer" }));
-
-    expect(await screen.findByText("Create an offer")).toBeTruthy();
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(screen.getByLabelText("Offer name")).toBeTruthy();
-    expect(screen.getByRole("combobox", { name: "Property" })).toBeTruthy();
-    expect(screen.getByRole("combobox", { name: "Offer type" })).toBeTruthy();
-    expect(screen.getByLabelText("Discount (%)")).toBeTruthy();
-    expect(screen.getByLabelText("Start date")).toBeTruthy();
-    expect(screen.getByLabelText("End date")).toBeTruthy();
-    expect(screen.getByLabelText("Booking limit (optional)")).toBeTruthy();
-    expect(screen.getByText(/Guests see/)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: /Create Offer/ }));
+    expect(screen.getByTestId("location").textContent).toBe("/stays/special-offers/build/new");
   });
 
-  it("creates an offer from the inline form and closes it", async () => {
-    const user = userEvent.setup();
-    const [property] = await staysMock.listProperties();
-    renderPage();
-
-    await user.click(screen.getByRole("button", { name: "+ Create offer" }));
-    const nameInput = await screen.findByLabelText("Offer name");
-    await user.clear(nameInput);
-    await user.type(nameInput, "Easter special");
-    await user.click(screen.getByRole("combobox", { name: "Property" }));
-    await user.click(await screen.findByRole("option", { name: property.name }));
-    await user.click(screen.getByRole("button", { name: "Create offer" }));
-
-    await waitFor(() => {
-      expect(screen.queryByText("Create an offer")).toBeNull();
-    });
-    expect(await screen.findByText("Easter special")).toBeTruthy();
-
-    const offers = await staysMock.listOffers();
-    expect(offers).toHaveLength(1);
-    expect(offers[0]).toMatchObject({
-      name: "Easter special",
-      propertyId: property.id,
-      discount: 10,
-    });
-  });
-
-  it("shows inline validation instead of saving invalid input", async () => {
+  it("opens the builder from a row's Edit action", async () => {
     const user = userEvent.setup();
     renderPage();
+    await screen.findAllByText("Weekend escape");
 
-    await user.click(screen.getByRole("button", { name: "+ Create offer" }));
-    const nameInput = await screen.findByLabelText("Offer name");
-    await user.clear(nameInput);
-    await user.click(screen.getByRole("button", { name: "Create offer" }));
-
-    expect(await screen.findByText("Enter an offer name")).toBeTruthy();
-    expect(screen.getByText("Create an offer")).toBeTruthy();
-    expect(await staysMock.listOffers()).toHaveLength(0);
+    await user.click(screen.getByRole("button", { name: "Edit Weekend escape" }));
+    expect(screen.getByTestId("location").textContent).toBe(
+      "/stays/special-offers/build/offer-1",
+    );
   });
 
-  it("prefills the form when editing an existing offer", async () => {
+  it("toggles an offer off and deletes an offer", async () => {
     const user = userEvent.setup();
-    const [property] = await staysMock.listProperties();
-    await staysMock.saveOffer({
-      propertyId: property.id,
-      name: "Seeded deal",
-      kind: "Last-minute",
-      discount: 25,
-      from: "2026-10-10",
-      to: "2026-10-20",
-    });
     renderPage();
+    await screen.findAllByText("Weekend escape");
 
-    const card = (await screen.findByText("Seeded deal")).closest("[data-offer-card]");
-    await user.click(within(card).getByRole("button", { name: "Edit" }));
+    await user.click(screen.getByRole("button", { name: "Deactivate Weekend escape" }));
+    expect(await screen.findByText("No active offers")).toBeTruthy();
+    const toggled = (await staysMock.listOffers()).find((offer) => offer.id === "offer-1");
+    expect(toggled.isActive).toBe(false);
 
-    expect(await screen.findByText("Edit offer")).toBeTruthy();
-    expect(screen.getByLabelText("Offer name").value).toBe("Seeded deal");
+    await user.selectOptions(screen.getByLabelText("Filter by status"), "");
+    await screen.findAllByText("Early bird special");
+    await user.click(screen.getByRole("button", { name: "Delete Early bird special" }));
 
-    const discount = screen.getByLabelText("Discount (%)");
-    await user.clear(discount);
-    await user.type(discount, "30");
-    await user.click(screen.getByRole("button", { name: "Save offer" }));
+    expect(await screen.findByText("Delete offer")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Delete" }));
 
-    await waitFor(() => {
-      expect(screen.queryByText("Edit offer")).toBeNull();
+    await waitFor(async () => {
+      const rows = await staysMock.listOffers();
+      expect(rows.some((offer) => offer.id === "offer-2")).toBe(false);
     });
-    expect(await screen.findByText("30% OFF")).toBeTruthy();
-    const offers = await staysMock.listOffers();
-    expect(offers[0]).toMatchObject({ name: "Seeded deal", discount: 30 });
   });
 
-  it("opens from the Properties deep link with the property preselected", async () => {
+  it("opens the detail modal with the offer facts", async () => {
     const user = userEvent.setup();
-    const [property] = await staysMock.listProperties();
-    renderPage(`/stays/special-offers?create=1&property=${property.id}`);
+    renderPage();
+    const titles = await screen.findAllByText("Weekend escape");
 
-    expect(await screen.findByText("Create an offer")).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Create offer" }));
-
-    await waitFor(() => {
-      expect(screen.queryByText("Create an offer")).toBeNull();
-    });
-    const offers = await staysMock.listOffers();
-    expect(offers[0]).toMatchObject({ propertyId: property.id });
-  });
-
-  it("closes the inline form from Cancel", async () => {
-    const user = userEvent.setup();
-    renderPage("/stays/special-offers?create=1");
-
-    await screen.findByText("Create an offer");
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
-
-    await waitFor(() => {
-      expect(screen.queryByText("Create an offer")).toBeNull();
-    });
+    await user.click(titles[0]);
+    expect(await screen.findByText("Offer Type")).toBeTruthy();
+    expect(screen.getAllByText("Limited Time").length).toBeGreaterThan(0);
+    expect(screen.getByText("15% discount")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Edit Offer/ })).toBeTruthy();
   });
 });

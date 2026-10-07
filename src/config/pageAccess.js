@@ -54,6 +54,8 @@ export const PAGE_ACCESS = {
   "/stays/properties": "stays.view",
   "/stays/properties/build": "stays.manage",
   "/stays/bookings": "stays.bookings",
+  "/stays/messages": "stays.messages",
+  "/stays/reviews": "stays.reviews",
   "/stays/availability": "stays.availability",
   "/stays/rates": "stays.rates",
   // Rooms & units is edited from the same rate workspace — one key governs both.
@@ -62,6 +64,8 @@ export const PAGE_ACCESS = {
   "/stays/special-offers": "stays.offers",
   // Cancellation gauge is a read-only rollup, like /cancellation-rate.
   "/stays/cancellation": null,
+  "/stays/finance": "payouts.view",
+  "/stays/analytics": "stays.analytics",
 };
 
 /**

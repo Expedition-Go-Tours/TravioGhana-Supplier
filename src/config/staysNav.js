@@ -5,9 +5,10 @@
  * The grouping mirrors the Stays dashboard prototype:
  *
  *   STAYS              the property workspace itself
- *   GROW YOUR BUSINESS offers + cancellation reporting
- *   SHARED ACCOUNT     account-level pages that already exist in this portal
- *                      (finance, reviews, …) and keep their Experiences look
+ *   GROW YOUR BUSINESS offers, cancellation reporting and analytics
+ *   SHARED ACCOUNT     the account-level pages that stay shared with the
+ *                      Experiences workspace until their Stays versions land
+ *                      (finance, notifications, verification, settings, team)
  *
  * `permission` always comes from PAGE_ACCESS so the route guards, the
  * sidebar and search agree by construction.
@@ -22,7 +23,7 @@ import {
   NotebookText,
   BadgePercent,
   CalendarX2,
-  Users,
+  MessageSquare,
   DollarSign,
   Star,
   Bell,
@@ -64,6 +65,14 @@ export const STAYS_NAV_GROUPS = [
         keywords: ["reservations", "guests", "stays"],
       },
       {
+        label: "Messages",
+        path: "/stays/messages",
+        icon: MessageSquare,
+        iconName: "MessageSquare",
+        permission: PAGE_ACCESS["/stays/messages"],
+        keywords: ["guest", "inbox", "questions", "chat"],
+      },
+      {
         label: "Availability",
         path: "/stays/availability",
         icon: CalendarDays,
@@ -95,6 +104,14 @@ export const STAYS_NAV_GROUPS = [
         permission: PAGE_ACCESS["/stays/policies"],
         keywords: ["house rules", "check-in", "children", "safety"],
       },
+      {
+        label: "Reviews",
+        path: "/stays/reviews",
+        icon: Star,
+        iconName: "Star",
+        permission: PAGE_ACCESS["/stays/reviews"],
+        keywords: ["rating", "feedback", "reputation"],
+      },
     ],
   },
   {
@@ -116,35 +133,27 @@ export const STAYS_NAV_GROUPS = [
         permission: PAGE_ACCESS["/stays/cancellation"],
         keywords: ["cancel", "rate", "no-show"],
       },
+      {
+        label: "Analytics",
+        path: "/stays/analytics",
+        icon: BarChart3,
+        iconName: "BarChart3",
+        permission: PAGE_ACCESS["/stays/analytics"],
+        keywords: ["stats", "reports", "insights", "revenue"],
+      },
+      {
+        label: "Finance",
+        path: "/stays/finance",
+        icon: DollarSign,
+        iconName: "DollarSign",
+        permission: PAGE_ACCESS["/stays/finance"],
+        keywords: ["money", "payout", "earnings", "withdraw", "bank"],
+      },
     ],
   },
   {
     label: "SHARED ACCOUNT",
     items: [
-      {
-        label: "Customers",
-        path: "/chat",
-        icon: Users,
-        iconName: "Users",
-        permission: PAGE_ACCESS["/chat"],
-        keywords: ["chat", "messages", "inbox", "guests"],
-      },
-      {
-        label: "Finance",
-        path: "/finance",
-        icon: DollarSign,
-        iconName: "DollarSign",
-        permission: PAGE_ACCESS["/finance"],
-        keywords: ["money", "payout", "earnings", "withdraw", "bank"],
-      },
-      {
-        label: "Reviews",
-        path: "/reviews",
-        icon: Star,
-        iconName: "Star",
-        permission: PAGE_ACCESS["/reviews"],
-        keywords: ["rating", "feedback"],
-      },
       {
         label: "Notifications",
         path: "/notifications",
@@ -152,14 +161,6 @@ export const STAYS_NAV_GROUPS = [
         iconName: "Bell",
         permission: PAGE_ACCESS["/notifications"],
         keywords: ["alerts", "updates"],
-      },
-      {
-        label: "Analytics",
-        path: "/analytics",
-        icon: BarChart3,
-        iconName: "BarChart3",
-        permission: PAGE_ACCESS["/analytics"],
-        keywords: ["stats", "reports", "insights", "revenue"],
       },
       {
         label: "Verification",
