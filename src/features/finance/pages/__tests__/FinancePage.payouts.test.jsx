@@ -689,6 +689,29 @@ describe('FinancePage — finance v3: automatic invoices', () => {
     expect(screen.queryByText('Legacy payout requests')).not.toBeInTheDocument();
   });
 
+  it('labels every invoice status: Due, Approved, Paid, and voided (CANCELLED)', async () => {
+    fetchMyInvoicesMock.mockResolvedValue({
+      invoices: [
+        { ...invoiceRow, id: 'a', invoiceNumber: 'INV-A', status: 'INVOICED' },
+        { ...invoiceRow, id: 'b', invoiceNumber: 'INV-B', status: 'APPROVED', approvedAt: '2026-10-18T00:00:00.000Z' },
+        { ...invoiceRow, id: 'c', invoiceNumber: 'INV-C', status: 'PAID', paidAt: '2026-10-20T00:00:00.000Z' },
+        { ...invoiceRow, id: 'd', invoiceNumber: 'INV-D', status: 'CANCELLED' },
+      ],
+      pagination: { current: 1, totalPages: 1, totalCount: 4 },
+    });
+    renderPage('payouts');
+    await ready();
+
+    expect(await screen.findByText('INV-A')).toBeInTheDocument();
+    expect(screen.getByText('Due')).toBeInTheDocument();
+    // Approved is its own state — authorized but not yet paid.
+    expect(screen.getByText('Approved')).toBeInTheDocument();
+    // "Paid" appears both as the column header and the PAID badge.
+    expect(screen.getAllByText('Paid').length).toBeGreaterThan(0);
+    // The backend status is CANCELLED; the older VOID label never matched it.
+    expect(screen.getByText('Void')).toBeInTheDocument();
+  });
+
   it('says the window is empty instead of offering a $0.00 request', async () => {
     fetchFinanceSummaryMock.mockResolvedValue({
       ...ENROLLED_LEDGER,

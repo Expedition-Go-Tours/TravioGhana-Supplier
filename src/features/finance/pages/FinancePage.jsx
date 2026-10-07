@@ -1423,12 +1423,20 @@ export default function FinancePage() {
                                 className={
                                   inv.status === "PAID"
                                     ? "inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700"
-                                    : inv.status === "VOID"
+                                    : inv.status === "APPROVED"
+                                    ? "inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-sky-50 text-sky-700"
+                                    : inv.status === "CANCELLED"
                                     ? "inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-500"
                                     : "inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-700"
                                 }
                               >
-                                {inv.status === "PAID" ? "Paid" : inv.status === "VOID" ? "Void" : "Due"}
+                                {inv.status === "PAID"
+                                  ? "Paid"
+                                  : inv.status === "APPROVED"
+                                  ? "Approved"
+                                  : inv.status === "CANCELLED"
+                                  ? "Void"
+                                  : "Due"}
                               </span>
                             </td>
                             <td className="py-3 px-4 text-sm text-gray-500">
