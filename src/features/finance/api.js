@@ -113,6 +113,41 @@ export function cancelPayoutRequest(id) {
   return api.patch(`/finance/payouts/requests/${id}/cancel`, {}, { skipGlobalErrorHandler: true });
 }
 
+// ── Finance v3: automatic invoices (balance + early payout) ──
+
+export async function fetchMyInvoices(params = {}) {
+  const response = await api.get("/finance/invoices", { params, skipGlobalErrorHandler: true });
+  const payload = response.data?.data || {};
+  return {
+    invoices: (payload.invoices || []).map((inv) => ({
+      id: inv.id,
+      invoiceNumber: inv.invoiceNumber,
+      status: inv.status,
+      cycle: inv.cycle,
+      cycleLabel: inv.cycleLabel,
+      cycleStartDate: inv.cycleStartDate,
+      cycleEndDate: inv.cycleEndDate,
+      invoicedAt: inv.invoicedAt,
+      paymentScheduledAt: inv.paymentScheduledAt,
+      paidAt: inv.paidAt,
+      reference: inv.reference || "",
+      grossTotal: Number(inv.grossTotal) || 0,
+      commissionTotal: Number(inv.commissionTotal) || 0,
+      netTotal: Number(inv.netTotal) || 0,
+      currency: inv.currency || "USD",
+      bookingCount: inv.bookingCount || 0,
+    })),
+    pagination: payload.pagination || null,
+  };
+}
+
+// Manual "Request payout" accelerator: invoices the current pending window
+// immediately. One open manual invoice per window (409 otherwise); the
+// scheduled run invoices anything that joins the same window later.
+export function requestEarlyPayout(payload = {}) {
+  return api.post("/finance/invoices", payload, { skipGlobalErrorHandler: true });
+}
+
 // ── Automated payout schedule (weekly / twice a month / monthly) ──
 //
 // The backend projects the schedule: `autoManaged` true means payouts are

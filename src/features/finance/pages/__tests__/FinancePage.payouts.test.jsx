@@ -12,6 +12,8 @@ const {
   getFinanceChargesMock,
   updatePayoutSettingsMock,
   createPayoutRequestMock,
+  fetchMyInvoicesMock,
+  requestEarlyPayoutMock,
 } = vi.hoisted(() => ({
   fetchFinanceSummaryMock: vi.fn(),
   fetchFinanceEarningsMock: vi.fn(),
@@ -21,6 +23,8 @@ const {
   getFinanceChargesMock: vi.fn(),
   updatePayoutSettingsMock: vi.fn(),
   createPayoutRequestMock: vi.fn(),
+  fetchMyInvoicesMock: vi.fn(),
+  requestEarlyPayoutMock: vi.fn(),
 }));
 
 vi.mock('../../api', () => ({
@@ -32,6 +36,8 @@ vi.mock('../../api', () => ({
   getFinanceCharges: getFinanceChargesMock,
   updatePayoutSettings: updatePayoutSettingsMock,
   createPayoutRequest: createPayoutRequestMock,
+  fetchMyInvoices: fetchMyInvoicesMock,
+  requestEarlyPayout: requestEarlyPayoutMock,
   cancelPayoutRequest: vi.fn(),
   createPayoutMethod: vi.fn(),
   deletePayoutMethod: vi.fn(),
@@ -188,6 +194,8 @@ beforeEach(() => {
   fetchPayoutMethodsMock.mockResolvedValue([]);
   fetchFinanceDisputesMock.mockResolvedValue({ disputes: [], pagination: null });
   getFinanceChargesMock.mockResolvedValue({ charges: [], openTotals: [] });
+  fetchMyInvoicesMock.mockResolvedValue({ invoices: [], pagination: null });
+  requestEarlyPayoutMock.mockResolvedValue({ data: { invoices: [] } });
 });
 
 describe('FinancePage — the earnings list opens on All', () => {
@@ -554,5 +562,143 @@ describe('FinancePage — the payout dialog', () => {
 
     await userEvent.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+});
+
+/**
+ * Finance v3: enrolled suppliers are paid via automatic invoices. The summary
+ * then carries `balance` (unpaid invoices), `nextPayout` (the pending-window
+ * projection with its exact invoiced/paid dates) and an invoice-sourced
+ * withdrawal window — and the manual "Request payout" button becomes the
+ * early-invoice accelerator (POST /finance/invoices).
+ */
+const ENROLLED_LEDGER = {
+  ...REAL_LEDGER,
+  inReview: { total: 0, byCurrency: {}, requestCount: 0, bookingCount: 0, latestRequest: null },
+  payoutCounts: { PENDING: 2, ELIGIBLE: 0, REQUESTED: 0, PAID: 0, DISPUTED: 0, CANCELLED: 1 },
+  balance: {
+    byCurrency: [{ currency: 'USD', amount: 640.25 }],
+    bookingCount: 3,
+    openInvoiceCount: 2,
+  },
+  nextPayout: {
+    window: {
+      cycle: 'TWICE_MONTHLY',
+      slot: 'A',
+      label: 'Oct 1–15',
+      start: '2026-10-01T00:00:00.000Z',
+      end: '2026-10-15T23:59:59.999Z',
+      invoicedOn: '2026-10-16T00:00:00.000Z',
+      paidOn: '2026-10-20T00:00:00.000Z',
+    },
+    bookingCount: 4,
+    grossTotal: 780,
+    commissionTotal: 132.6,
+    netTotal: 647.4,
+    byCurrency: [{ currency: 'USD', grossTotal: 780, platformCommission: 132.6, supplierPayout: 647.4 }],
+  },
+  withdrawalWindow: {
+    open: true,
+    source: 'invoice',
+    cycleLabel: 'Oct 1–15',
+    opensAt: null,
+    closesAt: null,
+  },
+  payoutPlan: {
+    ...REAL_LEDGER.payoutPlan,
+    cycle: 'TWICE_MONTHLY',
+    scheduleLabel: 'Twice a month — invoiced on the 16th & 1st',
+    scheduleShortLabel: 'Twice a month',
+    runDays: 'The 16th & 1st',
+    nextRunAt: '2026-10-16T00:00:00.000Z',
+    nextRunPeriodLabel: 'Oct 1–15',
+  },
+};
+
+const invoiceRow = {
+  id: 'inv1',
+  invoiceNumber: 'INV-2026-10-0001',
+  status: 'INVOICED',
+  cycle: 'TWICE_MONTHLY',
+  cycleLabel: 'Oct 1–15',
+  cycleStartDate: '2026-10-01T00:00:00.000Z',
+  cycleEndDate: '2026-10-15T23:59:59.999Z',
+  invoicedAt: '2026-10-16T00:00:00.000Z',
+  paymentScheduledAt: '2026-10-20T00:00:00.000Z',
+  paidAt: null,
+  reference: '',
+  grossTotal: 780,
+  commissionTotal: 132.6,
+  netTotal: 647.4,
+  currency: 'USD',
+  bookingCount: 4,
+};
+
+describe('FinancePage — finance v3: automatic invoices', () => {
+  beforeEach(() => {
+    fetchFinanceSummaryMock.mockResolvedValue(ENROLLED_LEDGER);
+  });
+
+  it('leads with Your balance (unpaid invoices) and Next payout with its dates', async () => {
+    renderPage();
+    await ready();
+
+    expect(await screen.findByText('Your balance')).toBeInTheDocument();
+    expect(screen.getByText('$640.25')).toBeInTheDocument();
+    expect(screen.getByText('2 unpaid invoices')).toBeInTheDocument();
+
+    expect(screen.getByText('Next payout')).toBeInTheDocument();
+    expect(screen.getAllByText('$647.40').length).toBeGreaterThan(0);
+    // Exact activity range and processing dates, beside the estimate.
+    expect(screen.getAllByText(/Bookings .+–/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Invoiced .*· paid/).length).toBeGreaterThan(0);
+    expect(screen.queryByText('Available for payout')).not.toBeInTheDocument();
+  });
+
+  it('routes the request button through the early-invoice endpoint, not a v2 request', async () => {
+    renderPage();
+    await ready();
+
+    const btn = await screen.findByRole('button', { name: /request early payout/i });
+    expect(btn).toBeEnabled();
+    expect(btn).toHaveTextContent('$647.40');
+
+    await userEvent.click(btn);
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveAccessibleName('Request early payout');
+    expect(within(dialog).getByText('Invoiced on')).toBeInTheDocument();
+    expect(within(dialog).getByText('Paid on')).toBeInTheDocument();
+
+    await userEvent.click(within(dialog).getByRole('button', { name: /create invoice/i }));
+    await waitFor(() => expect(requestEarlyPayoutMock).toHaveBeenCalledTimes(1));
+    expect(createPayoutRequestMock).not.toHaveBeenCalled();
+  });
+
+  it('lists invoices on the payouts tab instead of the empty legacy request state', async () => {
+    fetchMyInvoicesMock.mockResolvedValue({
+      invoices: [invoiceRow],
+      pagination: { current: 1, totalPages: 1, totalCount: 1 },
+    });
+    renderPage('payouts');
+    await ready();
+
+    expect(await screen.findByText('INV-2026-10-0001')).toBeInTheDocument();
+    expect(screen.getByText('Due')).toBeInTheDocument();
+    expect(screen.queryByText('No payout requests yet')).not.toBeInTheDocument();
+    // No legacy history to show, so no legacy header either.
+    expect(screen.queryByText('Legacy payout requests')).not.toBeInTheDocument();
+  });
+
+  it('says the window is empty instead of offering a $0.00 request', async () => {
+    fetchFinanceSummaryMock.mockResolvedValue({
+      ...ENROLLED_LEDGER,
+      nextPayout: { window: null, bookingCount: 0, grossTotal: 0, commissionTotal: 0, netTotal: 0, byCurrency: [] },
+    });
+    renderPage();
+    await ready();
+
+    const btn = await screen.findByRole('button', { name: /request early payout/i });
+    expect(btn).toBeDisabled();
+    expect(screen.getByText('Nothing is waiting on the current payout window yet.')).toBeInTheDocument();
   });
 });

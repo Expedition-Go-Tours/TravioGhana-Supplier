@@ -161,7 +161,7 @@ export function PayoutScheduleEditor({ plan, available = 0, currency = "USD", on
         <div>
           <h2 className="text-sm font-semibold text-slate-800">Payout schedule</h2>
           <p className="text-xs text-slate-500">
-            Choose how often you get paid. Your earnings are paid out automatically — and you can ask for one early from the day before your payout date.
+            Choose how often you get paid. Your earnings are invoiced and paid out automatically — and you can ask for an early payout at any time, once per payout window.
           </p>
         </div>
       </div>
@@ -329,6 +329,11 @@ function InFlightPayoutStatus({ request, currency = "USD" }) {
  * Read-only card for the Finance page: the current plan, the next run and what
  * is accumulating toward it. Replaces the legacy withdrawal-window card for
  * enrolled suppliers.
+ *
+ * Finance v3: when the page passes `nextPayout` (the pending-window projection)
+ * and a `requestWindow` with `source: "invoice"`, the card speaks the invoice
+ * flow — invoiced/paid processing dates, the exact activity range, and an
+ * "early payout" button — instead of the old manual-window lead time.
  */
 export function PayoutScheduleSummary({
   plan,
@@ -340,10 +345,15 @@ export function PayoutScheduleSummary({
   inFlightRequest = null,
   blockedReason = null,
   onManageSchedule = null,
+  nextPayout = null,
 }) {
   const option = optionFor(plan, plan?.cycle);
   const paused = plan?.autoRunsEnabled === false;
   const manualOpen = Boolean(requestWindow?.open);
+  // v3: the invoice flow replaces the manual-window lead-time chips.
+  const invoiceFlow = requestWindow?.source === "invoice";
+  const estimate = nextPayout?.window ? nextPayout : null;
+  const amount = estimate ? estimate.netTotal : available;
   // A request already in review owns the balance: those bookings have moved to
   // REQUESTED, so there is nothing left to ask for and offering a button would
   // be a dead end on the one screen the supplier visits to check their money.
@@ -361,9 +371,20 @@ export function PayoutScheduleSummary({
             {option?.label || plan?.scheduleLabel || "—"}
           </p>
           <div className="flex flex-wrap items-center gap-2 mt-1">
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700">
-              Next payout {formatRunDate(plan?.nextRunAt)}
-            </span>
+            {invoiceFlow && estimate ? (
+              <>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700">
+                  Invoiced {formatRunDate(estimate.window.invoicedOn, { withYear: false })}
+                </span>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-sky-50 text-sky-700">
+                  Paid {formatRunDate(estimate.window.paidOn, { withYear: false })}
+                </span>
+              </>
+            ) : (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700">
+                Next payout {formatRunDate(plan?.nextRunAt)}
+              </span>
+            )}
             {plan?.nextRunPeriodLabel && (
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-600">
                 Covering {plan.nextRunPeriodLabel}
@@ -374,12 +395,14 @@ export function PayoutScheduleSummary({
                 <PauseCircle size={11} /> Paused
               </span>
             )}
-            {/* The window is lead time, not grace time: it opens the day
-                before the run and closes when the run fires. So the chip names
-                the day it *opens*, not the run day — naming the run day told
-                the supplier to come back a day after the window had shut. */}
+            {/* v3: the early-payout accelerator has no lead-time window — it is
+                available whenever the pending window has something in it. */}
             {onRequestPayout && !paused && (
-              manualOpen ? (
+              invoiceFlow ? (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700">
+                  Early payout available — once per window
+                </span>
+              ) : manualOpen ? (
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700">
                   Early requests open until {formatRunDate(requestWindow.closesAt, { withYear: false })}
                 </span>
@@ -393,6 +416,10 @@ export function PayoutScheduleSummary({
           <p className="text-xs text-gray-500 mt-1.5">
             {showStatus
               ? "Only completed bookings past their travel date are paid out automatically."
+              : invoiceFlow
+              ? estimate
+                ? `Bookings ${formatRunDate(estimate.window.start)} – ${formatRunDate(estimate.window.end)} · paid ${formatRunDate(estimate.window.paidOn, { withYear: false })} (processing date — your bank may credit it later).`
+                : "No payout window yet — bookings appear here as soon as one qualifies."
               : `${formatCurrency(available, currency)} accumulating · only completed bookings past their travel date are included.`}
           </p>
           {plan?.hasVerifiedPayoutMethod === false && (
@@ -427,8 +454,8 @@ export function PayoutScheduleSummary({
               >
                 {!canRequestPayout ? <Lock size={15} /> : <Banknote size={15} />}
                 {canRequestPayout
-                  ? `Request payout · ${formatCurrency(available, currency)}`
-                  : "Request payout"}
+                  ? `${invoiceFlow ? "Request early payout" : "Request payout"} · ${formatCurrency(amount, currency)}`
+                  : invoiceFlow ? "Request early payout" : "Request payout"}
               </button>
             )}
             {/* The reason has to be visible text. A `title` on a disabled button

@@ -5,7 +5,7 @@ import RefundClaimsPage from "@/features/refund-claims/pages/RefundClaimsPage";
 import { useSearchParams } from "react-router-dom";
 import {
   DollarSign, Wallet, CreditCard, Loader2, RefreshCw, Plus, Trash2,
-  TrendingUp, Landmark, Smartphone, Eye, EyeOff,
+  TrendingUp, Landmark, Smartphone, Eye, EyeOff, FileText,
   CheckCircle2, AlertTriangle, X, ChevronDown, ChevronLeft, ChevronRight, Banknote,
   Calendar, Info, Search, Lock, XCircle, Undo2,
   ListFilter as FilterIcon,
@@ -18,8 +18,8 @@ import { PayoutScheduleEditor, PayoutScheduleSummary } from "../components/Payou
 import PayoutMethodFormSheet from "../components/PayoutMethodFormSheet";
 import {
   cancelPayoutRequest, createPayoutMethod, createPayoutRequest, createRefundRequest, deletePayoutMethod,
-  fetchFinanceDisputes, fetchFinanceEarnings, fetchFinanceSummary, fetchPayoutMethods, fetchPayoutRequests,
-  getFinanceCharges,
+  fetchFinanceDisputes, fetchFinanceEarnings, fetchFinanceSummary, fetchMyInvoices, fetchPayoutMethods, fetchPayoutRequests,
+  getFinanceCharges, requestEarlyPayout,
   withdrawRefundRequest,
 } from "../api";
 import { getAuthToken } from "@/stores/authStore";
@@ -276,6 +276,8 @@ export default function FinancePage() {
   const [payoutsPagination, setPayoutsPagination] = useState(null);
   const [disputesPagination, setDisputesPagination] = useState(null);
   const [charges, setCharges] = useState({ rows: [], openTotals: [], loading: true, error: null });
+  const [invoices, setInvoices] = useState([]);
+  const [invoicesPagination, setInvoicesPagination] = useState(null);
 
   const loadData = useCallback(async () => {
     if (!getAuthToken()) { setLoading(false); return; }
@@ -283,6 +285,10 @@ export default function FinancePage() {
     try {
       const summaryResult = await fetchFinanceSummary().catch(() => null);
       setSummary(summaryResult);
+      // Enrolled = on the automatic invoice cycle (v3). The summary only sends
+      // `nextPayout` for these suppliers — `balance` is always present (legacy
+      // accounts simply have an empty one), so it cannot be the signal.
+      const enrolled = Boolean(summaryResult?.nextPayout);
 
       if (activeTab === "earnings") {
         const params = { page, limit: PAGE_SIZE };
@@ -294,6 +300,11 @@ export default function FinancePage() {
         const result = await fetchPayoutRequests({ page, limit: PAGE_SIZE });
         setPayoutRequests(result.requests || []);
         setPayoutsPagination(result.pagination || null);
+        if (enrolled) {
+          const invResult = await fetchMyInvoices({ page, limit: PAGE_SIZE });
+          setInvoices(invResult.invoices || []);
+          setInvoicesPagination(invResult.pagination || null);
+        }
       } else if (activeTab === "refunds") {
         const result = await fetchFinanceDisputes({
           page,
@@ -362,6 +373,17 @@ export default function FinancePage() {
     }
   };
 
+  // Finance v3: enrolled suppliers are paid via automatic invoices. `balance`
+  // is the sum of their unpaid invoices; `nextPayout` is the live projection
+  // for the pending window (recalculates on every load and resets once an
+  // invoice for the window generates).
+  const isEnrolled = Boolean(summary?.nextPayout);
+  const nextPayout = summary?.nextPayout || null;
+  const balanceTotal = useMemo(
+    () => (summary?.balance?.byCurrency || []).reduce((s, c) => s + (Number(c.amount) || 0), 0),
+    [summary]
+  );
+
   // Compute stats from the finance v2 summary endpoint
   const stats = useMemo(() => {
     const available = Number(summary?.availableBalance?.amount) || 0;
@@ -373,7 +395,12 @@ export default function FinancePage() {
 
   const windowInfo = summary?.withdrawalWindow || null;
   const windowOpen = Boolean(windowInfo?.open);
-  const canRequestPayout = windowOpen && stats.available > 0;
+  // Enrolled: the early-payout accelerator invoices the pending window now
+  // (one manual invoice per window; the endpoint 409s if one already exists).
+  // Legacy: an open withdrawal window with eligible earnings.
+  const canRequestPayout = isEnrolled
+    ? Boolean(nextPayout && nextPayout.netTotal > 0)
+    : windowOpen && stats.available > 0;
 
   // A payout that finance is already holding. While this exists the supplier has
   // no balance to ask for — the bookings have moved to REQUESTED — so the page
@@ -391,6 +418,13 @@ export default function FinancePage() {
   // never shows and the supplier is left with an unexplained grey box.
   const requestBlockedReason = useMemo(() => {
     if (inFlightRequest) return "Your payout is already in review.";
+    // v3: the button is the early-invoice accelerator, and it is gated on the
+    // pending window's estimate rather than on a calendar window.
+    if (isEnrolled) {
+      return nextPayout && nextPayout.netTotal > 0
+        ? null
+        : "Nothing is waiting on the current payout window yet.";
+    }
     if (stats.available <= 0) return "Nothing is eligible to request yet.";
     if (!windowOpen) {
       return windowInfo?.opensAt
@@ -398,17 +432,17 @@ export default function FinancePage() {
         : "Early requests are not open right now.";
     }
     return null;
-  }, [inFlightRequest, stats.available, windowOpen, windowInfo]);
+  }, [inFlightRequest, isEnrolled, nextPayout, stats.available, windowOpen, windowInfo]);
 
-  // Automated payout schedule (weekly / twice a month / monthly).
+  // Automated payout schedule (twice a month / monthly).
   //
-  // Enrolled suppliers are paid on their schedule, so they get the schedule
-  // card instead of the legacy withdrawal-window card — but they are not shut
-  // out of requesting by hand: `withdrawalWindow` now carries their own run
-  // day plus a short grace, and `canRequestPayout` below reads it exactly the
-  // same way for both flows. Only the card that is shown differs.
+  // Enrolled suppliers (v3) are paid via invoices, so they get the schedule
+  // card instead of the legacy withdrawal-window card — including while the
+  // scheduler is paused, because the early-invoice accelerator
+  // (POST /finance/invoices) works regardless and their funds must never look
+  // stranded. Only legacy (unmigrated) accounts see the calendar window.
   const payoutPlan = summary?.payoutPlan || null;
-  const showSchedule = Boolean(payoutPlan?.autoManaged) && payoutPlan?.autoRunsEnabled !== false;
+  const showSchedule = Boolean(payoutPlan?.autoManaged);
 
   // Cycle display strings from the server-provided summary
   const cycleInfo = useMemo(() => {
@@ -422,8 +456,19 @@ export default function FinancePage() {
   const handleRequestPayout = async () => {
     setSubmittingRequest(true);
     try {
-      await createPayoutRequest({});
-      toast.success("Payout request submitted for review");
+      if (isEnrolled) {
+        // v3: invoices the current pending window immediately instead of
+        // waiting for the scheduled invoice date.
+        await requestEarlyPayout({});
+        toast.success(
+          nextPayout?.window?.paidOn
+            ? `Invoice generated — payment scheduled ${formatDate(nextPayout.window.paidOn)}`
+            : "Invoice generated"
+        );
+      } else {
+        await createPayoutRequest({});
+        toast.success("Payout request submitted for review");
+      }
       setShowRequestModal(false);
       await loadData();
     } catch (err) {
@@ -491,6 +536,45 @@ export default function FinancePage() {
     } finally { setWithdrawingDisputeId(null); }
   };
 
+  // ── Stat cards. v3 (balance / next payout) for enrolled suppliers; the v2
+  // cards stay for legacy accounts. ──
+  const inReviewCard = (
+    <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 relative overflow-hidden">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-sm text-gray-500">In review</p>
+          <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{formatCurrency(stats.inReview)}</p>
+          {summary?.inReview?.requestCount > 0 && (
+            // gray-600 when this is the request reference: it is the number a
+            // supplier quotes to support, and gray-400 sits at 2.60:1.
+            <p className={cn("text-xs mt-0.5", inFlightRequest?.reference ? "text-gray-600 tabular-nums" : "text-gray-500")}>
+              {inFlightRequest?.reference || `${summary.inReview.requestCount} request(s)`}
+            </p>
+          )}
+        </div>
+        <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
+          <TrendingUp size={20} className="text-emerald-500" />
+        </div>
+      </div>
+      <div className="absolute bottom-0 left-0 right-0 h-1 bg-amber-500" />
+    </div>
+  );
+
+  const paidOutCard = (
+    <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 relative overflow-hidden">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-sm text-gray-500">Paid out</p>
+          <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{formatCurrency(stats.paidOut)}</p>
+        </div>
+        <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
+          <CheckCircle2 size={20} className="text-emerald-500" />
+        </div>
+      </div>
+      <div className="absolute bottom-0 left-0 right-0 h-1 bg-sky-500" />
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -512,83 +596,107 @@ export default function FinancePage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {/* Available for payout */}
-        <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 relative overflow-hidden">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Available for payout</p>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{formatCurrency(stats.available)}</p>
-              {summary?.availableBalance?.bookingCount > 0 && (
-                <p className="text-xs text-gray-500 mt-0.5">{summary.availableBalance.bookingCount} booking(s)</p>
-              )}
+        {isEnrolled ? (
+          <>
+            {/* Your balance — the sum of unpaid invoices (v3) */}
+            <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 relative overflow-hidden">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Your balance</p>
+                  <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{formatCurrency(balanceTotal)}</p>
+                  {(summary?.balance?.openInvoiceCount || 0) > 0 && (
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {summary.balance.openInvoiceCount} unpaid invoice{summary.balance.openInvoiceCount === 1 ? "" : "s"}
+                    </p>
+                  )}
+                </div>
+                <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
+                  <DollarSign size={20} className="text-emerald-500" />
+                </div>
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500" />
             </div>
-            <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
-              <DollarSign size={20} className="text-emerald-500" />
-            </div>
-          </div>
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500" />
-        </div>
 
-        {/* Pending clearance */}
-        <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 relative overflow-hidden">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Pending clearance</p>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{formatCurrency(stats.pending)}</p>
-              {stats.pending > 0 && summary?.nextEligibleAt && (
-                // gray-400 is the house muted colour and lands at 2.60:1 on white,
-                // below AA. gray-500 clears 4.5:1 at the same visual weight.
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Next clears {formatDate(summary.nextEligibleAt)}
-                </p>
-              )}
-              {summary?.pendingClearance?.bookingCount > 0 && (
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {summary.pendingClearance.bookingCount} booking(s) after their travel date
-                </p>
-              )}
+            {/* Next payout — pending-window projection, exact dates shown */}
+            <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 relative overflow-hidden">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Next payout</p>
+                  <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">
+                    {nextPayout?.window ? formatCurrency(nextPayout.netTotal) : "—"}
+                  </p>
+                  {nextPayout?.window ? (
+                    <>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Bookings {formatDate(nextPayout.window.start)} – {formatDate(nextPayout.window.end)}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Invoiced {formatDate(nextPayout.window.invoicedOn)} · paid {formatDate(nextPayout.window.paidOn)}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-xs text-gray-500 mt-0.5">No pending payout window yet</p>
+                  )}
+                </div>
+                <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
+                  <Calendar size={20} className="text-emerald-500" />
+                </div>
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-sky-500" />
             </div>
-            <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
-              <Loader2 size={20} className="text-emerald-500" />
+          </>
+        ) : (
+          <>
+            {/* Available for payout */}
+            <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 relative overflow-hidden">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Available for payout</p>
+                  <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{formatCurrency(stats.available)}</p>
+                  {summary?.availableBalance?.bookingCount > 0 && (
+                    <p className="text-xs text-gray-500 mt-0.5">{summary.availableBalance.bookingCount} booking(s)</p>
+                  )}
+                </div>
+                <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
+                  <DollarSign size={20} className="text-emerald-500" />
+                </div>
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500" />
             </div>
-          </div>
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500" />
-        </div>
+
+            {/* Pending clearance */}
+            <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 relative overflow-hidden">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Pending clearance</p>
+                  <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{formatCurrency(stats.pending)}</p>
+                  {stats.pending > 0 && summary?.nextEligibleAt && (
+                    // gray-400 is the house muted colour and lands at 2.60:1 on white,
+                    // below AA. gray-500 clears 4.5:1 at the same visual weight.
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Next clears {formatDate(summary.nextEligibleAt)}
+                    </p>
+                  )}
+                  {summary?.pendingClearance?.bookingCount > 0 && (
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {summary.pendingClearance.bookingCount} booking(s) after their travel date
+                    </p>
+                  )}
+                </div>
+                <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
+                  <Loader2 size={20} className="text-emerald-500" />
+                </div>
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500" />
+            </div>
+          </>
+        )}
 
         {/* In review */}
-        <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 relative overflow-hidden">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-gray-500">In review</p>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{formatCurrency(stats.inReview)}</p>
-              {summary?.inReview?.requestCount > 0 && (
-                // gray-600 when this is the request reference: it is the number a
-                // supplier quotes to support, and gray-400 sits at 2.60:1.
-                <p className={cn("text-xs mt-0.5", inFlightRequest?.reference ? "text-gray-600 tabular-nums" : "text-gray-500")}>
-                  {inFlightRequest?.reference || `${summary.inReview.requestCount} request(s)`}
-                </p>
-              )}
-            </div>
-            <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
-              <TrendingUp size={20} className="text-emerald-500" />
-            </div>
-          </div>
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-amber-500" />
-        </div>
+        {inReviewCard}
 
         {/* Paid out */}
-        <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 relative overflow-hidden">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Paid out</p>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{formatCurrency(stats.paidOut)}</p>
-            </div>
-            <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
-              <CheckCircle2 size={20} className="text-emerald-500" />
-            </div>
-          </div>
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-sky-500" />
-        </div>
+        {paidOutCard}
       </div>
 
       {/* Payout section — an automated schedule for enrolled suppliers, the
@@ -597,7 +705,8 @@ export default function FinancePage() {
         {showSchedule ? (
           <PayoutScheduleSummary
             plan={payoutPlan}
-            available={stats.available}
+            available={isEnrolled ? (nextPayout?.netTotal ?? 0) : stats.available}
+            nextPayout={nextPayout}
             requestWindow={windowInfo}
             canRequestPayout={canRequestPayout}
             onRequestPayout={() => setShowRequestModal(true)}
@@ -667,8 +776,21 @@ export default function FinancePage() {
           <div className="min-w-0">
             <p className="text-base font-semibold text-gray-900">Accumulating</p>
             <p className="text-sm text-gray-500 mt-0.5">
-              <span>{summary?.pendingClearance?.bookingCount || 0} booking(s) clearing · </span>
-              <span className="font-semibold text-emerald-700">{formatCurrency(stats.pending)} pending</span>
+              {isEnrolled ? (
+                nextPayout?.window ? (
+                  <>
+                    <span>{nextPayout.bookingCount} booking(s) in this window · </span>
+                    <span className="font-semibold text-emerald-700">{formatCurrency(nextPayout.netTotal)} next payout</span>
+                  </>
+                ) : (
+                  <span>Nothing accumulating toward a payout window yet</span>
+                )
+              ) : (
+                <>
+                  <span>{summary?.pendingClearance?.bookingCount || 0} booking(s) clearing · </span>
+                  <span className="font-semibold text-emerald-700">{formatCurrency(stats.pending)} pending</span>
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -680,7 +802,7 @@ export default function FinancePage() {
       {showSchedule && showScheduleEditor && (
         <PayoutScheduleEditor
           plan={payoutPlan}
-          available={stats.available}
+          available={isEnrolled ? (nextPayout?.netTotal ?? 0) : stats.available}
           onSaved={() => {
             setShowScheduleEditor(false);
             // The plan feeds the summary the whole page renders from, so it has
@@ -725,23 +847,62 @@ export default function FinancePage() {
                   <X size={18} />
                 </button>
               </div>
-              <h3 id="payout-request-dialog-title" className="text-lg font-bold text-gray-900">Request payout</h3>
+              <h3 id="payout-request-dialog-title" className="text-lg font-bold text-gray-900">
+                {isEnrolled ? "Request early payout" : "Request payout"}
+              </h3>
               <p className="text-sm text-gray-500 mt-1">
-                This bundles all your eligible bookings into a withdrawal request for review.
+                {isEnrolled
+                  ? "This invoices everything in your current payout window right now, instead of waiting for your scheduled invoice date."
+                  : "This bundles all your eligible bookings into a withdrawal request for review."}
               </p>
               <div className="mt-4 space-y-2.5 bg-gray-50 rounded-xl p-4">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Amount</span>
-                  <span className="font-bold text-gray-900">{formatCurrency(stats.available)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Bookings included</span>
-                  <span className="font-medium text-gray-700">{summary?.availableBalance?.bookingCount || 0}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Cycle</span>
-                  <span className="font-medium text-gray-700">{windowInfo?.cycleLabel || "—"}</span>
-                </div>
+                {isEnrolled ? (
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Amount</span>
+                      <span className="font-bold text-gray-900">{formatCurrency(nextPayout?.netTotal || 0)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Bookings included</span>
+                      <span className="font-medium text-gray-700">{nextPayout?.bookingCount || 0}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Activity dates</span>
+                      <span className="font-medium text-gray-700">
+                        {nextPayout?.window
+                          ? `${formatDate(nextPayout.window.start)} – ${formatDate(nextPayout.window.end)}`
+                          : "—"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Invoiced on</span>
+                      <span className="font-medium text-gray-700">
+                        {nextPayout?.window?.invoicedOn ? formatDate(nextPayout.window.invoicedOn) : "—"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Paid on</span>
+                      <span className="font-medium text-gray-700">
+                        {nextPayout?.window?.paidOn ? formatDate(nextPayout.window.paidOn) : "—"}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Amount</span>
+                      <span className="font-bold text-gray-900">{formatCurrency(stats.available)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Bookings included</span>
+                      <span className="font-medium text-gray-700">{summary?.availableBalance?.bookingCount || 0}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Cycle</span>
+                      <span className="font-medium text-gray-700">{windowInfo?.cycleLabel || "—"}</span>
+                    </div>
+                  </>
+                )}
               </div>
               <div className="flex gap-3 mt-5">
                 <button onClick={() => setShowRequestModal(false)} disabled={submittingRequest}
@@ -751,7 +912,7 @@ export default function FinancePage() {
                 <button onClick={handleRequestPayout} disabled={submittingRequest}
                   className="flex-1 py-2.5 bg-emerald-700 text-white rounded-lg text-sm font-semibold hover:bg-emerald-800 disabled:opacity-40 transition-colors flex items-center justify-center gap-2">
                   {submittingRequest ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                  {submittingRequest ? "Submitting..." : "Submit request"}
+                  {submittingRequest ? "Submitting..." : isEnrolled ? "Create invoice" : "Submit request"}
                 </button>
               </div>
             </motion.div>
@@ -952,7 +1113,14 @@ export default function FinancePage() {
             <div className="flex items-center gap-2.5 p-3 bg-teal-50 rounded-lg">
               <Info size={16} className="text-teal-600 shrink-0" />
               <p className="text-sm text-teal-700">
-                {showSchedule
+                {isEnrolled
+                  ? (nextPayout?.window
+                      ? `Earnings for ${nextPayout.window.label} are invoiced automatically — issued ${formatDate(nextPayout.window.invoicedOn)}, paid ${formatDate(nextPayout.window.paidOn)}.`
+                      : "Earnings are invoiced automatically on your schedule — the next window's dates appear once bookings join it.")
+                    + (nextPayout?.netTotal > 0 && !inFlightRequest
+                        ? " You can also request one early — once per window."
+                        : "")
+                  : showSchedule
                   ? `Payouts are generated automatically on your ${(payoutPlan?.scheduleShortLabel || "chosen").toLowerCase()} schedule — the next run is ${formatDate(payoutPlan?.nextRunAt)}.`
                     // Only mention the early-request route when there is
                     // something to request through it, and name the date it opens
@@ -1092,7 +1260,9 @@ export default function FinancePage() {
                 <div>
                   <h3 className="text-base font-semibold text-gray-900">Cancellation fees</h3>
                   <p className="text-sm text-gray-500 mt-0.5">
-                    25% cancellation fees are deducted automatically from your next payout request.
+                    {isEnrolled
+                      ? "25% cancellation fees are deducted automatically from your next invoice."
+                      : "25% cancellation fees are deducted automatically from your next payout request."}
                   </p>
                 </div>
               </div>
@@ -1134,7 +1304,9 @@ export default function FinancePage() {
                   </div>
                   <h4 className="text-sm font-semibold text-gray-700 mb-1">No cancellation fees yet</h4>
                   <p className="text-sm text-gray-500 max-w-[380px]">
-                    When you cancel a booking, the 25% fee is recorded here and settled automatically from your next payout request.
+                    {isEnrolled
+                      ? "When you cancel a booking, the 25% fee is recorded here and settled automatically from your next invoice."
+                      : "When you cancel a booking, the 25% fee is recorded here and settled automatically from your next payout request."}
                   </p>
                 </div>
               ) : (
@@ -1183,7 +1355,105 @@ export default function FinancePage() {
               )}
             </div>
 
-            {loading ? (
+            {/* Invoices (v3) — the payout engine's output, one per window */}
+            {isEnrolled && (
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <div className="px-4 sm:px-5 pt-4 pb-3 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-semibold text-gray-900">Invoices</h3>
+                    <p className="text-sm text-gray-500 mt-0.5">
+                      One invoice per payout window, generated on your schedule. Payment is due a few days after invoicing — your bank may credit it later.
+                    </p>
+                  </div>
+                  <FileText size={20} className="text-emerald-600 shrink-0" />
+                </div>
+                {loading ? (
+                  <div className="p-5 space-y-4">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="flex items-center gap-4 animate-pulse">
+                        <div className="h-3 w-24 bg-gray-100 rounded" />
+                        <div className="h-3 w-32 bg-gray-100 rounded" />
+                        <div className="h-3 w-16 bg-gray-100 rounded ml-auto" />
+                      </div>
+                    ))}
+                  </div>
+                ) : invoices.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-10 text-center px-4">
+                    <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center mb-3">
+                      <CheckCircle2 size={22} className="text-emerald-400" />
+                    </div>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-1">No invoices yet</h4>
+                    <p className="text-sm text-gray-500 max-w-[380px]">
+                      Your first invoice is generated automatically on your schedule — you can also request one early once bookings are in the window.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-gray-200 bg-gray-50">
+                          <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Invoice</th>
+                          <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Activity dates</th>
+                          <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Bookings</th>
+                          <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Commission</th>
+                          <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Net</th>
+                          <th className="py-3 px-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                          <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Paid</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {invoices.map((inv) => (
+                          <tr key={inv.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
+                            <td className="py-3 px-4">
+                              <span className="font-mono text-xs font-medium text-emerald-700">{inv.invoiceNumber}</span>
+                              <p className="text-[11px] text-gray-500 mt-0.5">
+                                Invoiced {inv.invoicedAt ? formatDate(inv.invoicedAt) : "—"} · due {inv.paymentScheduledAt ? formatDate(inv.paymentScheduledAt) : "—"}
+                              </p>
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-700 whitespace-nowrap">
+                              {inv.cycleStartDate && inv.cycleEndDate
+                                ? `${formatDate(inv.cycleStartDate)} – ${formatDate(inv.cycleEndDate)}`
+                                : inv.cycleLabel || "—"}
+                            </td>
+                            <td className="py-3 px-4 text-right text-sm text-gray-700 tabular-nums">{inv.bookingCount}</td>
+                            <td className="py-3 px-4 text-right text-sm text-gray-700 tabular-nums">{formatCurrency(inv.commissionTotal, inv.currency)}</td>
+                            <td className="py-3 px-4 text-right text-sm font-semibold text-gray-900 tabular-nums">{formatCurrency(inv.netTotal, inv.currency)}</td>
+                            <td className="py-3 px-4 text-center">
+                              <span
+                                className={
+                                  inv.status === "PAID"
+                                    ? "inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700"
+                                    : inv.status === "VOID"
+                                    ? "inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-500"
+                                    : "inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-700"
+                                }
+                              >
+                                {inv.status === "PAID" ? "Paid" : inv.status === "VOID" ? "Void" : "Due"}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-500">
+                              {inv.status === "PAID" ? (
+                                <>
+                                  <span>{inv.paidAt ? formatDate(inv.paidAt) : "—"}</span>
+                                  {inv.reference && (
+                                    <p className="text-[11px] text-gray-500 mt-0.5 font-mono">Ref: {inv.reference}</p>
+                                  )}
+                                </>
+                              ) : (
+                                <span>—</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <TablePagination pagination={invoicesPagination} page={page} onPageChange={setPage} />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {loading && !isEnrolled ? (
               <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                 <div className="p-5 space-y-4">
                   {[1,2,3,4,5].map(i => (
@@ -1196,6 +1466,9 @@ export default function FinancePage() {
                 </div>
               </div>
             ) : payoutRequests.length === 0 ? (
+              // Enrolled suppliers are paid via invoices — the empty legacy
+              // request table would say nothing true about where their money is.
+              isEnrolled ? null : (
               <div className="flex flex-col items-center justify-center py-24 text-center bg-white border border-gray-200 rounded-xl">
                 <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center mb-4">
                   <Banknote size={26} className="text-emerald-300" />
@@ -1207,7 +1480,17 @@ export default function FinancePage() {
                     : "Submit a request during an open withdrawal window to receive your earnings."}
                 </p>
               </div>
+              )
             ) : (
+              <>
+              {isEnrolled && (
+                <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 bg-white border border-gray-200 rounded-xl">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">Legacy payout requests</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">Pre-invoice history — read only. New payouts arrive as invoices.</p>
+                  </div>
+                </div>
+              )}
               <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -1271,6 +1554,7 @@ export default function FinancePage() {
                 </div>
                 <TablePagination pagination={payoutsPagination} page={page} onPageChange={setPage} />
               </div>
+              </>
             )}
           </motion.div>
         )}
