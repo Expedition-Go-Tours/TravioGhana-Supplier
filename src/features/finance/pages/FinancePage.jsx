@@ -19,7 +19,7 @@ import PayoutMethodFormSheet from "../components/PayoutMethodFormSheet";
 import {
   cancelPayoutRequest, createPayoutMethod, createPayoutRequest, createRefundRequest, deletePayoutMethod,
   fetchFinanceDisputes, fetchFinanceEarnings, fetchFinanceSummary, fetchMyInvoices, fetchPayoutMethods, fetchPayoutRequests,
-  getFinanceCharges, requestEarlyPayout,
+  getFinanceCharges,
   withdrawRefundRequest,
 } from "../api";
 import { getAuthToken } from "@/stores/authStore";
@@ -398,12 +398,10 @@ export default function FinancePage() {
 
   const windowInfo = summary?.withdrawalWindow || null;
   const windowOpen = Boolean(windowInfo?.open);
-  // Enrolled: the early-payout accelerator invoices the pending window now
-  // (one manual invoice per window; the endpoint 409s if one already exists).
-  // Legacy: an open withdrawal window with eligible earnings.
-  const canRequestPayout = isEnrolled
-    ? Boolean(nextPayout && nextPayout.netTotal > 0)
-    : windowOpen && stats.available > 0;
+  // Only the legacy (unmigrated) flow has a request button: enrolled suppliers
+  // are paid on their automatic invoice schedule and there is nothing to ask
+  // for by hand. An open withdrawal window + eligible earnings enables it.
+  const canRequestPayout = windowOpen && stats.available > 0;
 
   // A payout that finance is already holding. While this exists the supplier has
   // no balance to ask for — the bookings have moved to REQUESTED — so the page
@@ -421,13 +419,6 @@ export default function FinancePage() {
   // never shows and the supplier is left with an unexplained grey box.
   const requestBlockedReason = useMemo(() => {
     if (inFlightRequest) return "Your payout is already in review.";
-    // v3: the button is the early-invoice accelerator, and it is gated on the
-    // pending window's estimate rather than on a calendar window.
-    if (isEnrolled) {
-      return nextPayout && nextPayout.netTotal > 0
-        ? null
-        : "Nothing is waiting on the current payout window yet.";
-    }
     if (stats.available <= 0) return "Nothing is eligible to request yet.";
     if (!windowOpen) {
       return windowInfo?.opensAt
@@ -435,15 +426,15 @@ export default function FinancePage() {
         : "Early requests are not open right now.";
     }
     return null;
-  }, [inFlightRequest, isEnrolled, nextPayout, stats.available, windowOpen, windowInfo]);
+  }, [inFlightRequest, stats.available, windowOpen, windowInfo]);
 
   // Automated payout schedule (twice a month / monthly).
   //
   // Enrolled suppliers (v3) are paid via invoices, so they get the schedule
   // card instead of the legacy withdrawal-window card — including while the
-  // scheduler is paused, because the early-invoice accelerator
-  // (POST /finance/invoices) works regardless and their funds must never look
-  // stranded. Only legacy (unmigrated) accounts see the calendar window.
+  // scheduler is paused, because their scheduled invoice still fires and their
+  // funds must never look stranded. Only legacy (unmigrated) accounts see the
+  // calendar window.
   const payoutPlan = summary?.payoutPlan || null;
   const showSchedule = Boolean(payoutPlan?.autoManaged);
 
@@ -459,19 +450,10 @@ export default function FinancePage() {
   const handleRequestPayout = async () => {
     setSubmittingRequest(true);
     try {
-      if (isEnrolled) {
-        // v3: invoices the current pending window immediately instead of
-        // waiting for the scheduled invoice date.
-        await requestEarlyPayout({});
-        toast.success(
-          nextPayout?.window?.paidOn
-            ? `Invoice generated — payment scheduled ${formatDate(nextPayout.window.paidOn)}`
-            : "Invoice generated"
-        );
-      } else {
-        await createPayoutRequest({});
-        toast.success("Payout request submitted for review");
-      }
+      // Legacy (unmigrated) flow only — enrolled suppliers are invoiced
+      // automatically and have no manual request. See `showSchedule`.
+      await createPayoutRequest({});
+      toast.success("Payout request submitted for review");
       setShowRequestModal(false);
       await loadData();
     } catch (err) {
@@ -851,61 +833,24 @@ export default function FinancePage() {
                 </button>
               </div>
               <h3 id="payout-request-dialog-title" className="text-lg font-bold text-gray-900">
-                {isEnrolled ? "Request early payout" : "Request payout"}
+                Request payout
               </h3>
               <p className="text-sm text-gray-500 mt-1">
-                {isEnrolled
-                  ? "This invoices everything in your current payout window right now, instead of waiting for your scheduled invoice date."
-                  : "This bundles all your eligible bookings into a withdrawal request for review."}
+                This bundles all your eligible bookings into a withdrawal request for review.
               </p>
               <div className="mt-4 space-y-2.5 bg-gray-50 rounded-xl p-4">
-                {isEnrolled ? (
-                  <>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Amount</span>
-                      <span className="font-bold text-gray-900">{formatCurrency(nextPayout?.netTotal || 0)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Bookings included</span>
-                      <span className="font-medium text-gray-700">{nextPayout?.bookingCount || 0}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Activity dates</span>
-                      <span className="font-medium text-gray-700">
-                        {nextPayout?.window
-                          ? `${formatDate(nextPayout.window.start)} – ${formatDate(nextPayout.window.end)}`
-                          : "—"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Invoiced on</span>
-                      <span className="font-medium text-gray-700">
-                        {nextPayout?.window?.invoicedOn ? formatDate(nextPayout.window.invoicedOn) : "—"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Paid on</span>
-                      <span className="font-medium text-gray-700">
-                        {nextPayout?.window?.paidOn ? formatDate(nextPayout.window.paidOn) : "—"}
-                      </span>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Amount</span>
-                      <span className="font-bold text-gray-900">{formatCurrency(stats.available)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Bookings included</span>
-                      <span className="font-medium text-gray-700">{summary?.availableBalance?.bookingCount || 0}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Cycle</span>
-                      <span className="font-medium text-gray-700">{windowInfo?.cycleLabel || "—"}</span>
-                    </div>
-                  </>
-                )}
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Amount</span>
+                  <span className="font-bold text-gray-900">{formatCurrency(stats.available)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Bookings included</span>
+                  <span className="font-medium text-gray-700">{summary?.availableBalance?.bookingCount || 0}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Cycle</span>
+                  <span className="font-medium text-gray-700">{windowInfo?.cycleLabel || "—"}</span>
+                </div>
               </div>
               <div className="flex gap-3 mt-5">
                 <button onClick={() => setShowRequestModal(false)} disabled={submittingRequest}
@@ -915,7 +860,7 @@ export default function FinancePage() {
                 <button onClick={handleRequestPayout} disabled={submittingRequest}
                   className="flex-1 py-2.5 bg-emerald-700 text-white rounded-lg text-sm font-semibold hover:bg-emerald-800 disabled:opacity-40 transition-colors flex items-center justify-center gap-2">
                   {submittingRequest ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                  {submittingRequest ? "Submitting..." : isEnrolled ? "Create invoice" : "Submit request"}
+                  {submittingRequest ? "Submitting..." : "Submit request"}
                 </button>
               </div>
             </motion.div>
@@ -1120,18 +1065,14 @@ export default function FinancePage() {
                   ? (nextPayout?.window
                       ? `Earnings for ${nextPayout.window.label} are invoiced automatically — issued ${formatDate(nextPayout.window.invoicedOn)}, paid ${formatDate(nextPayout.window.paidOn)}.`
                       : "Earnings are invoiced automatically on your schedule — the next window's dates appear once bookings join it.")
-                    + (nextPayout?.netTotal > 0 && !inFlightRequest
-                        ? " You can also request one early — once per window."
-                        : "")
                   : showSchedule
                   ? `Payouts are generated automatically on your ${(payoutPlan?.scheduleShortLabel || "chosen").toLowerCase()} schedule — the next run is ${formatDate(payoutPlan?.nextRunAt)}.`
-                    // Only mention the early-request route when there is
-                    // something to request through it, and name the date it opens
-                    // rather than a range. The old copy printed
-                    // "between <opens> and <closes>", which for a 24-hour window
-                    // that opened and closed on the same day rendered as
-                    // "between 05 Oct 2026 and 05 Oct 2026" and read as a
-                    // zero-length window that was somehow always open.
+                    // Legacy (unmigrated) schedules keep the manual head-start
+                    // window: name the date it opens rather than a range. The old
+                    // copy printed "between <opens> and <closes>", which for a
+                    // 24-hour window that opened and closed on the same day
+                    // rendered as "between 05 Oct 2026 and 05 Oct 2026" and read
+                    // as a zero-length window that was somehow always open.
                     + (windowInfo?.opensAt && stats.available > 0 && !inFlightRequest
                         ? ` You can also request one early from ${formatDate(windowInfo.opensAt)}${windowOpen ? "" : `, for 24 hours`}.`
                         : "")
@@ -1387,7 +1328,7 @@ export default function FinancePage() {
                     </div>
                     <h4 className="text-sm font-semibold text-gray-700 mb-1">No invoices yet</h4>
                     <p className="text-sm text-gray-500 max-w-[380px]">
-                      Your first invoice is generated automatically on your schedule — you can also request one early once bookings are in the window.
+                      Your first invoice is generated automatically on your schedule, once bookings in the payout window have cleared.
                     </p>
                   </div>
                 ) : (

@@ -13,7 +13,6 @@ const {
   updatePayoutSettingsMock,
   createPayoutRequestMock,
   fetchMyInvoicesMock,
-  requestEarlyPayoutMock,
 } = vi.hoisted(() => ({
   fetchFinanceSummaryMock: vi.fn(),
   fetchFinanceEarningsMock: vi.fn(),
@@ -24,7 +23,6 @@ const {
   updatePayoutSettingsMock: vi.fn(),
   createPayoutRequestMock: vi.fn(),
   fetchMyInvoicesMock: vi.fn(),
-  requestEarlyPayoutMock: vi.fn(),
 }));
 
 vi.mock('../../api', () => ({
@@ -37,7 +35,6 @@ vi.mock('../../api', () => ({
   updatePayoutSettings: updatePayoutSettingsMock,
   createPayoutRequest: createPayoutRequestMock,
   fetchMyInvoices: fetchMyInvoicesMock,
-  requestEarlyPayout: requestEarlyPayoutMock,
   cancelPayoutRequest: vi.fn(),
   createPayoutMethod: vi.fn(),
   deletePayoutMethod: vi.fn(),
@@ -195,7 +192,6 @@ beforeEach(() => {
   fetchFinanceDisputesMock.mockResolvedValue({ disputes: [], pagination: null });
   getFinanceChargesMock.mockResolvedValue({ charges: [], openTotals: [] });
   fetchMyInvoicesMock.mockResolvedValue({ invoices: [], pagination: null });
-  requestEarlyPayoutMock.mockResolvedValue({ data: { invoices: [] } });
 });
 
 describe('FinancePage — the earnings list opens on All', () => {
@@ -569,8 +565,7 @@ describe('FinancePage — the payout dialog', () => {
  * Finance v3: enrolled suppliers are paid via automatic invoices. The summary
  * then carries `balance` (unpaid invoices), `nextPayout` (the pending-window
  * projection with its exact invoiced/paid dates) and an invoice-sourced
- * withdrawal window — and the manual "Request payout" button becomes the
- * early-invoice accelerator (POST /finance/invoices).
+ * withdrawal window. There is no manual request — the schedule pays out.
  */
 const ENROLLED_LEDGER = {
   ...REAL_LEDGER,
@@ -655,22 +650,15 @@ describe('FinancePage — finance v3: automatic invoices', () => {
     expect(screen.queryByText('Available for payout')).not.toBeInTheDocument();
   });
 
-  it('routes the request button through the early-invoice endpoint, not a v2 request', async () => {
+  it('does not offer a manual payout request to an enrolled supplier — invoices are automatic', async () => {
     renderPage();
     await ready();
 
-    const btn = await screen.findByRole('button', { name: /request early payout/i });
-    expect(btn).toBeEnabled();
-    expect(btn).toHaveTextContent('$647.40');
-
-    await userEvent.click(btn);
-    const dialog = await screen.findByRole('dialog');
-    expect(dialog).toHaveAccessibleName('Request early payout');
-    expect(within(dialog).getByText('Invoiced on')).toBeInTheDocument();
-    expect(within(dialog).getByText('Paid on')).toBeInTheDocument();
-
-    await userEvent.click(within(dialog).getByRole('button', { name: /create invoice/i }));
-    await waitFor(() => expect(requestEarlyPayoutMock).toHaveBeenCalledTimes(1));
+    // The enrolled card describes the automatic schedule; there is no
+    // "Request payout" / "Request early payout" button anywhere on the page,
+    // and nothing can route into a v2 request.
+    expect(screen.queryByRole('button', { name: /request early payout/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^request payout/i })).not.toBeInTheDocument();
     expect(createPayoutRequestMock).not.toHaveBeenCalled();
   });
 
@@ -712,7 +700,7 @@ describe('FinancePage — finance v3: automatic invoices', () => {
     expect(screen.getByText('Void')).toBeInTheDocument();
   });
 
-  it('says the window is empty instead of offering a $0.00 request', async () => {
+  it('says the window is empty instead of offering any request', async () => {
     fetchFinanceSummaryMock.mockResolvedValue({
       ...ENROLLED_LEDGER,
       nextPayout: { window: null, bookingCount: 0, grossTotal: 0, commissionTotal: 0, netTotal: 0, byCurrency: [] },
@@ -720,9 +708,10 @@ describe('FinancePage — finance v3: automatic invoices', () => {
     renderPage();
     await ready();
 
-    const btn = await screen.findByRole('button', { name: /request early payout/i });
-    expect(btn).toBeDisabled();
-    expect(screen.getByText('Nothing is waiting on the current payout window yet.')).toBeInTheDocument();
+    // No request button at all — and the card explains that nothing qualifies
+    // yet rather than leaving a disabled button behind.
+    expect(screen.queryByRole('button', { name: /^request payout/i })).not.toBeInTheDocument();
+    expect(screen.getByText('No payout window yet — bookings appear here as soon as one qualifies.')).toBeInTheDocument();
   });
 });
 

@@ -332,8 +332,9 @@ function InFlightPayoutStatus({ request, currency = "USD" }) {
  *
  * Finance v3: when the page passes `nextPayout` (the pending-window projection)
  * and a `requestWindow` with `source: "invoice"`, the card speaks the invoice
- * flow — invoiced/paid processing dates, the exact activity range, and an
- * "early payout" button — instead of the old manual-window lead time.
+ * flow — invoiced/paid processing dates and the exact activity range. Payouts
+ * are automatic: unlike the legacy manual-window variant, there is no request
+ * button.
  */
 export function PayoutScheduleSummary({
   plan,
@@ -395,14 +396,10 @@ export function PayoutScheduleSummary({
                 <PauseCircle size={11} /> Paused
               </span>
             )}
-            {/* v3: the early-payout accelerator has no lead-time window — it is
-                available whenever the pending window has something in it. */}
-            {onRequestPayout && !paused && (
-              invoiceFlow ? (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700">
-                  Early payout available — once per window
-                </span>
-              ) : manualOpen ? (
+            {/* Only the legacy manual-window flow offers a request button. The
+                invoice flow pays out on schedule — there is no early request. */}
+            {!invoiceFlow && onRequestPayout && !paused && (
+              manualOpen ? (
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700">
                   Early requests open until {formatRunDate(requestWindow.closesAt, { withYear: false })}
                 </span>
@@ -440,7 +437,7 @@ export function PayoutScheduleSummary({
           <InFlightPayoutStatus request={inFlightRequest} currency={currency} />
         ) : (
           <>
-            {onRequestPayout && (
+            {!invoiceFlow && onRequestPayout && (
               <button
                 type="button"
                 onClick={onRequestPayout}
@@ -454,15 +451,15 @@ export function PayoutScheduleSummary({
               >
                 {!canRequestPayout ? <Lock size={15} /> : <Banknote size={15} />}
                 {canRequestPayout
-                  ? `${invoiceFlow ? "Request early payout" : "Request payout"} · ${formatCurrency(amount, currency)}`
-                  : invoiceFlow ? "Request early payout" : "Request payout"}
+                  ? `Request payout · ${formatCurrency(amount, currency)}`
+                  : "Request payout"}
               </button>
             )}
             {/* The reason has to be visible text. A `title` on a disabled button
                 never renders, because the element emits no pointer events — so
                 the old version left the supplier with an unexplained grey box
                 and no way to find out why. */}
-            {!canRequestPayout && blockedReason && (
+            {!invoiceFlow && !canRequestPayout && blockedReason && (
               <p className="text-xs text-gray-500 sm:text-right max-w-[260px]">{blockedReason}</p>
             )}
           </>
