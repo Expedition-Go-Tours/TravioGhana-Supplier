@@ -725,3 +725,25 @@ describe('FinancePage — finance v3: automatic invoices', () => {
     expect(screen.getByText('Nothing is waiting on the current payout window yet.')).toBeInTheDocument();
   });
 });
+
+describe('FinancePage — stale or unknown ?tab= deep links cannot blank the page', () => {
+  it("falls back to Earnings for the legacy 'requests' tab", async () => {
+    // Notification deep links used to point at /finance?tab=requests, a tab
+    // that no longer exists after payout requests moved into the Payouts tab.
+    // Nothing matched, no data was fetched and the whole content area blanked.
+    renderPage('requests');
+    await ready();
+
+    // The default data pipeline ran and the earnings content is on screen.
+    expect(fetchFinanceEarningsMock).toHaveBeenCalled();
+    expect(await screen.findByText('GHA-1001')).toBeInTheDocument();
+  });
+
+  it('falls back to Earnings for any unknown tab value', async () => {
+    renderPage('frobnicate');
+    await ready();
+
+    expect(fetchFinanceEarningsMock).toHaveBeenCalled();
+    expect(await screen.findByText('GHA-1001')).toBeInTheDocument();
+  });
+});

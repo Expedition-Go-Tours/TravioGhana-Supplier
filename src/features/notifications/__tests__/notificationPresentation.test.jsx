@@ -126,3 +126,35 @@ describe("notificationPresentation — cancellation decisions", () => {
     );
   });
 });
+
+describe("notificationPresentation — payout request deep links", () => {
+  it("maps PAYOUT_REQUEST_APPROVED with a payoutRequestId to the Payouts tab", () => {
+    const mapped = mapBackendNotification({
+      id: "n-pr1",
+      type: "PAYOUT_REQUEST_APPROVED",
+      createdAt: "2026-05-21T09:00:00.000Z",
+      data: { payoutRequestId: "pr-1" },
+    });
+    // The old link went to ?tab=requests, which no longer exists since payout
+    // requests moved into the Payouts tab — landing on it blanked the page.
+    expect(mapped.action).toBe("/finance?tab=payouts");
+    expect(mapped.actionLabel).toBe("View Payout Request");
+  });
+
+  it("maps submitted/approved/rejected payout requests to the Payouts tab too", () => {
+    for (const type of [
+      "PAYOUT_REQUEST_SUBMITTED",
+      "PAYOUT_REQUEST_APPROVED",
+      "PAYOUT_REQUEST_REJECTED",
+    ]) {
+      const mapped = mapBackendNotification({
+        id: `n-${type}`,
+        type,
+        createdAt: "2026-05-21T09:00:00.000Z",
+      });
+      expect(mapped.action).toBe("/finance?tab=payouts");
+      expect(mapped.actionLabel).toBe("View Payout Requests");
+      expect(mapped.action).not.toContain("tab=requests");
+    }
+  });
+});

@@ -68,7 +68,7 @@ function getNotificationRoute(type, data = {}) {
     return { path: `/finance?tab=payouts&payoutId=${data.payoutId}`, label: "View Payout" };
   }
   if (data.payoutRequestId) {
-    return { path: `/finance?tab=requests`, label: "View Payout Request" };
+    return { path: "/finance?tab=payouts", label: "View Payout Request" };
   }
   if (data.disputeId) {
     return { path: "/finance?tab=refunds", label: "View Refund" };
@@ -109,7 +109,7 @@ function getNotificationRoute(type, data = {}) {
     case "PAYOUT_REQUEST_SUBMITTED":
     case "PAYOUT_REQUEST_APPROVED":
     case "PAYOUT_REQUEST_REJECTED":
-      return { path: "/finance?tab=requests", label: "View Payout Requests" };
+      return { path: "/finance?tab=payouts", label: "View Payout Requests" };
     case "SUPPLIER_APPROVED":
     case "SUPPLIER_REJECTED":
       return { path: "/supplier/status", label: "View Status" };

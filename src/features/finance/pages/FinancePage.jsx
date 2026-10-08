@@ -232,7 +232,10 @@ function TablePagination({ pagination, page, onPageChange }) {
 
 export default function FinancePage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get("tab") || "earnings";
+  // Normalize unknown/stale ?tab= values (e.g. legacy "requests" deep links)
+  // to the default tab so the page can never render with no active tab.
+  const requestedTab = searchParams.get("tab") || "earnings";
+  const activeTab = TABS.some((tab) => tab.key === requestedTab) ? requestedTab : "earnings";
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [summary, setSummary] = useState(null);
