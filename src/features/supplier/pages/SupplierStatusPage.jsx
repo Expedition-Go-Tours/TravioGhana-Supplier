@@ -138,7 +138,7 @@ export default function SupplierStatusPage() {
           </p>
           <div className="space-y-3">
             <a
-              href="https://travioghana.com/become-a-supplier"
+              href="https://www.travioghana.com/supplier/register"
               className="inline-flex items-center gap-2 px-6 py-2.5 bg-[#044b3b] text-white rounded-lg text-sm font-medium hover:bg-[#033629] transition-colors"
             >
               <Shield size={16} />
@@ -305,7 +305,7 @@ export default function SupplierStatusPage() {
         {!canProceed && status === "REJECTED" && (
           <div className="text-center">
             <a
-              href="https://travioghana.com/become-a-supplier"
+              href="https://www.travioghana.com/supplier/register"
               className="inline-flex items-center gap-2 px-6 py-2.5 bg-[#044b3b] text-white rounded-lg text-sm font-medium hover:bg-[#033629] transition-colors"
             >
               <Shield size={16} />

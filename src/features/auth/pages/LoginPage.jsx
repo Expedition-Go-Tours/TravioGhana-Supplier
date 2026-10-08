@@ -175,15 +175,6 @@ export default function LoginPage() {
                 </motion.li>
               ))}
             </motion.ul>
-
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5, duration: 0.4 }}
-              className="text-[10px] text-white/35 mt-3"
-            >
-              Access is limited to approved and active suppliers.
-            </motion.p>
           </div>
         </div>
 
@@ -201,7 +192,6 @@ export default function LoginPage() {
                 <Compass size={20} className="text-white" />
               </div>
               <h1 className="text-2xl font-bold text-slate-800">Supplier Login</h1>
-              <p className="text-sm text-slate-500 mt-1">Approved & active suppliers only</p>
             </motion.div>
 
             {/* Desktop heading */}
@@ -310,26 +300,15 @@ export default function LoginPage() {
             </button>
 
             <p className="mt-5 text-center text-xs text-slate-500">
-              Don't have an account?{" "}
-              <a
-                href="https://travioghana.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-emerald-600 hover:text-emerald-700 font-medium underline underline-offset-2"
-              >
-                Create one on Travio Ghana
-              </a>
-            </p>
-
-            <p className="mt-4 text-center text-[11px] text-slate-400 leading-relaxed">
               Only suppliers with <strong className="text-slate-500 font-medium">Approved</strong> or{" "}
               <strong className="text-slate-500 font-medium">Active</strong> status can access the dashboard.
               <br />
+              Don't have an account?{" "}
               <a
-                href="https://travioghana.com/become-a-supplier"
+                href="https://www.travioghana.com/supplier/register"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-emerald-600 hover:text-emerald-700 underline underline-offset-2 mt-1 inline-block font-medium"
+                className="text-emerald-600 hover:text-emerald-700 font-medium underline underline-offset-2"
               >
                 Apply to become a supplier
               </a>
