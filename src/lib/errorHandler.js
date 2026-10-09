@@ -56,7 +56,14 @@ export function getErrorType(error) {
  */
 export function getErrorMessage(error) {
   const errorType = getErrorType(error);
-  
+
+  // Timeout errors carry no response body, so error.message is axios's raw
+  // developer text ("timeout of 30000ms exceeded"). That must never reach a
+  // user toast — always use the friendly mapped copy instead.
+  if (errorType === ErrorType.TIMEOUT) {
+    return errorMessages[ErrorType.TIMEOUT];
+  }
+
   // Try to get message from response
   const responseMessage = 
     error.response?.data?.message ||

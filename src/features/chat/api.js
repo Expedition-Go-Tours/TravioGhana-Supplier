@@ -1,7 +1,7 @@
 ﻿import api from "@/lib/axios";
 
 export async function getConversations() {
-  const res = await api.get("/chat/conversations");
+  const res = await api.get("/chat/conversations", { skipGlobalErrorHandler: true });
   return res.data.data?.conversations || [];
 }
 
@@ -13,7 +13,7 @@ export async function getOrCreateConversation(recipientId, type, context) {
     if (context.bookingNumber) body.bookingNumber = context.bookingNumber;
     if (context.tourTitle) body.tourTitle = context.tourTitle;
   }
-  const res = await api.post("/chat/conversations", body);
+  const res = await api.post("/chat/conversations", body, { skipGlobalErrorHandler: true });
   return res.data.data.conversation;
 }
 
@@ -21,7 +21,8 @@ export async function getMessages(conversationId, cursor, limit = 50) {
   const params = new URLSearchParams({ limit: String(limit) });
   if (cursor) params.set("cursor", cursor);
   const res = await api.get(
-    `/chat/conversations/${conversationId}/messages?${params.toString()}`
+    `/chat/conversations/${conversationId}/messages?${params.toString()}`,
+    { skipGlobalErrorHandler: true }
   );
   return res.data.data;
 }
@@ -32,18 +33,24 @@ export async function sendMessage(conversationId, content, attachment) {
     body.attachmentUrl = attachment.url;
     body.attachmentType = attachment.type || "image";
   }
-  const res = await api.post(`/chat/conversations/${conversationId}/messages`, body);
+  const res = await api.post(`/chat/conversations/${conversationId}/messages`, body, {
+    skipGlobalErrorHandler: true,
+  });
   return res.data.data.message;
 }
 
 export async function markConversationAsRead(conversationId) {
-  const res = await api.patch(`/chat/conversations/${conversationId}/read`);
+  const res = await api.patch(`/chat/conversations/${conversationId}/read`, {
+    skipGlobalErrorHandler: true,
+  });
   return res.data.data;
 }
 
 export async function getUnreadCount(type) {
   const params = type ? `?type=${encodeURIComponent(type)}` : "";
-  const res = await api.get(`/chat/conversations/unread-count${params}`);
+  const res = await api.get(`/chat/conversations/unread-count${params}`, {
+    skipGlobalErrorHandler: true,
+  });
   return res.data.data?.unreadCount ?? 0;
 }
 
@@ -52,16 +59,19 @@ export async function uploadChatImage(file) {
   form.append("file", file);
   const res = await api.post("/chat/upload", form, {
     headers: { "Content-Type": "multipart/form-data" },
+    skipGlobalErrorHandler: true,
   });
   return res.data.data;
 }
 
 export async function getAdminSupportId() {
-  const res = await api.get("/chat/admin-support");
+  const res = await api.get("/chat/admin-support", { skipGlobalErrorHandler: true });
   return res.data.data?.adminId || null;
 }
 
 export async function deleteConversation(conversationId) {
-  const res = await api.delete(`/chat/conversations/${conversationId}`);
+  const res = await api.delete(`/chat/conversations/${conversationId}`, {
+    skipGlobalErrorHandler: true,
+  });
   return res.data;
 }
