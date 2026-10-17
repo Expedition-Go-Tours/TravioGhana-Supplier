@@ -145,6 +145,22 @@ export async function fetchMyInvoices(params = {}) {
 // there is no manual "invoice now" request.
 
 /**
+ * Turn the server's payout-destination object into one display line.
+ *
+ * Shape from the backend: `{ type, label, accountName, maskedDetail }` where
+ * `maskedDetail` is already masked server-side (e.g. `IBAN ••••4821`,
+ * `wallet ••••9021`). Returns "" when there is no destination, so callers can
+ * treat a missing one as "nothing to show" rather than "undefined".
+ */
+function formatDestination(destination) {
+  if (!destination) return "";
+  const label = destination.label || destination.type || "";
+  const detail = destination.maskedDetail || "";
+  const name = destination.accountName || "";
+  return [label, name, detail].filter(Boolean).join(" · ");
+}
+
+/**
  * GET /finance/invoices/:id — one invoice with its line items and a masked
  * payout destination. Supplier-scoped on the server; a foreign invoice id
  * 404s rather than leaking that it exists.
@@ -171,7 +187,13 @@ export async function fetchInvoiceById(id) {
     netTotal: Number(inv.netTotal) || 0,
     currency: inv.currency || "USD",
     bookingCount: inv.bookingCount || 0,
-    destination: inv.destination || "",
+    // The server sends `destination` as an OBJECT
+    // ({ type, label, accountName, maskedDetail }), never a string. Flattening
+    // it here keeps that shape in one place instead of at every render site —
+    // feeding the raw object to JSX throws "Objects are not valid as a React
+    // child". Only the already-masked detail is used; the full account never
+    // crosses the wire.
+    destination: formatDestination(inv.destination),
     supplier: inv.supplier || null,
     items: (inv.items || []).map((it) => ({
       id: it.id,
