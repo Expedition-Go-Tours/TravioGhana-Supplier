@@ -662,7 +662,23 @@ describe('FinancePage — finance v3: automatic invoices', () => {
     expect(createPayoutRequestMock).not.toHaveBeenCalled();
   });
 
-  it('lists invoices on the payouts tab instead of the empty legacy request state', async () => {
+  it('lists invoices on the invoices tab, with a link to it from payouts', async () => {
+    fetchMyInvoicesMock.mockResolvedValue({
+      invoices: [invoiceRow],
+      pagination: { current: 1, totalPages: 1, totalCount: 1 },
+    });
+    renderPage('invoices');
+    await ready();
+
+    expect(await screen.findByText('INV-2026-10-0001')).toBeInTheDocument();
+    // Scoped to the table: "Due" also appears as a filter pill label.
+    expect(within(screen.getByRole('table')).getByText('Due')).toBeInTheDocument();
+    expect(screen.queryByText('No payout requests yet')).not.toBeInTheDocument();
+    // No legacy history to show, so no legacy header either.
+    expect(screen.queryByText('Legacy payout requests')).not.toBeInTheDocument();
+  });
+
+  it('keeps the payouts tab free of the invoice table, and points to the tab instead', async () => {
     fetchMyInvoicesMock.mockResolvedValue({
       invoices: [invoiceRow],
       pagination: { current: 1, totalPages: 1, totalCount: 1 },
@@ -670,11 +686,11 @@ describe('FinancePage — finance v3: automatic invoices', () => {
     renderPage('payouts');
     await ready();
 
-    expect(await screen.findByText('INV-2026-10-0001')).toBeInTheDocument();
-    expect(screen.getByText('Due')).toBeInTheDocument();
-    expect(screen.queryByText('No payout requests yet')).not.toBeInTheDocument();
-    // No legacy history to show, so no legacy header either.
-    expect(screen.queryByText('Legacy payout requests')).not.toBeInTheDocument();
+    // The invoice list itself lives on its own tab now.
+    expect(screen.queryByText('INV-2026-10-0001')).not.toBeInTheDocument();
+    // Enrolled suppliers get a pointer so the payout run has a path to its
+    // documents.
+    expect(await screen.findByRole('button', { name: /See all invoices/ })).toBeInTheDocument();
   });
 
   it('labels every invoice status: Due, Approved, Paid, and voided (CANCELLED)', async () => {
@@ -687,17 +703,36 @@ describe('FinancePage — finance v3: automatic invoices', () => {
       ],
       pagination: { current: 1, totalPages: 1, totalCount: 4 },
     });
-    renderPage('payouts');
+    renderPage('invoices');
     await ready();
 
     expect(await screen.findByText('INV-A')).toBeInTheDocument();
-    expect(screen.getByText('Due')).toBeInTheDocument();
+    // Every status word below is scoped to the table: each one is also a
+    // filter pill label, so an unscoped getByText finds two matches.
+    const table = within(screen.getByRole('table'));
+    expect(table.getByText('Due')).toBeInTheDocument();
     // Approved is its own state — authorized but not yet paid.
-    expect(screen.getByText('Approved')).toBeInTheDocument();
+    expect(table.getByText('Approved')).toBeInTheDocument();
     // "Paid" appears both as the column header and the PAID badge.
-    expect(screen.getAllByText('Paid').length).toBeGreaterThan(0);
-    // The backend status is CANCELLED; the older VOID label never matched it.
-    expect(screen.getByText('Void')).toBeInTheDocument();
+    expect(table.getAllByText('Paid').length).toBeGreaterThan(0);
+    // The backend status is CANCELLED; the supplier-facing word is Voided.
+    expect(table.getByText('Voided')).toBeInTheDocument();
+  });
+
+  it('offers a Voided filter that passes CANCELLED to the API', async () => {
+    fetchMyInvoicesMock.mockResolvedValue({
+      invoices: [{ ...invoiceRow, id: 'd', invoiceNumber: 'INV-D', status: 'CANCELLED' }],
+      pagination: { current: 1, totalPages: 1, totalCount: 1 },
+    });
+    renderPage('invoices');
+    await ready();
+    await screen.findByText('INV-D');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Voided' }));
+
+    await waitFor(() =>
+      expect(fetchMyInvoicesMock).toHaveBeenCalledWith(expect.objectContaining({ status: 'CANCELLED' }))
+    );
   });
 
   it('says the window is empty instead of offering any request', async () => {

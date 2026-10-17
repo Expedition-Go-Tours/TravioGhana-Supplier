@@ -16,6 +16,7 @@ import { useModalDialog } from "@/components/shared/useModalDialog";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { PayoutScheduleEditor, PayoutScheduleSummary } from "../components/PayoutScheduleCard";
 import PayoutMethodFormSheet from "../components/PayoutMethodFormSheet";
+import InvoicesTab from "../components/InvoicesTab";
 import {
   cancelPayoutRequest, createPayoutMethod, createPayoutRequest, createRefundRequest, deletePayoutMethod,
   fetchFinanceDisputes, fetchFinanceEarnings, fetchFinanceSummary, fetchMyInvoices, fetchPayoutMethods, fetchPayoutRequests,
@@ -28,6 +29,7 @@ import { COUNTRIES, PAYOUT_METHOD_TYPES, maskTail } from "../config/payoutMethod
 const TABS = [
   { key: "earnings", label: "Earnings", icon: DollarSign },
   { key: "payouts", label: "Payouts", icon: Banknote },
+  { key: "invoices", label: "Invoices", icon: FileText },
   { key: "refunds", label: "Refunds", icon: Undo2 },
   { key: "claims", label: "Refund Requests", icon: Undo2 },
   { key: "methods", label: "Payout Methods", icon: CreditCard },
@@ -281,6 +283,9 @@ export default function FinancePage() {
   const [charges, setCharges] = useState({ rows: [], openTotals: [], loading: true, error: null });
   const [invoices, setInvoices] = useState([]);
   const [invoicesPagination, setInvoicesPagination] = useState(null);
+  // Status filter for the Invoices tab. Empty = every status the endpoint
+  // returns; a value maps 1:1 onto the server's allow-list.
+  const [invoiceStatusFilter, setInvoiceStatusFilter] = useState("");
 
   const loadData = useCallback(async () => {
     if (!getAuthToken()) { setLoading(false); return; }
@@ -288,10 +293,6 @@ export default function FinancePage() {
     try {
       const summaryResult = await fetchFinanceSummary().catch(() => null);
       setSummary(summaryResult);
-      // Enrolled = on the automatic invoice cycle (v3). The summary only sends
-      // `nextPayout` for these suppliers — `balance` is always present (legacy
-      // accounts simply have an empty one), so it cannot be the signal.
-      const enrolled = Boolean(summaryResult?.nextPayout);
 
       if (activeTab === "earnings") {
         const params = { page, limit: PAGE_SIZE };
@@ -303,11 +304,12 @@ export default function FinancePage() {
         const result = await fetchPayoutRequests({ page, limit: PAGE_SIZE });
         setPayoutRequests(result.requests || []);
         setPayoutsPagination(result.pagination || null);
-        if (enrolled) {
-          const invResult = await fetchMyInvoices({ page, limit: PAGE_SIZE });
-          setInvoices(invResult.invoices || []);
-          setInvoicesPagination(invResult.pagination || null);
-        }
+      } else if (activeTab === "invoices") {
+        const invParams = { page, limit: PAGE_SIZE };
+        if (invoiceStatusFilter) invParams.status = invoiceStatusFilter;
+        const invResult = await fetchMyInvoices(invParams);
+        setInvoices(invResult.invoices || []);
+        setInvoicesPagination(invResult.pagination || null);
       } else if (activeTab === "refunds") {
         const result = await fetchFinanceDisputes({
           page,
@@ -325,12 +327,12 @@ export default function FinancePage() {
       if (err.code === "AUTH_REQUIRED") return;
       setError(err.response?.data?.message || err.message || "Failed to load finance data");
     } finally { setLoading(false); }
-  }, [activeTab, disputeStatusFilter, filterPill, page]);
+  }, [activeTab, disputeStatusFilter, filterPill, page, invoiceStatusFilter]);
 
-  // Reset to the first page whenever the tab or refund filter changes
+  // Reset to the first page whenever the tab or a filter changes
   // (render-phase state adjustment — the linter-approved way to sync state to
   // a prop/derived change without calling setState in an effect).
-  const resetKey = `${activeTab}|${disputeStatusFilter ?? ""}|${filterPill ?? ""}`;
+  const resetKey = `${activeTab}|${disputeStatusFilter ?? ""}|${filterPill ?? ""}|${invoiceStatusFilter ?? ""}`;
   const [prevResetKey, setPrevResetKey] = useState(resetKey);
   if (resetKey !== prevResetKey) {
     setPrevResetKey(resetKey);
@@ -1299,110 +1301,19 @@ export default function FinancePage() {
               )}
             </div>
 
-            {/* Invoices (v3) — the payout engine's output, one per window */}
+            {/* Invoices moved to their own tab. Enrolled suppliers still get a
+                pointer here so the payout run they are looking at has an
+                obvious path to the documents that back it. No count is shown:
+                the payouts tab no longer fetches invoices, and a stale or
+                missing number would be worse than none. */}
             {isEnrolled && (
-              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                <div className="px-4 sm:px-5 pt-4 pb-3 flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-base font-semibold text-gray-900">Invoices</h3>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      One invoice per payout window, generated on your schedule. Payment is due a few days after invoicing — your bank may credit it later.
-                    </p>
-                  </div>
-                  <FileText size={20} className="text-emerald-600 shrink-0" />
-                </div>
-                {loading ? (
-                  <div className="p-5 space-y-4">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="flex items-center gap-4 animate-pulse">
-                        <div className="h-3 w-24 bg-gray-100 rounded" />
-                        <div className="h-3 w-32 bg-gray-100 rounded" />
-                        <div className="h-3 w-16 bg-gray-100 rounded ml-auto" />
-                      </div>
-                    ))}
-                  </div>
-                ) : invoices.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-10 text-center px-4">
-                    <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center mb-3">
-                      <CheckCircle2 size={22} className="text-emerald-400" />
-                    </div>
-                    <h4 className="text-sm font-semibold text-gray-700 mb-1">No invoices yet</h4>
-                    <p className="text-sm text-gray-500 max-w-[380px]">
-                      Your first invoice is generated automatically on your schedule, once bookings in the payout window have cleared.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-gray-200 bg-gray-50">
-                          <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Invoice</th>
-                          <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Activity dates</th>
-                          <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Bookings</th>
-                          <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Commission</th>
-                          <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Net</th>
-                          <th className="py-3 px-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                          <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Paid</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {invoices.map((inv) => (
-                          <tr key={inv.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
-                            <td className="py-3 px-4">
-                              <span className="font-mono text-xs font-medium text-emerald-700">{inv.invoiceNumber}</span>
-                              <p className="text-[11px] text-gray-500 mt-0.5">
-                                Invoiced {inv.invoicedAt ? formatDate(inv.invoicedAt) : "—"} · due {inv.paymentScheduledAt ? formatDate(inv.paymentScheduledAt) : "—"}
-                              </p>
-                            </td>
-                            <td className="py-3 px-4 text-sm text-gray-700 whitespace-nowrap">
-                              {inv.cycleStartDate && inv.cycleEndDate
-                                ? `${formatDate(inv.cycleStartDate)} – ${formatDate(inv.cycleEndDate)}`
-                                : inv.cycleLabel || "—"}
-                            </td>
-                            <td className="py-3 px-4 text-right text-sm text-gray-700 tabular-nums">{inv.bookingCount}</td>
-                            <td className="py-3 px-4 text-right text-sm text-gray-700 tabular-nums">{formatCurrency(inv.commissionTotal, inv.currency)}</td>
-                            <td className="py-3 px-4 text-right text-sm font-semibold text-gray-900 tabular-nums">{formatCurrency(inv.netTotal, inv.currency)}</td>
-                            <td className="py-3 px-4 text-center">
-                              <span
-                                className={
-                                  inv.status === "PAID"
-                                    ? "inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700"
-                                    : inv.status === "APPROVED"
-                                    ? "inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-sky-50 text-sky-700"
-                                    : inv.status === "CANCELLED"
-                                    ? "inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-500"
-                                    : "inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-700"
-                                }
-                              >
-                                {inv.status === "PAID"
-                                  ? "Paid"
-                                  : inv.status === "APPROVED"
-                                  ? "Approved"
-                                  : inv.status === "CANCELLED"
-                                  ? "Void"
-                                  : "Due"}
-                              </span>
-                            </td>
-                            <td className="py-3 px-4 text-sm text-gray-500">
-                              {inv.status === "PAID" ? (
-                                <>
-                                  <span>{inv.paidAt ? formatDate(inv.paidAt) : "—"}</span>
-                                  {inv.reference && (
-                                    <p className="text-[11px] text-gray-500 mt-0.5 font-mono">Ref: {inv.reference}</p>
-                                  )}
-                                </>
-                              ) : (
-                                <span>—</span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    <TablePagination pagination={invoicesPagination} page={page} onPageChange={setPage} />
-                  </div>
-                )}
-              </div>
+              <button
+                onClick={() => setSearchParams((prev) => ({ ...Object.fromEntries(prev), tab: "invoices" }))}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 hover:text-emerald-800 underline hover:no-underline"
+              >
+                <FileText size={14} />
+                See all invoices
+              </button>
             )}
 
             {loading && !isEnrolled ? (
@@ -1508,6 +1419,24 @@ export default function FinancePage() {
               </div>
               </>
             )}
+          </motion.div>
+        )}
+
+        {/* INVOICES TAB — one invoice per payout window (finance v3) */}
+        {activeTab === "invoices" && (
+          <motion.div key="invoices" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }} className="space-y-4">
+            <InvoicesTab
+              invoices={invoices}
+              pagination={invoicesPagination}
+              loading={loading}
+              error={error}
+              page={page}
+              onPageChange={setPage}
+              onRetry={loadData}
+              statusFilter={invoiceStatusFilter}
+              onStatusFilterChange={setInvoiceStatusFilter}
+              isEnrolled={isEnrolled}
+            />
           </motion.div>
         )}
 
