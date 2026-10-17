@@ -56,6 +56,26 @@ function formatRunDate(value, { withYear = true } = {}) {
   return d.toLocaleDateString("en-GB", opts);
 }
 
+/**
+ * "Payments are processed twice a month, on the 1st and 15th of each month."
+ *
+ * Built from the backend option (`shortLabel` + `runDays`) rather than a
+ * hardcoded string, so the sentence tracks whatever cadence the server offers —
+ * the wording changes only when the payload does.
+ */
+function cadenceSentence(option) {
+  if (!option) return "Payments are processed on your payout schedule.";
+  const cadence = (option.shortLabel || "").toLowerCase();
+  const days = String(option.runDays || "").trim();
+  if (!days) return cadence ? `Payments are processed ${cadence}.` : "Payments are processed on your payout schedule.";
+  // Anchor days read as "on the 1st…"; weekly-style runs already start with
+  // "Every …" and must not become "on every Monday".
+  const anchor = /^every\b/i.test(days)
+    ? days.charAt(0).toLowerCase() + days.slice(1)
+    : `on ${days.charAt(0).toLowerCase()}${days.slice(1)}`;
+  return `Payments are processed ${cadence}, ${anchor}.`;
+}
+
 function formatLongDate(value) {
   if (!value) return "—";
   const d = new Date(value);
@@ -355,6 +375,15 @@ export function PayoutScheduleSummary({
   const invoiceFlow = requestWindow?.source === "invoice";
   const estimate = nextPayout?.window ? nextPayout : null;
   const amount = estimate ? estimate.netTotal : available;
+  // The processing date is a *schedule* until it passes; claiming "was
+  // processed" on a future date would tell the supplier money has moved when it
+  // has not. Tense follows the server-provided date against the clock read once
+  // at mount (lazy state init — a `useMemo` of `Date.now()` is banned by the
+  // purity rule, and re-reading the clock on every render is exactly why).
+  const [nowAtMount] = useState(() => Date.now());
+  const paidOnHasPassed = Boolean(
+    estimate?.window?.paidOn && new Date(estimate.window.paidOn).getTime() <= nowAtMount
+  );
   // A request already in review owns the balance: those bookings have moved to
   // REQUESTED, so there is nothing left to ask for and offering a button would
   // be a dead end on the one screen the supplier visits to check their money.
@@ -367,69 +396,131 @@ export function PayoutScheduleSummary({
           <Calendar size={24} className="text-emerald-500" />
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-medium text-gray-700">Payout schedule</p>
-          <p className="text-xl font-bold text-gray-900">
-            {option?.label || plan?.scheduleLabel || "—"}
-          </p>
-          <div className="flex flex-wrap items-center gap-2 mt-1">
-            {invoiceFlow && estimate ? (
-              <>
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700">
-                  Invoiced {formatRunDate(estimate.window.invoicedOn, { withYear: false })}
-                </span>
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-sky-50 text-sky-700">
-                  Paid {formatRunDate(estimate.window.paidOn, { withYear: false })}
-                </span>
-              </>
-            ) : (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700">
-                Next payout {formatRunDate(plan?.nextRunAt)}
-              </span>
-            )}
-            {plan?.nextRunPeriodLabel && (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-600">
-                Covering {plan.nextRunPeriodLabel}
-              </span>
-            )}
-            {paused && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-700">
-                <PauseCircle size={11} /> Paused
-              </span>
-            )}
-            {/* Only the legacy manual-window flow offers a request button. The
-                invoice flow pays out on schedule — there is no early request. */}
-            {!invoiceFlow && onRequestPayout && !paused && (
-              manualOpen ? (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700">
-                  Early requests open until {formatRunDate(requestWindow.closesAt, { withYear: false })}
-                </span>
+          {invoiceFlow ? (
+            /* ── Invoice flow (v3): the supplier is paid automatically, so the
+               card explains the two dates that matter — when the invoice is
+               raised and when the money moves — plus the exact activity range.
+               Every date below comes from the server projection; nothing is
+               derived in the browser. ── */
+            <>
+              <p className="text-sm font-medium text-gray-700">Payout Schedule</p>
+              <p className="text-lg sm:text-xl font-bold text-gray-900 leading-snug">
+                {cadenceSentence(option)}
+              </p>
+              {estimate ? (
+                <>
+                  <div className="mt-1.5 space-y-0.5 text-xs text-gray-600">
+                    <p>
+                      <span className="font-semibold text-gray-700">Invoice date:</span>{" "}
+                      {formatRunDate(estimate.window.invoicedOn, { withYear: false })}
+                    </p>
+                    <p>
+                      <span className="font-semibold text-gray-700">Payment processing date:</span>{" "}
+                      {formatRunDate(estimate.window.paidOn, { withYear: false })}
+                    </p>
+                    {plan?.nextRunPeriodLabel && (
+                      <p>
+                        <span className="font-semibold text-gray-700">Earnings period:</span>{" "}
+                        {plan.nextRunPeriodLabel}
+                      </p>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1.5">
+                    Your payout covers eligible bookings made between {formatRunDate(estimate.window.start, { withYear: false })}, and {formatRunDate(estimate.window.end, { withYear: false })}.
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {/* A past payment keeps its year — "Payment was processed on
+                        Mon 5 Nov" would be ambiguous a fortnight later. */}
+                    {paidOnHasPassed
+                      ? `Payment was processed on ${formatRunDate(estimate.window.paidOn)}.`
+                      : `Payment is scheduled for ${formatRunDate(estimate.window.paidOn, { withYear: false })}.`}{" "}
+                    Depending on your bank, the funds may take additional time to appear in your account.
+                  </p>
+                </>
               ) : (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-600">
-                  Early requests open {formatRunDate(requestWindow?.opensAt || plan?.nextRunAt, { withYear: false })}
+                /* No window yet — say so rather than printing dashes where the
+                   supplier expects dates. */
+                <>
+                  <p className="text-xs text-gray-600 mt-1.5">
+                    <span className="font-semibold text-gray-700">Invoice date:</span> —
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    <span className="font-semibold text-gray-700">Payment processing date:</span> —
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1.5">
+                    No payout window yet — bookings appear here as soon as one qualifies.
+                  </p>
+                </>
+              )}
+              {paused && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 mt-1.5 rounded-md text-xs font-medium bg-amber-50 text-amber-700">
+                  <PauseCircle size={11} /> Paused
                 </span>
-              )
-            )}
-          </div>
-          <p className="text-xs text-gray-500 mt-1.5">
-            {showStatus
-              ? "Only completed bookings past their travel date are paid out automatically."
-              : invoiceFlow
-              ? estimate
-                ? `Bookings ${formatRunDate(estimate.window.start)} – ${formatRunDate(estimate.window.end)} · paid ${formatRunDate(estimate.window.paidOn, { withYear: false })} (processing date — your bank may credit it later).`
-                : "No payout window yet — bookings appear here as soon as one qualifies."
-              : `${formatCurrency(available, currency)} accumulating · only completed bookings past their travel date are included.`}
-          </p>
-          {plan?.hasVerifiedPayoutMethod === false && (
-            <Link
-              to="/finance?tab=methods"
-              className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-md text-xs font-semibold bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
-            >
-              <AlertTriangle size={11} /> Add a payout method to get paid
-            </Link>
+              )}
+              {plan?.hasVerifiedPayoutMethod === false && (
+                <Link
+                  to="/finance?tab=methods"
+                  className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-md text-xs font-semibold bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
+                >
+                  <AlertTriangle size={11} /> Add a payout method to get paid
+                </Link>
+              )}
+              <div className="mt-2">
+                <PendingChangeChip plan={plan} />
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-medium text-gray-700">Payout schedule</p>
+              <p className="text-xl font-bold text-gray-900">
+                {option?.label || plan?.scheduleLabel || "—"}
+              </p>
+              <div className="flex flex-wrap items-center gap-2 mt-1">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700">
+                  Next payout {formatRunDate(plan?.nextRunAt)}
+                </span>
+                {plan?.nextRunPeriodLabel && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-600">
+                    Covering {plan.nextRunPeriodLabel}
+                  </span>
+                )}
+                {paused && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-700">
+                    <PauseCircle size={11} /> Paused
+                  </span>
+                )}
+                {/* Only the legacy manual-window flow offers a request button. The
+                    invoice flow pays out on schedule — there is no early request. */}
+                {onRequestPayout && !paused && (
+                  manualOpen ? (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700">
+                      Early requests open until {formatRunDate(requestWindow.closesAt, { withYear: false })}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-600">
+                      Early requests open {formatRunDate(requestWindow?.opensAt || plan?.nextRunAt, { withYear: false })}
+                    </span>
+                  )
+                )}
+              </div>
+              <p className="text-xs text-gray-500 mt-1.5">
+                {showStatus
+                  ? "Only completed bookings past their travel date are paid out automatically."
+                  : `${formatCurrency(available, currency)} accumulating · only completed bookings past their travel date are included.`}
+              </p>
+              {plan?.hasVerifiedPayoutMethod === false && (
+                <Link
+                  to="/finance?tab=methods"
+                  className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-md text-xs font-semibold bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
+                >
+                  <AlertTriangle size={11} /> Add a payout method to get paid
+                </Link>
+              )}
+              <div className="mt-2">
+                <PendingChangeChip plan={plan} />
+              </div>
+            </>
           )}
-          <div className="mt-2">
-            <PendingChangeChip plan={plan} />
-          </div>
         </div>
       </div>
       <div className="flex flex-col items-stretch sm:items-end gap-2 shrink-0">

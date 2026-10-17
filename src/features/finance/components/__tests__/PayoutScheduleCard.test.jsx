@@ -371,3 +371,126 @@ describe('PayoutScheduleSummary', () => {
     expect(screen.queryByRole('link', { name: /change schedule/i })).not.toBeInTheDocument();
   });
 });
+
+// ── Invoice flow (v3) ────────────────────────────────────────────────────────
+// Enrolled suppliers are paid automatically: the card must explain the invoice
+// date and the payment processing date in words, not chips, and every date has
+// to come from the server projection.
+describe('PayoutScheduleSummary — invoice flow copy', () => {
+  const invoiceRequestWindow = {
+    open: false,
+    source: 'invoice',
+    cycleLabel: 'Oct 16\u201331',
+  };
+
+  const nextPayout = {
+    window: {
+      cycle: 'TWICE_MONTHLY',
+      slot: 'B',
+      start: new Date(2026, 9, 16).toISOString(),
+      end: new Date(2026, 9, 31).toISOString(),
+      invoicedOn: new Date(2026, 10, 2).toISOString(),
+      paidOn: new Date(2026, 10, 5).toISOString(),
+      label: 'Oct 16\u201331',
+    },
+    bookingCount: 7,
+    grossTotal: 900,
+    commissionTotal: 135,
+    netTotal: 765,
+    byCurrency: [],
+  };
+
+  const renderInvoiceCard = (overrides = {}) =>
+    render(
+      <MemoryRouter>
+        <PayoutScheduleSummary
+          plan={basePlan}
+          available={0}
+          requestWindow={invoiceRequestWindow}
+          nextPayout={nextPayout}
+          {...overrides}
+        />
+      </MemoryRouter>
+    );
+
+  it('spells out the cadence, both dates and the earnings period', () => {
+    renderInvoiceCard();
+
+    expect(screen.getByText('Payout Schedule')).toBeInTheDocument();
+    // The fixture's `runDays` is "The 1st & 15th" — the sentence is built from
+    // the payload, so this assertion follows the payload, not a hardcoded string.
+    expect(
+      screen.getByText('Payments are processed twice a month, on the 1st & 15th.')
+    ).toBeInTheDocument();
+    // The label is bolded in its own <span>, so match against the whole line.
+    const line = (label) => screen.getByText(new RegExp(label, 'i')).parentElement;
+    expect(line('invoice date:')).toHaveTextContent('Invoice date: Mon 2 Nov');
+    expect(line('payment processing date:')).toHaveTextContent(
+      'Payment processing date: Thu 5 Nov'
+    );
+    expect(line('earnings period:')).toHaveTextContent('Earnings period: Oct 1\u201314');
+  });
+
+  it('names the booking range and the bank-processing caveat', () => {
+    renderInvoiceCard();
+
+    expect(
+      screen.getByText(/your payout covers eligible bookings made between fri 16 oct, and sat 31 oct\./i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/depending on your bank, the funds may take additional time to appear/i)
+    ).toBeInTheDocument();
+  });
+
+  it('never claims a future payment has already been processed', () => {
+    // paidOn is 5 Nov 2026 — in the future relative to any real clock here —
+    // so the card must say the payment is scheduled, not that it happened.
+    renderInvoiceCard();
+
+    expect(screen.getByText(/payment is scheduled for thu 5 nov\./i)).toBeInTheDocument();
+    expect(screen.queryByText(/payment was processed/i)).not.toBeInTheDocument();
+  });
+
+  it('says a past payment was processed', () => {
+    const past = {
+      ...nextPayout,
+      window: {
+        ...nextPayout.window,
+        start: new Date(2020, 0, 1).toISOString(),
+        end: new Date(2020, 0, 15).toISOString(),
+        invoicedOn: new Date(2020, 0, 16).toISOString(),
+        paidOn: new Date(2020, 0, 20).toISOString(),
+      },
+    };
+    renderInvoiceCard({ nextPayout: past });
+
+    expect(screen.getByText(/payment was processed on mon, 20 jan 2020\./i)).toBeInTheDocument();
+  });
+
+  it('builds the cadence sentence from the payload, including the monthly wording', () => {
+    // The backend sends runDays "The 1st of each month" for MONTHLY; the card
+    // must not hardcode a cadence anywhere.
+    renderInvoiceCard({
+      plan: { ...basePlan, cycle: 'MONTHLY', options: OPTIONS.map((o) => (o.value === 'MONTHLY' ? { ...o, runDays: 'The 1st of each month' } : o)) },
+    });
+
+    expect(
+      screen.getByText('Payments are processed monthly, on the 1st of each month.')
+    ).toBeInTheDocument();
+  });
+
+  it('offers no request button — invoice payouts are automatic', () => {
+    renderInvoiceCard({ onRequestPayout: () => {}, canRequestPayout: true });
+    expect(screen.queryByRole('button', { name: /request payout/i })).not.toBeInTheDocument();
+  });
+
+  it('says the window is empty instead of printing dashes for dates', () => {
+    renderInvoiceCard({
+      nextPayout: { window: null, bookingCount: 0, grossTotal: 0, commissionTotal: 0, netTotal: 0, byCurrency: [] },
+    });
+
+    expect(
+      screen.getByText('No payout window yet — bookings appear here as soon as one qualifies.')
+    ).toBeInTheDocument();
+  });
+});
