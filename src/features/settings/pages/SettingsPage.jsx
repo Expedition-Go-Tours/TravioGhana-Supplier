@@ -1737,13 +1737,35 @@ function TeamTab() {
   const [directAdd, setDirectAdd] = useState(false);
   const [editingRole, setEditingRole] = useState(null);
   const [memberToRemove, setMemberToRemove] = useState(null);
+  // A failed load must not render as "you have no team" — that reads as an
+  // empty account, and the supplier cannot tell it apart from a real one.
+  const [loadError, setLoadError] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    fetchTeamMembers()
-      .then((rows) => setMembers(rows.map((row) => ({ ...row, roles: memberRoles(row) }))))
-      .catch(() => toast.error("Failed to load team members"))
-      .finally(() => setLoading(false));
-  }, []);
+    let cancelled = false;
+    // Deferred so no setState runs synchronously in the effect body.
+    Promise.resolve().then(() => {
+      if (cancelled) return;
+      setLoading(true);
+      setLoadError(null);
+      fetchTeamMembers()
+        .then((rows) => {
+          if (cancelled) return;
+          setMembers(rows.map((row) => ({ ...row, roles: memberRoles(row) })));
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          setLoadError(err?.response?.data?.message || "Failed to load team members");
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
 
   const handleInvite = async (e) => {
     e.preventDefault();
@@ -1887,6 +1909,24 @@ function TeamTab() {
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 size={24} className="animate-spin text-emerald-500" />
+            </div>
+          ) : loadError ? (
+            <div role="alert" className="flex flex-col items-center justify-center py-12 text-center">
+              <AlertTriangle size={28} className="text-red-400 mb-3" />
+              <h3 className="text-sm font-semibold text-slate-700 mb-1">
+                We couldn't load your team
+              </h3>
+              <p className="text-xs text-slate-500 max-w-[320px] mb-4">
+                {loadError} This is a loading failure, not an empty team list —
+                your members are unchanged.
+              </p>
+              <button
+                type="button"
+                onClick={() => setReloadKey((k) => k + 1)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700"
+              >
+                <RefreshCw size={13} /> Retry
+              </button>
             </div>
           ) : members.length === 0 && !showInvite ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
