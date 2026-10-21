@@ -78,5 +78,8 @@
     "terser": "^5.47.1",
     "vite": "^8.0.12",
     "vitest": "^4.1.11"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "^1.14.6"
   }
 }
