@@ -124,6 +124,23 @@ export function updateBookingNotes(id, supplierNotes) {
 }
 
 /**
+ * POST /bookings/supplier/bookings/:id/reschedule — move one booking to another
+ * date/time. The server re-prices the target date and REFUSES when the price
+ * would change (a supplier move never changes what the customer paid), and
+ * re-checks capacity without this booking's own travellers.
+ *
+ * Deliberately not retried automatically: a second application of the same
+ * move is indistinguishable from a no-op failure to the user.
+ */
+export function rescheduleBooking(id, { travelDate, selectedTime, reason }) {
+  return api.post(
+    `/bookings/supplier/bookings/${id}/reschedule`,
+    { travelDate, ...(selectedTime ? { selectedTime } : {}), ...(reason ? { reason } : {}) },
+    { skipGlobalErrorHandler: true }
+  );
+}
+
+/**
  * GET /bookings/supplier/bookings/export — the filtered list as CSV, generated
  * server-side so the file cannot be truncated by whatever happened to be in the
  * browser tab. Returns the blob plus the filename the server named it.

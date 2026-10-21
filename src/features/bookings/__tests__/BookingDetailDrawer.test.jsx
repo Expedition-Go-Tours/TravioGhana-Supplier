@@ -17,6 +17,7 @@ import userEvent from '@testing-library/user-event';
 
 const fetchBookingDetail = vi.fn();
 const updateBookingNotes = vi.fn();
+const rescheduleBooking = vi.fn();
 
 vi.mock('../api', async (importOriginal) => ({
   // mapBookingRow is the real mapper: the panel is only as truthful as the
@@ -24,7 +25,13 @@ vi.mock('../api', async (importOriginal) => ({
   ...(await importOriginal()),
   fetchBookingDetail: (...args) => fetchBookingDetail(...args),
   updateBookingNotes: (...args) => updateBookingNotes(...args),
+  rescheduleBooking: (...args) => rescheduleBooking(...args),
 }));
+
+const { toast } = vi.hoisted(() => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}));
+vi.mock('sonner', () => ({ toast }));
 
 import BookingDetailDrawer from '../components/BookingDetailDrawer';
 import { mapBookingRow } from '../api';
@@ -75,6 +82,9 @@ function renderDrawer(props = {}) {
 beforeEach(() => {
   fetchBookingDetail.mockReset();
   updateBookingNotes.mockReset().mockResolvedValue({});
+  rescheduleBooking.mockReset().mockResolvedValue({ data: { data: { booking: {} } } });
+  toast.success.mockReset();
+  toast.error.mockReset();
 });
 
 afterEach(() => {
@@ -230,5 +240,73 @@ describe('status actions', () => {
     );
 
     expect(onStatusUpdate).toHaveBeenCalledWith('b-1', 'COMPLETED');
+  });
+});
+
+describe('moving a booking to another date', () => {
+  it('only offers the move for bookings that can still move', async () => {
+    fetchBookingDetail.mockResolvedValue(
+      mapBookingRow(rawBooking({ status: 'CANCELLED', travelDate: PAST })),
+    );
+
+    renderDrawer();
+
+    await waitFor(() => {
+      expect(screen.getByText('Cancellation')).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('button', { name: /move this booking/i })).toBeNull();
+  });
+
+  it('confirms before it moves anything', async () => {
+    fetchBookingDetail.mockResolvedValue(mapBookingRow(rawBooking({ travelDate: FUTURE })));
+
+    renderDrawer();
+    await userEvent.type(await screen.findByLabelText(/new activity date/i), '2026-12-24');
+    await userEvent.click(screen.getByRole('button', { name: /move this booking/i }));
+
+    // Nothing has been sent yet — the form shows what will change first.
+    expect(rescheduleBooking).not.toHaveBeenCalled();
+    expect(screen.getByText(/move booking TRG-10000001-2026-01 from/i)).toBeInTheDocument();
+  });
+
+  it('sends the date, the time and the reason after the supplier confirms', async () => {
+    fetchBookingDetail.mockResolvedValue(mapBookingRow(rawBooking({ travelDate: FUTURE })));
+
+    renderDrawer();
+    await userEvent.type(await screen.findByLabelText(/new activity date/i), '2026-12-24');
+    await userEvent.type(screen.getByLabelText(/start time/i), '10:30');
+    await userEvent.type(screen.getByLabelText(/reason/i), 'Vehicle breakdown');
+    await userEvent.click(screen.getByRole('button', { name: /move this booking/i }));
+    await userEvent.click(screen.getByRole('button', { name: /yes, move it/i }));
+
+    await waitFor(() => {
+      expect(rescheduleBooking).toHaveBeenCalledWith('b-1', {
+        travelDate: '2026-12-24',
+        selectedTime: '10:30',
+        reason: 'Vehicle breakdown',
+      });
+    });
+  });
+
+  it('shows the server\'s refusal verbatim, and never claims the move happened', async () => {
+    fetchBookingDetail.mockResolvedValue(mapBookingRow(rawBooking({ travelDate: FUTURE })));
+    rescheduleBooking.mockRejectedValue({
+      response: {
+        status: 409,
+        data: {
+          message:
+            'That date is priced $500.00 instead of $420.00. A supplier move never changes what the customer paid.',
+        },
+      },
+    });
+
+    renderDrawer();
+    await userEvent.type(await screen.findByLabelText(/new activity date/i), '2026-12-24');
+    await userEvent.click(screen.getByRole('button', { name: /move this booking/i }));
+    await userEvent.click(screen.getByRole('button', { name: /yes, move it/i }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(toast.error.mock.calls[0][0]).toMatch(/priced \$500\.00 instead of \$420\.00/i);
+    expect(toast.success).not.toHaveBeenCalled();
   });
 });

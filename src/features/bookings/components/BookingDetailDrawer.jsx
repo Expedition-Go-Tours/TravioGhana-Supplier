@@ -22,7 +22,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { BOOKING_STATUSES } from "@/lib/constants";
 import { formatCurrency, formatDate, formatTime, cn } from "@/lib/utils";
-import { fetchBookingDetail, updateBookingNotes } from "../api";
+import { fetchBookingDetail, updateBookingNotes, rescheduleBooking } from "../api";
 import {
   formatPartySummary,
   formatTravelerDetails,
@@ -131,6 +131,150 @@ function NotesEditor({ booking, onSaved }) {
           Save note
         </button>
       </div>
+    </div>
+  );
+}
+
+// The earliest date a supplier may move a booking to (tomorrow). Computed at
+// module load: render must stay pure (react-hooks/purity).
+const MIN_RESCHEDULE_DATE = new Date(Date.now() + 24 * 60 * 60 * 1000)
+  .toISOString()
+  .slice(0, 10);
+
+/**
+ * Move one booking to another date/time.
+ *
+ * The server owns the rules (same price or no move; capacity without this
+ * booking's own travellers; payout still pending) and its refusal is shown as
+ * written — the supplier must never be nudged into a move that changes what
+ * the customer paid. Two steps, so a date typed into a box cannot fire.
+ */
+function RescheduleForm({ booking, onMoved }) {
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState(booking.selectedTime || "");
+  const [reason, setReason] = useState("");
+  const [confirming, setConfirming] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const canSubmit = Boolean(date) && !submitting;
+
+  const submit = async () => {
+    setSubmitting(true);
+    try {
+      const response = await rescheduleBooking(booking.id, {
+        travelDate: date,
+        selectedTime: time,
+        reason,
+      });
+      const movedTo = response.data?.data?.booking?.travelDate;
+      toast.success(
+        movedTo
+          ? `Booking moved to ${formatDate(movedTo)}`
+          : "Booking moved",
+      );
+      setConfirming(false);
+      setDate("");
+      setReason("");
+      onMoved?.();
+    } catch (err) {
+      // The server's refusal is the truth here (price would change, date full,
+      // payout began) — show it exactly as given.
+      toast.error(err.response?.data?.message || "Failed to move this booking");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label htmlFor="reschedule-date" className="text-xs text-slate-500 block mb-1">
+            New activity date
+          </label>
+          <input
+            id="reschedule-date"
+            type="date"
+            min={MIN_RESCHEDULE_DATE}
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+          />
+        </div>
+        <div>
+          <label htmlFor="reschedule-time" className="text-xs text-slate-500 block mb-1">
+            Start time (optional)
+          </label>
+          <input
+            id="reschedule-time"
+            type="time"
+            value={time || ""}
+            onChange={(e) => setTime(e.target.value)}
+            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+          />
+        </div>
+      </div>
+
+      <div className="mt-3">
+        <label htmlFor="reschedule-reason" className="text-xs text-slate-500 block mb-1">
+          Reason (kept in your team notes)
+        </label>
+        <input
+          id="reschedule-reason"
+          type="text"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="e.g. vehicle breakdown"
+          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+        />
+      </div>
+
+      <p className="mt-2 text-xs text-slate-500">
+        The price never changes on a move. If the new date is priced differently,
+        the move is refused and you'll see both figures.
+      </p>
+
+      {confirming ? (
+        <div className="mt-3 p-3 rounded-lg border border-amber-200 bg-amber-50">
+          <p className="text-sm text-amber-900">
+            Move booking {booking.bookingNumber} from{" "}
+            <strong>{formatDate(booking.travelDate)}</strong>
+            {booking.selectedTime ? ` · ${formatTime(booking.selectedTime)}` : ""} to{" "}
+            <strong>{formatDate(date)}</strong>
+            {time ? ` · ${formatTime(time)}` : ""}?
+          </p>
+          <p className="text-xs text-amber-800 mt-1">
+            The customer is notified straight away.
+          </p>
+          <div className="flex gap-2 mt-2.5">
+            <button
+              type="button"
+              onClick={submit}
+              disabled={!canSubmit}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold bg-[#044b3b] text-white hover:bg-[#033629] disabled:bg-slate-200 disabled:text-slate-400"
+            >
+              {submitting && <Loader2 size={13} className="animate-spin" />}
+              Yes, move it
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              className="px-3.5 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:bg-white border border-transparent"
+            >
+              Keep current date
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setConfirming(true)}
+          disabled={!canSubmit}
+          className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
+        >
+          <CalendarDays size={14} /> Move this booking
+        </button>
+      )}
     </div>
   );
 }
@@ -507,6 +651,12 @@ export default function BookingDetailDrawer({
                   {booking.review.comment && (
                     <p className="mt-2 text-sm text-slate-700">{booking.review.comment}</p>
                   )}
+                </Section>
+              )}
+
+              {["PENDING", "CONFIRMED"].includes(booking.status) && (
+                <Section title="Change date" icon={CalendarDays}>
+                  <RescheduleForm booking={booking} onMoved={() => load()} />
                 </Section>
               )}
 
