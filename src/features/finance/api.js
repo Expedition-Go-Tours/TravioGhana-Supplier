@@ -1,4 +1,5 @@
 import api from "@/lib/axios";
+import { withIdempotencyKey } from "@/lib/idempotency";
 
 export async function fetchPayouts(params = {}) {
   const response = await api.get("/payouts/me", {
@@ -106,7 +107,12 @@ export async function fetchPayoutRequests(params = {}) {
 }
 
 export function createPayoutRequest(payload = {}) {
-  return api.post("/finance/payout/request", payload, { skipGlobalErrorHandler: true });
+  // Money movement: a timed-out request that the supplier presses again must
+  // not open two payout requests. One attempt = one Idempotency-Key.
+  return api.post("/finance/payout/request", payload, {
+    ...withIdempotencyKey("payout-request"),
+    skipGlobalErrorHandler: true,
+  });
 }
 
 export function cancelPayoutRequest(id) {
@@ -311,7 +317,11 @@ export async function fetchFinanceDisputes(params = {}) {
 }
 
 export function createRefundRequest(payload) {
-  return api.post("/disputes", payload, { skipGlobalErrorHandler: true });
+  // Same as createPayoutRequest: one submission attempt, one identity.
+  return api.post("/disputes", payload, {
+    ...withIdempotencyKey("refund-request"),
+    skipGlobalErrorHandler: true,
+  });
 }
 
 export function withdrawRefundRequest(id) {

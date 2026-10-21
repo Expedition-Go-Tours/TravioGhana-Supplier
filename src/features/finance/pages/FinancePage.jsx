@@ -24,6 +24,7 @@ import {
   withdrawRefundRequest,
 } from "../api";
 import { getAuthToken } from "@/stores/authStore";
+import { moneyLine, moneyTotal, hasPositiveAmount } from "../money";
 import { COUNTRIES, PAYOUT_METHOD_TYPES, maskTail } from "../config/payoutMethodForm";
 
 const TABS = [
@@ -241,6 +242,9 @@ export default function FinancePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [summary, setSummary] = useState(null);
+  // True when /finance/summary failed. Nothing on the money cards may then
+  // read as "0": unknown is not zero.
+  const [summaryFailed, setSummaryFailed] = useState(false);
   const [earnings, setEarnings] = useState([]);
   const [payoutRequests, setPayoutRequests] = useState([]);
   const [methods, setMethods] = useState([]);
@@ -291,8 +295,20 @@ export default function FinancePage() {
     if (!getAuthToken()) { setLoading(false); return; }
     setLoading(true); setError(null);
     try {
-      const summaryResult = await fetchFinanceSummary().catch(() => null);
+      // The summary carries the money cards. It used to be swallowed with
+      // `.catch(() => null)`, which rendered every card as "$0.00" on a failed
+      // fetch — a supplier cannot tell "you have nothing" from "we don't know".
+      // A failed summary now renders "—" and says why.
+      let summaryResult = null;
+      let summaryFailure = false;
+      try {
+        summaryResult = await fetchFinanceSummary();
+      } catch (summaryErr) {
+        if (summaryErr.code === "AUTH_REQUIRED") return;
+        summaryFailure = true;
+      }
       setSummary(summaryResult);
+      setSummaryFailed(summaryFailure);
 
       if (activeTab === "earnings") {
         const params = { page, limit: PAGE_SIZE };
@@ -384,26 +400,43 @@ export default function FinancePage() {
   // invoice for the window generates).
   const isEnrolled = Boolean(summary?.nextPayout);
   const nextPayout = summary?.nextPayout || null;
+  const balanceRows = useMemo(() => summary?.balance?.byCurrency || [], [summary]);
   const balanceTotal = useMemo(
-    () => (summary?.balance?.byCurrency || []).reduce((s, c) => s + (Number(c.amount) || 0), 0),
-    [summary]
+    () => balanceRows.reduce((s, c) => s + (Number(c.amount) || 0), 0),
+    [balanceRows]
   );
-
-  // Compute stats from the finance v2 summary endpoint
+  // Compute stats from the finance v2 summary endpoint. The scalar fields are
+  // null whenever the account holds more than one currency (see money.js), so
+  // the cards fall back to the per-currency lines instead of inventing a total.
   const stats = useMemo(() => {
-    const available = Number(summary?.availableBalance?.amount) || 0;
-    const pending = Number(summary?.pendingClearance?.amount) || 0;
-    const inReview = Number(summary?.inReview?.total) || 0;
-    const paidOut = Number(summary?.paidOut?.total) || 0;
-    return { available, pending, inReview, paidOut };
+    const available = summary?.availableBalance ?? null;
+    const pending = summary?.pendingClearance ?? null;
+    const inReview = summary?.inReview ?? null;
+    const paidOut = summary?.paidOut ?? null;
+    return {
+      available,
+      pending,
+      inReview,
+      paidOut,
+      availableTotal: moneyTotal(summary?.availableBalance),
+      pendingTotal: moneyTotal(summary?.pendingClearance),
+    };
   }, [summary]);
+
+  // When the summary could not be loaded, every money figure is unknown.
+  const money = (value) => (summaryFailed ? "—" : value);
+
+  // Eligibility for a manual payout request: true when any currency holds a
+  // positive balance. The scalar total is deliberately NOT summed across
+  // currencies — it is only ever used to answer "is there anything at all".
+  const hasAvailable = hasPositiveAmount(summary?.availableBalance);
 
   const windowInfo = summary?.withdrawalWindow || null;
   const windowOpen = Boolean(windowInfo?.open);
   // Only the legacy (unmigrated) flow has a request button: enrolled suppliers
   // are paid on their automatic invoice schedule and there is nothing to ask
   // for by hand. An open withdrawal window + eligible earnings enables it.
-  const canRequestPayout = windowOpen && stats.available > 0;
+  const canRequestPayout = windowOpen && hasAvailable && !summaryFailed;
 
   // A payout that finance is already holding. While this exists the supplier has
   // no balance to ask for — the bookings have moved to REQUESTED — so the page
@@ -420,15 +453,16 @@ export default function FinancePage() {
   // an option: a disabled button does not emit pointer events, so the tooltip
   // never shows and the supplier is left with an unexplained grey box.
   const requestBlockedReason = useMemo(() => {
+    if (summaryFailed) return "We couldn't load your balance, so nothing can be requested right now.";
     if (inFlightRequest) return "Your payout is already in review.";
-    if (stats.available <= 0) return "Nothing is eligible to request yet.";
+    if (!hasAvailable) return "Nothing is eligible to request yet.";
     if (!windowOpen) {
       return windowInfo?.opensAt
         ? `You can request early from ${formatDate(windowInfo.opensAt)}.`
         : "Early requests are not open right now.";
     }
     return null;
-  }, [inFlightRequest, stats.available, windowOpen, windowInfo]);
+  }, [summaryFailed, inFlightRequest, hasAvailable, windowOpen, windowInfo]);
 
   // Automated payout schedule (twice a month / monthly).
   //
@@ -530,7 +564,7 @@ export default function FinancePage() {
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm text-gray-500">In review</p>
-          <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{formatCurrency(stats.inReview)}</p>
+          <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{money(moneyLine(summary?.inReview))}</p>
           {summary?.inReview?.requestCount > 0 && (
             // gray-600 when this is the request reference: it is the number a
             // supplier quotes to support, and gray-400 sits at 2.60:1.
@@ -552,7 +586,7 @@ export default function FinancePage() {
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm text-gray-500">Paid out</p>
-          <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{formatCurrency(stats.paidOut)}</p>
+          <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{money(moneyLine(summary?.paidOut))}</p>
         </div>
         <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
           <CheckCircle2 size={20} className="text-emerald-500" />
@@ -581,6 +615,24 @@ export default function FinancePage() {
         </button>
       </div>
 
+      {/* The summary endpoint is the source of every money figure on this
+          page. When it fails we say so — a supplier must never read "you have
+          nothing" out of a fetch that simply did not succeed. */}
+      {summaryFailed && (
+        <div
+          role="alert"
+          className="flex items-start gap-2.5 p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800"
+        >
+          <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold">We couldn't load your balances right now.</p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              The amounts below are unknown, not zero. Press Refresh to try again.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {isEnrolled ? (
@@ -590,7 +642,15 @@ export default function FinancePage() {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Your balance</p>
-                  <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{formatCurrency(balanceTotal)}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">
+                    {money(moneyLine({
+                      byCurrency: balanceRows,
+                      // Empty rows mean the summary loaded and found nothing:
+                      // a real 0.00, not an unknown amount.
+                      amount: balanceRows.length <= 1 ? balanceTotal : null,
+                      currency: balanceRows[0]?.currency || "USD",
+                    }))}
+                  </p>
                   {(summary?.balance?.openInvoiceCount || 0) > 0 && (
                     <p className="text-xs text-gray-500 mt-0.5">
                       {summary.balance.openInvoiceCount} unpaid invoice{summary.balance.openInvoiceCount === 1 ? "" : "s"}
@@ -639,7 +699,7 @@ export default function FinancePage() {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Available for payout</p>
-                  <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{formatCurrency(stats.available)}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{money(moneyLine(summary?.availableBalance))}</p>
                   {summary?.availableBalance?.bookingCount > 0 && (
                     <p className="text-xs text-gray-500 mt-0.5">{summary.availableBalance.bookingCount} booking(s)</p>
                   )}
@@ -656,8 +716,8 @@ export default function FinancePage() {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Pending clearance</p>
-                  <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{formatCurrency(stats.pending)}</p>
-                  {stats.pending > 0 && summary?.nextEligibleAt && (
+                  <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{money(moneyLine(summary?.pendingClearance))}</p>
+                  {stats.pendingTotal > 0 && summary?.nextEligibleAt && (
                     // gray-400 is the house muted colour and lands at 2.60:1 on white,
                     // below AA. gray-500 clears 4.5:1 at the same visual weight.
                     <p className="text-xs text-gray-500 mt-0.5">
@@ -692,7 +752,7 @@ export default function FinancePage() {
         {showSchedule ? (
           <PayoutScheduleSummary
             plan={payoutPlan}
-            available={isEnrolled ? (nextPayout?.netTotal ?? 0) : stats.available}
+            available={isEnrolled ? (nextPayout?.netTotal ?? 0) : stats.availableTotal}
             nextPayout={nextPayout}
             requestWindow={windowInfo}
             canRequestPayout={canRequestPayout}
@@ -739,7 +799,7 @@ export default function FinancePage() {
           >
             {!canRequestPayout && <Lock size={15} />}
             {canRequestPayout
-              ? `Request payout · ${formatCurrency(stats.available)}`
+              ? `Request payout · ${money(moneyLine(summary?.availableBalance))}`
               : "Request payout"}
           </button>
             {/* Visible, not a tooltip: a disabled button emits no pointer events,
@@ -775,7 +835,7 @@ export default function FinancePage() {
               ) : (
                 <>
                   <span>{summary?.pendingClearance?.bookingCount || 0} booking(s) clearing · </span>
-                  <span className="font-semibold text-emerald-700">{formatCurrency(stats.pending)} pending</span>
+                  <span className="font-semibold text-emerald-700">{money(moneyLine(summary?.pendingClearance))} pending</span>
                 </>
               )}
             </p>
@@ -789,7 +849,7 @@ export default function FinancePage() {
       {showSchedule && showScheduleEditor && (
         <PayoutScheduleEditor
           plan={payoutPlan}
-          available={isEnrolled ? (nextPayout?.netTotal ?? 0) : stats.available}
+          available={isEnrolled ? (nextPayout?.netTotal ?? 0) : stats.availableTotal}
           onSaved={() => {
             setShowScheduleEditor(false);
             // The plan feeds the summary the whole page renders from, so it has
@@ -843,7 +903,7 @@ export default function FinancePage() {
               <div className="mt-4 space-y-2.5 bg-gray-50 rounded-xl p-4">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Amount</span>
-                  <span className="font-bold text-gray-900">{formatCurrency(stats.available)}</span>
+                  <span className="font-bold text-gray-900">{money(moneyLine(summary?.availableBalance))}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Bookings included</span>
@@ -1075,7 +1135,7 @@ export default function FinancePage() {
                     // 24-hour window that opened and closed on the same day
                     // rendered as "between 05 Oct 2026 and 05 Oct 2026" and read
                     // as a zero-length window that was somehow always open.
-                    + (windowInfo?.opensAt && stats.available > 0 && !inFlightRequest
+                    + (windowInfo?.opensAt && stats.availableTotal > 0 && !inFlightRequest
                         ? ` You can also request one early from ${formatDate(windowInfo.opensAt)}${windowOpen ? "" : `, for 24 hours`}.`
                         : "")
                   : "Payouts can be requested twice monthly during open withdrawal windows."}{" "}
