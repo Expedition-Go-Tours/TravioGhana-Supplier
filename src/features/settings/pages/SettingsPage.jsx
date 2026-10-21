@@ -177,15 +177,26 @@ function ProfileTab() {
   const [hoursErrors, setHoursErrors] = useState({});
   const fileInputRef = useRef(null);
 
+  // A failed load must never leave an editable form full of empty fields:
+  // the supplier would press Save and overwrite their real profile with
+  // blanks. This used to be `catch { /* ignore */ }`.
+  const [loadError, setLoadError] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
   useEffect(() => {
     async function load() {
       if (!getAuthToken()) { setLoading(false); return; }
+      setLoading(true);
+      setLoadError(null);
       try {
         const [user, biz] = await Promise.all([
           fetchCurrentUser(),
           fetchBusinessProfile(),
         ]);
-        if (user) {
+        if (!user) {
+          throw new Error("We couldn't read your account details.");
+        }
+        {
           const bi = biz?.businessInfo || {};
           const oi = biz?.operatingInfo || {};
           const ri = biz?.representativeInfo || {};
@@ -241,11 +252,16 @@ function ProfileTab() {
           });
           setCurrentLogoUrl(user.logoUrl || null);
         }
-      } catch { /* ignore */ }
-      finally { setLoading(false); }
+      } catch (err) {
+        setLoadError(
+          err?.response?.data?.message || err?.message || "Failed to load your settings"
+        );
+      } finally {
+        setLoading(false);
+      }
     }
     load();
-  }, []);
+  }, [reloadKey]);
 
   const handleSavePersonal = async (e) => {
     e.preventDefault();
@@ -392,6 +408,30 @@ function ProfileTab() {
   const hasProfileChanges = hasBusinessChanges || hasRegionsChanges;
 
   if (loading) return <LoadingSkeleton />;
+
+  if (loadError) {
+    return (
+      <motion.div variants={FADE_UP} initial="initial" animate="animate" exit="exit">
+        <div role="alert" className="bg-white rounded-xl border border-red-200 p-8 text-center">
+          <AlertTriangle size={32} className="mx-auto text-red-400 mb-3" />
+          <h2 className="text-sm font-semibold text-slate-800 mb-1">
+            We couldn't load your settings
+          </h2>
+          <p className="text-xs text-slate-500 mb-4">
+            {loadError} Nothing has been changed — please retry rather than
+            re-entering your details into an empty form.
+          </p>
+          <button
+            type="button"
+            onClick={() => setReloadKey((k) => k + 1)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-[#044b3b] text-white hover:bg-[#033629]"
+          >
+            <RefreshCw size={14} /> Retry
+          </button>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div variants={FADE_UP} initial="initial" animate="animate" exit="exit" className="space-y-6">
