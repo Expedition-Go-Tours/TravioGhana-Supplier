@@ -1,182 +1,176 @@
 import { useState, useRef, useEffect } from "react";
-import { Download, Printer, FileText, ChevronDown } from "lucide-react";
+import { Download, Printer, FileText, ChevronDown, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { generateCsv, generatePrintHtml } from "../../lib/pickupExport";
 
-function escapeCsv(val) {
-  const s = String(val ?? "");
-  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-  return s;
-}
-
-function generateCsv(bookings) {
-  const headers = [
-    "Date",
-    "Time",
-    "Tour",
-    "Booking #",
-    "Customer",
-    "Phone",
-    "Travelers",
-    "Pickup Location",
-    "Pickup Time",
-    "Instructions",
-    "Status",
-  ];
-  const rows = bookings.map((b) => {
-    const p = b.pickup || {};
-    return [
-      new Date(b.travelDate).toLocaleDateString(),
-      b.selectedTime || "",
-      b.tourName,
-      b.bookingNumber,
-      b.customerName,
-      b.customerPhone,
-      b.travelers,
-      p.place || p.areaName || p.locationName || "",
-      p.time || "",
-      p.instructions || "",
-      b.status,
-    ];
-  });
-  return [headers, ...rows].map((r) => r.map(escapeCsv).join(",")).join("\n");
-}
-
-function generatePrintHtml(bookings, dateRange) {
-  const rows = bookings
-    .map((b) => {
-      const p = b.pickup || {};
-      return `<tr>
-        <td>${new Date(b.travelDate).toLocaleDateString()}</td>
-        <td>${p.time || b.selectedTime || "—"}</td>
-        <td><strong>${b.tourName}</strong></td>
-        <td>${b.bookingNumber}</td>
-        <td>${b.customerName}</td>
-        <td>${b.customerPhone || "—"}</td>
-        <td>${b.travelers}</td>
-        <td>${p.place || p.areaName || p.locationName || "—"}</td>
-        <td>${p.instructions || "—"}</td>
-        <td>${b.status}</td>
-      </tr>`;
-    })
-    .join("");
-
-  return `<!DOCTYPE html>
-<html><head><title>Pickup Manifest ${dateRange}</title>
-<style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 20px; color: #1e293b; }
-  h1 { font-size: 18px; margin-bottom: 4px; }
-  .subtitle { font-size: 12px; color: #64748b; margin-bottom: 16px; }
-  table { width: 100%; border-collapse: collapse; font-size: 11px; }
-  th { background: #f1f5f9; text-align: left; padding: 6px 8px; border-bottom: 2px solid #e2e8f0; font-weight: 600; }
-  td { padding: 5px 8px; border-bottom: 1px solid #e2e8f0; }
-  tr:nth-child(even) { background: #f8fafc; }
-  @media print { body { padding: 0; } }
-</style></head><body>
-<h1>Pickup Manifest</h1>
-<p class="subtitle">${dateRange} &middot; ${bookings.length} bookings</p>
-<table>
-<thead><tr>
-  <th>Date</th><th>Pickup Time</th><th>Tour</th><th>Booking #</th>
-  <th>Customer</th><th>Phone</th><th>Travelers</th>
-  <th>Location</th><th>Instructions</th><th>Status</th>
-</tr></thead>
-<tbody>${rows}</tbody>
-</table>
-</body></html>`;
-}
-
-export default function ExportMenu({ bookings, dateRange }) {
+/**
+ * Export the whole filtered range, not the current 50-row page.
+ *
+ * `getBookings` is async and pages through the planner. Print/PDF open the
+ * window synchronously (inside the click) so pop-up blockers do not reject a
+ * window opened after the await.
+ */
+export default function ExportMenu({ getBookings, dateRange, disabled = false }) {
   const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(null);
   const ref = useRef(null);
 
   useEffect(() => {
     function handleClick(e) {
       if (ref.current && !ref.current.contains(e.target)) setOpen(false);
     }
+    function handleKey(e) {
+      if (e.key === "Escape") setOpen(false);
+    }
     document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
   }, []);
 
-  if (!bookings || bookings.length === 0) return null;
-
-  const handleCsv = () => {
-    const csv = generateCsv(bookings);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `pickup-manifest-${dateRange}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    setOpen(false);
-  };
-
-  const handlePrint = () => {
-    const html = generatePrintHtml(bookings, dateRange);
+  const openPrintWindow = () => {
     const w = window.open("", "_blank");
     if (w) {
-      w.document.write(html);
+      w.document.write("<!DOCTYPE html><html><body><p style=\"font-family: sans-serif; padding: 24px;\">Preparing pickup manifest…</p></body></html>");
       w.document.close();
-      w.print();
     }
-    setOpen(false);
+    return w;
   };
 
-  const handlePdf = () => {
-    const html = generatePrintHtml(bookings, dateRange);
-    const w = window.open("", "_blank");
-    if (w) {
+  const loadRows = async () => {
+    try {
+      const result = await getBookings?.();
+      const rows = result?.bookings || [];
+      if (rows.length === 0) {
+        toast.info("No pickups to export for this view");
+        return null;
+      }
+      if (result?.truncated) {
+        toast.warning("This range is larger than the export cap; the file contains the first batch.");
+      }
+      return { rows, truncated: !!result?.truncated };
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || "Could not prepare the export");
+      return null;
+    }
+  };
+
+  const handleCsv = async () => {
+    if (busy) return;
+    setOpen(false);
+    setBusy("csv");
+    try {
+      const data = await loadRows();
+      if (!data) return;
+      const csv = generateCsv(data.rows);
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `pickup-manifest-${dateRange}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast.success(`Exported ${data.rows.length} pickups`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handlePrint = async (pdf = false) => {
+    if (busy) return;
+    setOpen(false);
+    setBusy(pdf ? "pdf" : "print");
+    const w = openPrintWindow();
+    if (!w) {
+      toast.error("Allow pop-ups to print the pickup manifest");
+      setBusy(null);
+      return;
+    }
+    try {
+      const data = await loadRows();
+      if (!data) {
+        w.close();
+        return;
+      }
+      const html = generatePrintHtml(data.rows, dateRange, { truncated: data.truncated });
+      w.document.open();
       w.document.write(html);
       w.document.close();
-      setTimeout(() => w.print(), 300);
+      w.focus();
+      setTimeout(() => {
+        if (!w.closed) w.print();
+      }, pdf ? 400 : 250);
+    } catch (err) {
+      w.close();
+      toast.error(err.message || "Could not open the manifest");
+    } finally {
+      setBusy(null);
     }
-    setOpen(false);
   };
+
+  const isDisabled = disabled || !!busy;
 
   return (
     <div className="relative" ref={ref}>
       <button
         type="button"
-        onClick={() => setOpen(!open)}
+        disabled={isDisabled}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => !isDisabled && setOpen((v) => !v)}
         className={cn(
-          "inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl border transition-all",
+          "inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition-all",
           open
-            ? "bg-slate-100 border-slate-300 text-slate-800"
-            : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300"
+            ? "border-slate-300 bg-slate-100 text-slate-800"
+            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50",
+          isDisabled && "cursor-not-allowed opacity-50"
         )}
       >
-        <Download size={14} />
-        Export
+        {busy ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+        {busy ? "Preparing…" : "Export"}
         <ChevronDown size={12} className={cn("transition-transform", open && "rotate-180")} />
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-lg z-20 py-1">
+        <div
+          role="menu"
+          aria-label="Export pickup manifest"
+          className="absolute right-0 top-full z-20 mt-1 w-52 rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+        >
           <button
             type="button"
-            onClick={handlePrint}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+            role="menuitem"
+            onClick={() => handlePrint(false)}
+            className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50"
           >
             <Printer size={14} className="text-slate-400" />
             Print manifest
           </button>
           <button
             type="button"
+            role="menuitem"
             onClick={handleCsv}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+            className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50"
           >
             <FileText size={14} className="text-slate-400" />
             Export CSV
           </button>
           <button
             type="button"
-            onClick={handlePdf}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+            role="menuitem"
+            onClick={() => handlePrint(true)}
+            className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50"
           >
             <Download size={14} className="text-slate-400" />
             Save as PDF
           </button>
+          <p className="border-t border-slate-100 px-3 pb-1 pt-2 text-[10px] leading-snug text-slate-400">
+            Exports the full filtered range.
+          </p>
         </div>
       )}
     </div>

@@ -193,17 +193,46 @@ export async function fetchCustomerBookings(customerId) {
   return (payload.bookings || []).map(mapBookingRow);
 }
 
-export async function fetchPickupPlanner(params = {}) {
+export async function fetchPickupPlanner({ signal, ...params } = {}) {
   const response = await api.get("/bookings/supplier/pickup-planner", {
     params,
+    signal,
     skipGlobalErrorHandler: true,
   });
   const payload = response.data?.data || {};
   return {
     bookings: (payload.bookings || []).map(mapBookingRow),
     counts: payload.counts || null,
+    truncated: !!payload.truncated,
     pagination: payload.pagination || null,
   };
+}
+
+/**
+ * Page through the planner endpoint for exports and full-day reorders.
+ * The server caps a single response at 200 rows; exports must not silently
+ * contain only the visible page.
+ */
+export async function fetchAllPickupPlanner(params = {}) {
+  const limit = 200;
+  const maxPages = 25; // 5,000 rows; the server itself caps the range at 2,000
+  let page = 1;
+  let totalPages;
+  let totalCount;
+  let truncated = false;
+  const bookings = [];
+
+  do {
+    const result = await fetchPickupPlanner({ ...params, page, limit });
+    bookings.push(...result.bookings);
+    totalCount = result.pagination?.totalCount ?? bookings.length;
+    totalPages = result.pagination?.totalPages ?? 1;
+    truncated = truncated || !!result.truncated;
+    page += 1;
+  } while (page <= totalPages && page <= maxPages);
+
+  if (page - 1 < totalPages) truncated = true;
+  return { bookings, totalCount: totalCount ?? bookings.length, truncated };
 }
 
 /** Persist the supplier's stop order for one service day. */
