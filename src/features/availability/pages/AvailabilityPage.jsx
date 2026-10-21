@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCw,
+  Loader2,
   AlertCircle,
   Package,
   Clock,
@@ -34,7 +35,9 @@ import {
   fetchTourAvailability,
   updateDateAvailability,
   removeDateOverride,
+  batchUpdateAvailability,
 } from "@/features/availability/api";
+import { datesInRange, MAX_BATCH_DATES } from "@/features/availability/rangeBlock";
 import LoadingSpinner from "@/components/shared/LoadingSpinner";
 import { CutoffSelect } from "@/features/products/CutoffSelect";
 import { cutoffInstant, formatCutoffLabel } from "@/features/products/cutoffOptions";
@@ -92,6 +95,12 @@ export default function AvailabilityPage() {
   const [slotCutoffDrafts, setSlotCutoffDrafts] = useState({});
   const [defaultCutoffDraft, setDefaultCutoffDraft] = useState(20);
   const [statusFilter, setStatusFilter] = useState({ available: true, limited: true, full: true, blocked: true, past: true });
+  // Bulk block: one confirmation for a whole range instead of clicking days.
+  const [rangeBlockOpen, setRangeBlockOpen] = useState(false);
+  const [rangeFrom, setRangeFrom] = useState("");
+  const [rangeTo, setRangeTo] = useState("");
+  const [rangeSubmitting, setRangeSubmitting] = useState(false);
+  const [rangeError, setRangeError] = useState(null);
   const [dateMode, setDateMode] = useState("month");
   const [selectedOption, setSelectedOption] = useState("");
 
@@ -194,6 +203,36 @@ export default function AvailabilityPage() {
   }, [rangeDays, getDay]);
 
   const totalDays = rangeDays.length;
+
+  const rangeDates = datesInRange(rangeFrom, rangeTo);
+
+  /**
+   * Block every date in the range. The API applies the batch ALL-OR-NOTHING
+   * (it refuses any range holding a live booking), so a failure means nothing
+   * changed and the copy says exactly that.
+   */
+  const handleBlockRange = async () => {
+    if (rangeDates.length === 0) return;
+    setRangeSubmitting(true);
+    setRangeError(null);
+    try {
+      await batchUpdateAvailability(
+        tourId,
+        rangeDates.map((date) => ({ date, status: "BLOCKED" }))
+      );
+      toast.success(
+        `Blocked ${rangeDates.length} date${rangeDates.length === 1 ? "" : "s"}`
+      );
+      setRangeBlockOpen(false);
+      setRangeFrom("");
+      setRangeTo("");
+      queryClient.invalidateQueries({ queryKey: ["tour-availability", tourId] });
+    } catch (err) {
+      setRangeError(err.response?.data?.message || "Failed to block these dates");
+    } finally {
+      setRangeSubmitting(false);
+    }
+  };
 
   const blockMut = useMutation({
     mutationFn: ({ tourId, date, status, unblock }) =>
@@ -516,7 +555,95 @@ export default function AvailabilityPage() {
           <span className="w-1.5 h-1.5 rounded-full bg-[#044b3b]" />
           <span className="text-[11px] text-slate-400">Override</span>
         </div>
+        <button
+          type="button"
+          onClick={() => setRangeBlockOpen((v) => !v)}
+          className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-[11px] sm:text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-all ml-auto"
+        >
+          <Ban size={11} />
+          Block a date range
+        </button>
       </div>
+
+      {/* ====== BULK BLOCK PANEL ====== */}
+      {rangeBlockOpen && (
+        <div className="mb-4 bg-white rounded-xl border border-slate-200 p-4">
+          <h3 className="text-sm font-semibold text-slate-800">Block a date range</h3>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Blocked dates cannot be booked. The whole range is applied together: if
+            any date in it already has travellers booked, nothing changes and the
+            server names the date that stopped it.
+          </p>
+
+          <div className="flex flex-wrap items-end gap-3 mt-3">
+            <div>
+              <label htmlFor="block-from" className="block text-xs text-slate-500 mb-1">
+                From
+              </label>
+              <input
+                id="block-from"
+                type="date"
+                value={rangeFrom}
+                onChange={(e) => setRangeFrom(e.target.value)}
+                className="px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+              />
+            </div>
+            <div>
+              <label htmlFor="block-to" className="block text-xs text-slate-500 mb-1">
+                To
+              </label>
+              <input
+                id="block-to"
+                type="date"
+                value={rangeTo}
+                min={rangeFrom || undefined}
+                onChange={(e) => setRangeTo(e.target.value)}
+                className="px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleBlockRange}
+                disabled={rangeDates.length === 0 || rangeSubmitting}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-red-600 text-white hover:bg-red-700 disabled:bg-slate-200 disabled:text-slate-400 transition-colors"
+              >
+                {rangeSubmitting && <Loader2 size={13} className="animate-spin" />}
+                {rangeDates.length > 0
+                  ? `Block ${rangeDates.length} date${rangeDates.length === 1 ? "" : "s"}`
+                  : "Block dates"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRangeBlockOpen(false);
+                  setRangeError(null);
+                }}
+                className="px-3.5 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+
+          {rangeDates.length > MAX_BATCH_DATES && (
+            <p className="text-xs text-red-600 mt-2">
+              A range can cover at most {MAX_BATCH_DATES} dates at a time.
+            </p>
+          )}
+          {rangeFrom && rangeTo && rangeFrom > rangeTo && (
+            <p className="text-xs text-red-600 mt-2">The start date must be before the end date.</p>
+          )}
+
+          {rangeError && (
+            <div role="alert" className="mt-3 p-2.5 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700">
+              <p className="font-semibold">Nothing was changed.</p>
+              <p className="mt-0.5">{rangeError}</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ====== CALENDAR ====== */}
       {calendar[0]?.capacityUnit === "groups" && (
