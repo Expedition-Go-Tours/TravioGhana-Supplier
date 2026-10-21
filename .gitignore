@@ -41,8 +41,6 @@ Expedition-Go-Backend/
 .env.example
 /test-results
 playwright-report
-playwright.config.js
-test.yml
 .vercel
 .playwright-mcp
 *.png
@@ -55,3 +53,8 @@ test.yml
 !public/icons/store/*.png
 *.txt
 start file
+
+# Playwright is the release-gate harness, not a local artefact.
+!playwright.config.js
+!e2e/**
+!test.yml

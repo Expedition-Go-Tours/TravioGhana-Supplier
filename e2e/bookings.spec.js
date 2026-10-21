@@ -1,102 +1,59 @@
 import { test, expect } from '@playwright/test';
+import { installApiMocks, signIn, BOOKINGS } from './fixtures.js';
 
 /**
- * E2E tests for Bookings page
+ * Bookings is the supplier's highest-frequency workflow, so the release gate
+ * covers the three things that broke repeatedly: the quick filter must reach
+ * the API (not just the URL), the page must render every returned booking, and
+ * a filtered result must not claim the supplier has no bookings at all.
  */
-test.describe('Bookings Page', () => {
+test.describe('Bookings', () => {
   test.beforeEach(async ({ page }) => {
+    await signIn(page);
+    await installApiMocks(page);
     await page.goto('/bookings');
-    await page.waitForLoadState('networkidle');
   });
 
-  test('should display bookings table', async ({ page }) => {
-    // Check that the page heading is visible
-    const heading = page.getByRole('heading', { name: /bookings/i });
-    await expect(heading).toBeVisible();
-    
-    // Check that the table or empty state is visible
-    const table = page.locator('table');
-    const emptyState = page.getByText(/no bookings/i);
-    
-    // Either table or empty state should be visible
-    const tableVisible = await table.isVisible().catch(() => false);
-    const emptyStateVisible = await emptyState.isVisible().catch(() => false);
-    
-    expect(tableVisible || emptyStateVisible).toBe(true);
+  test('renders the booking list with server-provided rows', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: 'Bookings', exact: true })).toBeVisible();
+    await expect(page.getByText(BOOKINGS[0].bookingNumber).filter({ visible: true }).first()).toBeVisible();
+    await expect(page.getByText(BOOKINGS[1].bookingNumber).filter({ visible: true }).first()).toBeVisible();
   });
 
-  test('should filter bookings by status', async ({ page }) => {
-    // Click on the status filter button
-    const statusButton = page.getByRole('button', { name: /status/i });
-    await statusButton.click();
-    
-    // Wait for dropdown to appear
-    await page.waitForSelector('text=Confirmed', { timeout: 5000 });
-    
-    // Select a status filter
-    await page.click('text=Confirmed');
-    
-    // Check that the filter is applied (URL should update)
-    await page.waitForURL('**/bookings?*status=CONFIRMED*');
+  test('quick filters are reflected in the URL', async ({ page }) => {
+    await page.getByRole('button', { name: 'Confirmed', exact: true }).click();
+    await expect(page).toHaveURL(/tab=CONFIRMED/);
   });
 
-  test('should search for bookings', async ({ page }) => {
-    // Find the search input
-    const searchInput = page.getByPlaceholder(/search/i);
-    await expect(searchInput).toBeVisible();
-    
-    // Type in the search box
-    await searchInput.fill('John');
-    
-    // Press Enter or wait for debounce
-    await searchInput.press('Enter');
-    
-    // Check that URL updates with search query
-    await page.waitForURL('**/bookings?*search=*');
+  test('quick filters are sent to the server, not applied page-locally', async ({ page }) => {
+    const statusRequests = [];
+    page.on('request', (request) => {
+      if (request.url().includes('/travioghana/supplier/bookings')) {
+        statusRequests.push(new URL(request.url()).searchParams.get('status'));
+      }
+    });
+
+    await page.getByRole('button', { name: 'Pending', exact: true }).click();
+    await expect.poll(() => statusRequests.filter(Boolean).at(-1)).toBe('PENDING');
   });
 
-  test('should change page size', async ({ page }) => {
-    // Find the page size selector
-    const pageSizeSelect = page.locator('select').first();
-    
-    if (await pageSizeSelect.isVisible()) {
-      // Change page size
-      await pageSizeSelect.selectOption('50');
-      
-      // Check that URL updates
-      await page.waitForURL('**/bookings?*pageSize=50*');
-    }
+  test('search is sent to the server after a short debounce', async ({ page }) => {
+    const searchRequests = [];
+    page.on('request', (request) => {
+      if (request.url().includes('/travioghana/supplier/bookings')) {
+        searchRequests.push(new URL(request.url()).searchParams.get('search'));
+      }
+    });
+
+    await page.getByPlaceholder(/search name, reference or tour/i).fill('Kwame');
+    await expect.poll(() => searchRequests.filter((value) => value === 'Kwame').length).toBeGreaterThan(0);
+    await expect(page).toHaveURL(/search=Kwame/);
+    await expect(page.getByText(BOOKINGS[0].bookingNumber).filter({ visible: true }).first()).toBeVisible();
   });
 
-  test('should navigate between quick filter tabs', async ({ page }) => {
-    // Click on "Awaiting Confirmation" tab
-    const awaitingTab = page.getByRole('button', { name: /awaiting confirmation/i });
-    
-    if (await awaitingTab.isVisible()) {
-      await awaitingTab.click();
-      
-      // Check that URL updates
-      await page.waitForURL('**/bookings?*status=AWAITING_CONFIRMATION*');
-    }
-  });
-
-  test('should clear all filters', async ({ page }) => {
-    // Apply some filters first
-    const searchInput = page.getByPlaceholder(/search/i);
-    await searchInput.fill('test');
-    await searchInput.press('Enter');
-    
-    // Wait for filters to be applied
-    await page.waitForURL('**/bookings?*search=*');
-    
-    // Click clear filters button
-    const clearButton = page.getByRole('button', { name: /clear/i });
-    
-    if (await clearButton.isVisible()) {
-      await clearButton.click();
-      
-      // Check that URL is reset
-      await page.waitForURL('/bookings');
-    }
+  test('a filtered empty list does not say the supplier has no bookings', async ({ page }) => {
+    await page.getByPlaceholder(/search name, reference or tour/i).fill('zzzz-no-match');
+    await expect(page.getByText(/no bookings match/i)).toBeVisible();
+    await expect(page.getByText(/bookings will appear here once customers/i)).toHaveCount(0);
   });
 });
