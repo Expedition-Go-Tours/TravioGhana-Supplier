@@ -65,14 +65,13 @@ export default function BookingsPage() {
     10
   );
   const activeTab = searchParams.get("tab") || "ALL";
+  const searchTerm = searchParams.get("search") || "";
   const purchaseDateFrom = searchParams.get("purchaseFrom") || "";
   const purchaseDateTo = searchParams.get("purchaseTo") || "";
   const activityDateFrom = searchParams.get("activityFrom") || "";
   const activityDateTo = searchParams.get("activityTo") || "";
 
-  const [localSearch, setLocalSearch] = useState(
-    searchParams.get("search") || ""
-  );
+  const [localSearch, setLocalSearch] = useState(searchTerm);
   const [locPurchaseFrom, setLocPurchaseFrom] = useState(purchaseDateFrom);
   const [locPurchaseTo, setLocPurchaseTo] = useState(purchaseDateTo);
   const [locActivityFrom, setLocActivityFrom] = useState(activityDateFrom);
@@ -92,6 +91,11 @@ export default function BookingsPage() {
         page: page + 1,
         limit: pageSize,
         ...(apiStatus ? { status: apiStatus } : {}),
+        ...(searchTerm ? { search: searchTerm } : {}),
+        ...(purchaseDateFrom ? { purchaseFrom: purchaseDateFrom } : {}),
+        ...(purchaseDateTo ? { purchaseTo: purchaseDateTo } : {}),
+        ...(activityDateFrom ? { activityFrom: activityDateFrom } : {}),
+        ...(activityDateTo ? { activityTo: activityDateTo } : {}),
       });
       setBookings(result.bookings);
       setPagination(result.pagination);
@@ -106,7 +110,16 @@ export default function BookingsPage() {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [page, pageSize, apiStatus]);
+  }, [
+    page,
+    pageSize,
+    apiStatus,
+    searchTerm,
+    purchaseDateFrom,
+    purchaseDateTo,
+    activityDateFrom,
+    activityDateTo,
+  ]);
 
   // Initial load
   useEffect(() => {
@@ -171,6 +184,37 @@ export default function BookingsPage() {
     setLocActivityFrom("");
     setLocActivityTo("");
     setSearchParams({});
+  };
+
+  // Search is a server-side filter. Debouncing keeps a fast typist from
+  // firing one request per keystroke, and pushing it into the URL makes the
+  // result shareable and reload-safe (the previous implementation filtered
+  // only the rows already on the current page, so page 2 was invisible).
+  useEffect(() => {
+    const trimmed = localSearch.trim();
+    if (trimmed === searchTerm) return undefined;
+    const timer = setTimeout(() => {
+      const params = new URLSearchParams(searchParams);
+      if (trimmed) params.set("search", trimmed);
+      else params.delete("search");
+      params.set("page", "0");
+      setSearchParams(params, { replace: true });
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [localSearch, searchTerm, searchParams, setSearchParams]);
+
+  // Back/forward and "clear filters" update the URL, so the input must follow.
+  // Adjusted during render (React's recommended "derive from props" pattern)
+  // rather than in an effect, which would cascade a second render.
+  const [prevSearchTerm, setPrevSearchTerm] = useState(searchTerm);
+  if (prevSearchTerm !== searchTerm) {
+    setPrevSearchTerm(searchTerm);
+    setLocalSearch(searchTerm);
+  }
+
+  const setDateFilter = (key, value, setLocal) => {
+    setLocal(value);
+    updateFilters({ [key]: value || undefined, page: 0 });
   };
 
   const handleTabClick = (tabKey) => updateFilters({ tab: tabKey, page: 0 });
@@ -275,63 +319,49 @@ export default function BookingsPage() {
     [navigate]
   );
 
-  const filteredData = useMemo(() => {
-    let data = [...bookings];
-    const q = localSearch.toLowerCase().trim();
-    if (q) {
-      data = data.filter(
-        (b) =>
-          b.bookingNumber.toLowerCase().includes(q) ||
-          b.customerName.toLowerCase().includes(q) ||
-          b.customerEmail.toLowerCase().includes(q) ||
-          b.tourName.toLowerCase().includes(q)
-      );
-    }
-    if (purchaseDateFrom) {
-      const f = new Date(purchaseDateFrom);
-      data = data.filter((b) => new Date(b.bookingDate) >= f);
-    }
-    if (purchaseDateTo) {
-      const t = new Date(purchaseDateTo);
-      data = data.filter((b) => new Date(b.bookingDate) <= t);
-    }
-    if (activityDateFrom) {
-      const f = new Date(activityDateFrom);
-      data = data.filter((b) => new Date(b.travelDate) >= f);
-    }
-    if (activityDateTo) {
-      const t = new Date(activityDateTo);
-      data = data.filter((b) => new Date(b.travelDate) <= t);
-    }
-    data.sort((a, b) => new Date(b.bookingDate) - new Date(a.bookingDate));
-    return data;
-  }, [
-    bookings,
-    localSearch,
-    purchaseDateFrom,
-    purchaseDateTo,
-    activityDateFrom,
-    activityDateTo,
-  ]);
-
-  const stats = useMemo(
-    () => ({
-      total: filteredData.length,
-      pending: filteredData.filter((b) => b.status === "PENDING").length,
-      confirmed: filteredData.filter((b) => b.status === "CONFIRMED").length,
-      completed: filteredData.filter((b) => b.status === "COMPLETED").length,
-      cancelled: filteredData.filter((b) => b.status === "CANCELLED").length,
-      revenue: bookingSummary?.totalRevenue ?? filteredData.reduce((sum, b) => sum + b.total, 0),
-    }),
-    [filteredData, bookingSummary]
+  // Search and date filters are applied by the API (they have to be: a
+  // supplier can have thousands of bookings and the browser only holds one
+  // page). Keep a copy for rendering so we never mutate the state array.
+  const filteredData = useMemo(
+    () =>
+      [...bookings].sort(
+        (a, b) => new Date(b.bookingDate) - new Date(a.bookingDate)
+      ),
+    [bookings]
   );
 
-  const hasFilters =
-    localSearch ||
+  const stats = useMemo(() => {
+    const summaryCounts = bookingSummary?.counts || {};
+    return {
+      total:
+        bookingSummary?.totalBookings ??
+        pagination?.totalCount ??
+        filteredData.length,
+      pending:
+        summaryCounts.PENDING ??
+        filteredData.filter((b) => b.status === "PENDING").length,
+      confirmed:
+        summaryCounts.CONFIRMED ??
+        filteredData.filter((b) => b.status === "CONFIRMED").length,
+      completed:
+        summaryCounts.COMPLETED ??
+        filteredData.filter((b) => b.status === "COMPLETED").length,
+      cancelled:
+        summaryCounts.CANCELLED ??
+        filteredData.filter((b) => b.status === "CANCELLED").length,
+      revenue:
+        bookingSummary?.totalRevenue ??
+        filteredData.reduce((sum, b) => sum + (Number(b.total) || 0), 0),
+    };
+  }, [filteredData, bookingSummary, pagination]);
+
+  const hasFilters = Boolean(
+    searchTerm ||
     purchaseDateFrom ||
     purchaseDateTo ||
     activityDateFrom ||
-    activityDateTo;
+    activityDateTo
+  );
   const totalItems = pagination?.totalCount ?? filteredData.length;
   const totalPages =
     pagination?.totalPages ?? (Math.ceil(filteredData.length / pageSize) || 1);
@@ -496,11 +526,11 @@ export default function BookingsPage() {
               className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
             />
             <input
-              type="text"
+              type="search"
+              aria-label="Search bookings by customer, reference or tour"
               placeholder="Search name, reference or tour..."
               value={localSearch}
               onChange={(e) => setLocalSearch(e.target.value)}
-              autoFocus
               className="w-full pl-9 pr-3 py-2 bg-emerald-50/40 border border-emerald-100/60 rounded-lg text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#044b3b]/20 focus:border-[#044b3b] focus:bg-white transition-all"
             />
           </div>
@@ -544,7 +574,7 @@ export default function BookingsPage() {
               <span>Purchased</span>
               <DatePicker
                 value={locPurchaseFrom}
-                onChange={setLocPurchaseFrom}
+                onChange={(value) => setDateFilter("purchaseFrom", value, setLocPurchaseFrom)}
                 placeholder="From"
                 size="sm"
                 className="w-28"
@@ -553,7 +583,7 @@ export default function BookingsPage() {
               <span className="text-slate-300">–</span>
               <DatePicker
                 value={locPurchaseTo}
-                onChange={setLocPurchaseTo}
+                onChange={(value) => setDateFilter("purchaseTo", value, setLocPurchaseTo)}
                 placeholder="To"
                 size="sm"
                 className="w-28"
@@ -565,7 +595,7 @@ export default function BookingsPage() {
               <span>Activity</span>
               <DatePicker
                 value={locActivityFrom}
-                onChange={setLocActivityFrom}
+                onChange={(value) => setDateFilter("activityFrom", value, setLocActivityFrom)}
                 placeholder="From"
                 size="sm"
                 className="w-28"
@@ -574,7 +604,7 @@ export default function BookingsPage() {
               <span className="text-slate-300">–</span>
               <DatePicker
                 value={locActivityTo}
-                onChange={setLocActivityTo}
+                onChange={(value) => setDateFilter("activityTo", value, setLocActivityTo)}
                 placeholder="To"
                 size="sm"
                 className="w-28"
@@ -624,10 +654,12 @@ export default function BookingsPage() {
             />
           </div>
           <p className="text-sm font-medium text-slate-700 mb-1">
-            No bookings yet
+            {hasFilters ? "No bookings match your filters" : "No bookings yet"}
           </p>
           <p className="text-xs text-slate-500 mb-4">
-            Bookings will appear here once customers make reservations
+            {hasFilters
+              ? "Try a different search term or widen the dates. Your other bookings are still here."
+              : "Bookings will appear here once customers make reservations"}
           </p>
           {hasFilters && (
             <button
@@ -641,8 +673,8 @@ export default function BookingsPage() {
       ) : (
         <>
           <p className="text-xs text-slate-500">
-            {filteredData.length} booking
-            {filteredData.length !== 1 ? "s" : ""}
+            {totalItems} booking{totalItems !== 1 ? "s" : ""}
+            {hasFilters ? " match your filters" : ""}
           </p>
           <div className="space-y-3">
             {filteredData.map((booking) => (
