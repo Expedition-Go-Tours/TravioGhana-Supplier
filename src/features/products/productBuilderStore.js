@@ -1164,8 +1164,12 @@ export const useProductBuilderStore = create(
           currentSectionId: nextMapping.sectionId,
           currentStepId: nextMapping.stepId,
           completedStepIds: newCompleted,
-          isDirty: false,
-          lastSaved: new Date().toISOString(),
+          // Deliberately NOT touching isDirty/lastSaved: moving between steps
+          // is not a save. The old code cleared the dirty flag and stamped
+          // `lastSaved`, which did two dishonest things at once — the footer
+          // announced "Draft saved" for a save that never happened, and the
+          // unsaved-changes guard stopped protecting edits that only existed in
+          // the browser tab.
         })
       },
 
