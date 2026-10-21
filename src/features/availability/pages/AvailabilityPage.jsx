@@ -181,7 +181,11 @@ export default function AvailabilityPage() {
     return eachDayOfInterval({ start: startOfMonth(currentDate), end: endOfMonth(currentDate) });
   }, [currentDate, dateMode]);
 
-  const visibleDays = useMemo(() => rangeDays.filter((d) => statusFilter[getDay(d).status]), [rangeDays, statusFilter, getDay]);
+  // Filtering must never remove calendar cells: the grid is keyed to the fixed
+  // weekday header, so a dropped cell slides every later date one column to the
+  // left and the day numbers stop matching the header. Filtered-out days stay
+  // in place and are dimmed (and unclickable) instead.
+  const visibleDays = rangeDays;
 
   const stats = useMemo(() => {
     const s = { available: 0, limited: 0, full: 0, blocked: 0, past: 0 };
@@ -532,7 +536,7 @@ export default function AvailabilityPage() {
         ) : visibleDays.length === 0 ? (
           <div className="py-16 flex flex-col items-center justify-center text-center">
             <CalendarIcon size={32} className="text-slate-300 mb-2" strokeWidth={1.5} />
-            <p className="text-sm text-slate-400">No dates match the current filters</p>
+            <p className="text-sm text-slate-400">No dates in this range</p>
             <button onClick={() => setStatusFilter({ available: true, limited: true, full: true, blocked: true, past: true })} className="mt-2 text-xs text-[#044b3b] hover:text-[#033629] underline">
               Reset filters
             </button>
