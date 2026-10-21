@@ -9,6 +9,7 @@ import { formatCurrency } from "@/lib/utils";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { getAuthToken } from "@/stores/authStore";
 import { fetchSupplierAnalytics, fetchMonthlyRevenue, fetchProductAnalytics } from "../api";
+import { compareLastTwoMonths, formatDelta } from "../comparisons";
 
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -80,16 +81,34 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [monthlyRevenueData, setMonthlyRevenueData] = useState([]);
+  // A chart that failed to load must say so. These used to be swallowed with
+  // `.catch(() => [])`, which rendered "No booking data" — indistinguishable
+  // from a supplier who genuinely has none.
+  const [partialErrors, setPartialErrors] = useState([]);
 
   const fetchData = () => {
     if (!getAuthToken()) { setLoading(false); return; }
     setLoading(true); setError(null);
-    Promise.all([
-      fetchSupplierAnalytics(),
-      fetchProductAnalytics().catch(() => []),
-      fetchMonthlyRevenue(12).catch(() => []),
-    ])
-      .then(([d, p, monthly]) => { setData(d); setProducts(p); setMonthlyRevenueData(monthly); })
+    fetchSupplierAnalytics()
+      .then(async (d) => {
+        const [productsResult, monthlyResult] = await Promise.allSettled([
+          fetchProductAnalytics(),
+          fetchMonthlyRevenue(12),
+        ]);
+
+        const failed = [];
+        const nextProducts =
+          productsResult.status === "fulfilled" ? productsResult.value : [];
+        const nextMonthly =
+          monthlyResult.status === "fulfilled" ? monthlyResult.value : [];
+        if (productsResult.status !== "fulfilled") failed.push("per-product charts");
+        if (monthlyResult.status !== "fulfilled") failed.push("revenue trend");
+
+        setData(d);
+        setProducts(nextProducts);
+        setMonthlyRevenueData(nextMonthly);
+        setPartialErrors(failed);
+      })
       .catch((err) => {
         if (err.code === "AUTH_REQUIRED") return;
         setError(err.response?.data?.message || err.message || "Failed to load analytics");
@@ -120,44 +139,44 @@ export default function AnalyticsPage() {
 
   const avgRating = reviews.averageRating || 0;
 
-  const productBookings = useMemo(() => {
-    const map = {};
-    products.forEach(p => {
-      const name = p.name || "Unknown";
-      map[name] = (map[name] || 0) + (p.bookings || 0);
-    });
-    return Object.entries(map)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([name, value], i) => ({ name: name.length > 12 ? name.slice(0, 12) + "…" : name, value, color: PIE_COLORS[i] }));
-  }, [products]);
+  // One row per TOUR. Merging tours by title was wrong twice over: two
+  // different products called "City Tour" are two products (different prices,
+  // different calendars), and the merged row could show neither one's rating.
+  const productBookings = useMemo(
+    () =>
+      [...products]
+        .sort((a, b) => (b.bookings || 0) - (a.bookings || 0))
+        .slice(0, 5)
+        .map((p, i) => ({
+          name: (p.name || "Unknown").length > 12 ? p.name.slice(0, 12) + "…" : p.name,
+          value: p.bookings || 0,
+          color: PIE_COLORS[i],
+        })),
+    [products]
+  );
 
-  const productRevenue = useMemo(() => {
-    // Grouped by name so a name shared by two tours reads as one product, and
-    // ranked by revenue: the best sellers, over every booking rather than only
-    // the 50 most recent this page used to walk.
-    const map = {};
-    products.forEach(p => {
-      const name = p.name || "Unknown";
-      if (!map[name]) map[name] = { revenue: 0, bookings: 0, photo: "", tourId: "" };
-      map[name].revenue += (p.revenue || 0);
-      map[name].bookings += p.bookings || 0;
-      if (!map[name].photo && p.photo) map[name].photo = p.photo;
-      if (!map[name].tourId && p.tourId) map[name].tourId = p.tourId;
-    });
+  const productRevenue = useMemo(
+    () =>
+      [...products]
+        .sort((a, b) => (b.revenue || 0) - (a.revenue || 0))
+        .slice(0, 4)
+        .map((p) => ({
+          name: p.name || "Unknown",
+          revenue: Number(p.revenue) || 0,
+          bookings: Number(p.bookings) || 0,
+          photo: p.photo || "",
+          tourId: p.tourId || "",
+          // Each tour's OWN rating. The row used to print the account-wide
+          // average for every product, so a 3-star tour displayed 4.3★.
+          rating: p.rating != null ? Number(p.rating) : null,
+        })),
+    [products]
+  );
 
-    return Object.entries(map)
-      .sort((a, b) => b[1].revenue - a[1].revenue)
-      .slice(0, 4)
-      .map(([name, agg]) => ({
-        name,
-        revenue: agg.revenue,
-        bookings: agg.bookings,
-        photo: agg.photo,
-        tourId: agg.tourId,
-        rating: avgRating,
-      }));
-  }, [products, avgRating]);
+  // Real comparison from the monthly series — named buckets, computed, and
+  // absent when the series cannot support one. "vs previous period" used to be
+  // printed with no calculation behind it at all.
+  const comparison = useMemo(() => compareLastTwoMonths(monthlyRevenueData), [monthlyRevenueData]);
 
   // The endpoint returns a continuous month window (zeros included), so an
   // "empty" trend means every bucket is zero — show that state instead of a
@@ -191,6 +210,20 @@ export default function AnalyticsPage() {
         </div>
       )}
 
+      {/* A chart that failed is never the same thing as an empty chart. */}
+      {partialErrors.length > 0 && !loading && (
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center gap-2">
+          <AlertTriangle size={12} className="shrink-0" />
+          <span>
+            We couldn't load the {partialErrors.join(" and ")} — the rest of this page
+            is up to date, but those sections are missing, not empty.
+          </span>
+          <button onClick={fetchData} className="ml-auto font-medium underline">
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Stats Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-white border border-slate-200 rounded-xl p-4 hover:shadow-md transition-all">
@@ -198,12 +231,26 @@ export default function AnalyticsPage() {
             <div className="w-9 h-9 rounded-lg bg-emerald-50 border border-emerald-200/60 flex items-center justify-center">
               <DollarSign size={16} className="text-emerald-600" />
             </div>
-            {!loading && <span className="text-[11px] text-slate-400 font-medium">vs previous period</span>}
+            {!loading && (
+              <span className="text-[11px] text-slate-400 font-medium">
+                {comparison ? comparison.label : "Last 12 months"}
+              </span>
+            )}
           </div>
           {loading ? (
             <div className="space-y-1.5"><div className="h-5 w-20 bg-slate-100 rounded animate-pulse" /><div className="h-3 w-16 bg-slate-100 rounded animate-pulse" /></div>
           ) : (
-            <><p className="text-lg font-bold text-slate-800">{formatCurrency(totalRevenue)}</p><p className="text-[11px] text-slate-400 mt-0.5">Earnings</p></>
+            <>
+              <p className="text-lg font-bold text-slate-800">{formatCurrency(totalRevenue)}</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Earnings
+                {comparison && (
+                  <span className={comparison.revenuePct > 0 ? "text-emerald-600 ml-1" : comparison.revenuePct < 0 ? "text-red-600 ml-1" : "text-slate-400 ml-1"}>
+                    {formatDelta(comparison.revenuePct)}
+                  </span>
+                )}
+              </p>
+            </>
           )}
           <div className="mt-2 h-0.5 w-full rounded-full bg-emerald-200/40" />
         </div>
@@ -213,12 +260,26 @@ export default function AnalyticsPage() {
             <div className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-200/60 flex items-center justify-center">
               <ShoppingCart size={16} className="text-blue-600" />
             </div>
-            {!loading && <span className="text-[11px] text-slate-400 font-medium">vs previous period</span>}
+            {!loading && (
+              <span className="text-[11px] text-slate-400 font-medium">
+                {comparison ? comparison.label : "Last 12 months"}
+              </span>
+            )}
           </div>
           {loading ? (
             <div className="space-y-1.5"><div className="h-5 w-12 bg-slate-100 rounded animate-pulse" /><div className="h-3 w-16 bg-slate-100 rounded animate-pulse" /></div>
           ) : (
-            <><p className="text-lg font-bold text-slate-800">{totalBookings}</p><p className="text-[11px] text-slate-400 mt-0.5">Bookings</p></>
+            <>
+              <p className="text-lg font-bold text-slate-800">{totalBookings}</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Bookings
+                {comparison && (
+                  <span className={comparison.bookingsPct > 0 ? "text-emerald-600 ml-1" : comparison.bookingsPct < 0 ? "text-red-600 ml-1" : "text-slate-400 ml-1"}>
+                    {formatDelta(comparison.bookingsPct)}
+                  </span>
+                )}
+              </p>
+            </>
           )}
           <div className="mt-2 h-0.5 w-full rounded-full bg-blue-200/40" />
         </div>
@@ -243,7 +304,7 @@ export default function AnalyticsPage() {
             <div className="w-9 h-9 rounded-lg bg-purple-50 border border-purple-200/60 flex items-center justify-center">
               <TrendingUp size={16} className="text-purple-600" />
             </div>
-            {!loading && <span className="text-[11px] text-slate-400 font-medium">vs last month</span>}
+            {!loading && <span className="text-[11px] text-slate-400 font-medium">Published catalogue</span>}
           </div>
           {loading ? (
             <div className="space-y-1.5"><div className="h-5 w-16 bg-slate-100 rounded animate-pulse" /><div className="h-3 w-16 bg-slate-100 rounded animate-pulse" /></div>
@@ -298,10 +359,12 @@ export default function AnalyticsPage() {
                 </PieChart>
               </ResponsiveContainer>
               <div className="mt-3 space-y-1.5">
-                {productBookings.map((p) => (
-                  <div key={p.name} className="flex items-center justify-between text-xs">
+                {productBookings.map((p, i) => (
+                  <div key={`${p.name}-${i}`} className="flex items-center justify-between text-xs">
                     <span className="flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
+                      {/* Two tours can share a title; the value beside the name
+                          is what distinguishes them, so the name is not a key. */}
                       <span className="text-slate-500">{p.name}</span>
                     </span>
                     <span className="font-medium text-slate-700">{p.value}</span>
@@ -309,6 +372,10 @@ export default function AnalyticsPage() {
                 ))}
               </div>
             </>
+          ) : partialErrors.length > 0 ? (
+            <div className="flex items-center justify-center h-[200px] text-xs text-amber-700">
+              Couldn't load this chart
+            </div>
           ) : (
             <div className="flex items-center justify-center h-[200px] text-xs text-slate-400">No booking data</div>
           )}
@@ -320,7 +387,7 @@ export default function AnalyticsPage() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-sm font-semibold text-slate-800">Best Selling Products</h3>
-            <p className="text-[10px] text-slate-400 mt-0.5">Top performing tours by bookings</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">Top performing tours by revenue</p>
           </div>
         </div>
         {loading ? (
@@ -348,7 +415,9 @@ export default function AnalyticsPage() {
                     </td>
                     <td className="py-3 px-3 text-right text-[11px] text-slate-800 font-medium">{formatCurrency(p.revenue)}</td>
                     <td className="py-3 px-3 text-right text-[11px] text-slate-600">{p.bookings}</td>
-                    <td className="py-3 pl-3 text-right text-[11px] text-amber-600">{p.rating.toFixed(2)} ★</td>
+                    <td className="py-3 pl-3 text-right text-[11px] text-amber-600">
+                      {p.rating != null && p.rating > 0 ? `${p.rating.toFixed(2)} ★` : <span className="text-slate-400">Not rated</span>}
+                    </td>
                     <td className="py-3 pl-3 text-right">
                       <button
                         type="button"
@@ -364,6 +433,10 @@ export default function AnalyticsPage() {
               </tbody>
             </table>
           </div>
+        ) : partialErrors.length > 0 ? (
+          <p className="text-xs text-amber-700 text-center py-8">
+            We couldn't load the per-product figures. They are missing, not zero.
+          </p>
         ) : (
           <p className="text-xs text-slate-400 text-center py-8">No product data available yet</p>
         )}

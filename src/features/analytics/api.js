@@ -25,5 +25,13 @@ export async function fetchMonthlyRevenue(months = 12) {
     params: { months },
     skipGlobalErrorHandler: true,
   });
-  return response.data?.data?.months || [];
+  // Normalise the backend's `grossAmount`/`bookingCount` onto the `revenue`/
+  // `bookings` keys the charts read. They used to look for `revenue`, which the
+  // endpoint has never returned, so the trend chart rendered "No revenue
+  // recorded in the last 12 months" for suppliers who had plenty.
+  return (response.data?.data?.months || []).map((month) => ({
+    ...month,
+    revenue: Number(month.revenue ?? month.grossAmount) || 0,
+    bookings: Number(month.bookings ?? month.bookingCount) || 0,
+  }));
 }

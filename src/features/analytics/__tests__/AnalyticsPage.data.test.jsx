@@ -74,25 +74,77 @@ describe("the Analytics page's data sources", () => {
     expect(screen.getAllByText('Cape Coast Castle').length).toBeGreaterThan(0);
   });
 
-  it('adds up bookings per product name', async () => {
+  it('keeps two tours with the same title as two products', async () => {
+    // "City Tour" run from two different meeting points is two products with
+    // two calendars and two prices. Merging them by title produced one row
+    // that described neither, and hid both of their real ratings.
     fetchProductAnalytics.mockResolvedValue([
-      { tourId: 'tour-1', name: 'Shai Hills Safari', photo: null, rating: 4.5, bookings: 7, revenue: 2100 },
-      { tourId: 'tour-3', name: 'Shai Hills Safari', photo: null, rating: 4.5, bookings: 3, revenue: 900 },
+      { tourId: 'tour-1', name: 'City Tour', photo: null, rating: 4.5, bookings: 7, revenue: 2100 },
+      { tourId: 'tour-3', name: 'City Tour', photo: null, rating: 2.0, bookings: 3, revenue: 900 },
     ]);
 
     renderPage();
 
-    // One row for the name, not one per tour…
-    await waitFor(() => expect(screen.getAllByText('Shai Hills Safari')).toHaveLength(1));
-    // …and both tours' bookings under it.
-    expect(screen.getAllByText('10').length).toBeGreaterThan(0);
+    await waitFor(() => expect(screen.getAllByText('City Tour').length).toBeGreaterThan(1));
+    // Each row shows its OWN rating, not the account average.
+    expect(screen.getAllByText(/4\.50 ★/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/2\.00 ★/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/4\.30 ★/)).toBeNull();
   });
 
-  it('still renders the page when the products call fails', async () => {
+  it('names the two buckets a comparison actually uses', async () => {
+    fetchMonthlyRevenue.mockResolvedValue([
+      { month: '2026-08', revenue: 1000, bookings: 2 },
+      { month: '2026-09', revenue: 2000, bookings: 4 },
+      { month: '2026-10', revenue: 2400, bookings: 5 },
+    ]);
+
+    renderPage();
+
+    // A real calculation over the monthly series: +20% revenue, +25% bookings,
+    // and the label names the two months it compares. The old "vs previous
+    // period" text had no calculation behind it at all.
+    // Both the earnings and the bookings card carry the comparison label.
+    await waitFor(() => expect(screen.getAllByText('Oct vs Sep').length).toBe(2));
+    expect(screen.getAllByText(/▲ 20%/).length).toBeGreaterThan(0);
+  });
+
+  it('prints no comparison at all when the series cannot support one', async () => {
+    fetchMonthlyRevenue.mockResolvedValue([{ month: '2026-10', revenue: 2400, bookings: 5 }]);
+
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText('Earnings')).toBeInTheDocument());
+    expect(screen.queryByText(/vs /i)).toBeNull();
+    expect(screen.getAllByText('Last 12 months').length).toBe(2);
+  });
+
+  it('still renders the page when the products call fails — and says the data is missing', async () => {
     fetchProductAnalytics.mockRejectedValue(new Error('boom'));
 
     renderPage();
 
-    await waitFor(() => expect(screen.getByText('No booking data')).toBeInTheDocument());
+    // "No booking data" claims the supplier HAS no bookings. A failed fetch is
+    // a different statement and the page now makes it.
+    await waitFor(() => {
+      expect(screen.getByText(/couldn't load the per-product charts/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByText('No booking data')).toBeNull();
+  });
+
+  it('charts the revenue trend from the amounts the API actually returns', async () => {
+    // The endpoint sends `grossAmount`, and the chart read `revenue`, so the
+    // trend rendered an empty state for suppliers who had revenue every month.
+    fetchMonthlyRevenue.mockResolvedValue([
+      { month: '2026-09', grossAmount: 2400, bookingCount: 4 },
+      { month: '2026-10', grossAmount: 3000, bookingCount: 6 },
+    ]);
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.queryByText(/No revenue recorded/i)).toBeNull();
+    });
+    expect(screen.getAllByText('Oct vs Sep').length).toBe(2);
   });
 });
