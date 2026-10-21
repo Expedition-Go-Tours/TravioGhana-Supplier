@@ -123,6 +123,26 @@ export function updateBookingNotes(id, supplierNotes) {
   );
 }
 
+/**
+ * GET /bookings/supplier/bookings/export — the filtered list as CSV, generated
+ * server-side so the file cannot be truncated by whatever happened to be in the
+ * browser tab. Returns the blob plus the filename the server named it.
+ */
+export async function exportSupplierBookingsCsv(params = {}) {
+  const response = await api.get("/bookings/supplier/bookings/export", {
+    params,
+    responseType: "blob",
+    skipGlobalErrorHandler: true,
+  });
+
+  const disposition = response.headers?.["content-disposition"] || "";
+  const match = /filename="?([^";]+)"?/i.exec(disposition);
+  return {
+    blob: response.data,
+    filename: match?.[1] || `travio-bookings-${new Date().toISOString().slice(0, 10)}.csv`,
+  };
+}
+
 export function updateBookingStatus(id, { status, supplierNotes, reason }) {
   return api.patch(
     `/bookings/${id}/status`,

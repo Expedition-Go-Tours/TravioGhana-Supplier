@@ -4,6 +4,7 @@ import {
   Search,
   X,
   RefreshCw,
+  Download,
   Calendar,
   CalendarX2,
   Loader2,
@@ -27,6 +28,7 @@ import {
   updateBookingStatus,
   cancelBookingStructured,
   withdrawCancellationRequest,
+  exportSupplierBookingsCsv,
 } from "../api";
 import { getAuthToken } from "@/stores/authStore";
 import BookingCard from "../components/BookingCard";
@@ -55,6 +57,7 @@ export default function BookingsPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [cancelBooking, setCancelBooking] = useState(null);
   const [showBulkCancel, setShowBulkCancel] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [view, setView] = useState("bookings"); // bookings | requests
   const [highlightedBookingId, setHighlightedBookingId] = useState(
     searchParams.get("bookingId") || null
@@ -320,6 +323,46 @@ export default function BookingsPage() {
     [loadBookings]
   );
 
+  /**
+   * Export the CURRENT filters as CSV. The server generates the file from the
+   * same query the list uses, so it can never contain a different set of
+   * bookings than the screen the supplier just filtered.
+   */
+  const handleExport = useCallback(async () => {
+    setExporting(true);
+    try {
+      const { blob, filename } = await exportSupplierBookingsCsv({
+        ...(apiStatus ? { status: apiStatus } : {}),
+        ...(searchTerm ? { search: searchTerm } : {}),
+        ...(purchaseDateFrom ? { purchaseFrom: purchaseDateFrom } : {}),
+        ...(purchaseDateTo ? { purchaseTo: purchaseDateTo } : {}),
+        ...(activityDateFrom ? { activityFrom: activityDateFrom } : {}),
+        ...(activityDateTo ? { activityTo: activityDateTo } : {}),
+      });
+
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Bookings exported");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to export bookings");
+    } finally {
+      setExporting(false);
+    }
+  }, [
+    apiStatus,
+    searchTerm,
+    purchaseDateFrom,
+    purchaseDateTo,
+    activityDateFrom,
+    activityDateTo,
+  ]);
+
   const handleMessageCustomer = useCallback(
     (booking) => {
       const params = new URLSearchParams();
@@ -572,8 +615,22 @@ export default function BookingsPage() {
           )}
 
           <button
+            type="button"
+            onClick={handleExport}
+            disabled={exporting || loading}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-emerald-100/60 bg-white text-xs font-medium text-slate-600 hover:bg-emerald-50/40 hover:text-slate-800 transition-all disabled:opacity-50 ml-auto"
+          >
+            {exporting ? (
+              <Loader2 size={13} className="animate-spin" />
+            ) : (
+              <Download size={13} />
+            )}
+            Export CSV
+          </button>
+
+          <button
             onClick={() => setShowBulkCancel(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-red-200/70 bg-white text-xs font-medium text-red-600 hover:bg-red-50 hover:border-red-300 transition-all ml-auto"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-red-200/70 bg-white text-xs font-medium text-red-600 hover:bg-red-50 hover:border-red-300 transition-all"
           >
             <CalendarX2 size={13} /> Cancel multiple bookings
           </button>
