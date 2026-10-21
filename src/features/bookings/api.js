@@ -76,6 +76,9 @@ export function mapBookingRow(booking) {
     // parked cancellation request awaiting an admin decision. Shape:
     // { id, status:'PENDING_APPROVAL', createdAt, payload, preview, stopSellingApplied } | null
     pendingCancellation: booking.pendingCancellation || null,
+    // The customer's own review of this experience (detail panel only — the
+    // list endpoint does not include it).
+    review: booking.review || null,
   };
 }
 
@@ -90,6 +93,34 @@ export async function fetchSupplierBookings(params = {}) {
     summary: payload.summary || null,
     pagination: payload.pagination || null,
   };
+}
+
+/**
+ * GET /bookings/supplier/bookings/:id (rewritten into the brand namespace).
+ * One booking in full for the detail panel. Rejects rather than falling back:
+ * a stale row must never be presented as "the booking".
+ */
+export async function fetchBookingDetail(id) {
+  const response = await api.get(`/bookings/supplier/bookings/${id}`, {
+    skipGlobalErrorHandler: true,
+  });
+  const booking = response.data?.data?.booking;
+  if (!booking) {
+    throw new Error("The server did not return this booking");
+  }
+  return mapBookingRow(booking);
+}
+
+/**
+ * PATCH /bookings/:id/status with no status — notes-only. The schema requires
+ * a status change OR notes, so this can never be an empty write.
+ */
+export function updateBookingNotes(id, supplierNotes) {
+  return api.patch(
+    `/bookings/${id}/status`,
+    { supplierNotes },
+    { skipGlobalErrorHandler: true }
+  );
 }
 
 export function updateBookingStatus(id, { status, supplierNotes, reason }) {

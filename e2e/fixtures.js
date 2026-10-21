@@ -30,7 +30,7 @@ export const BOOKINGS = [
     createdAt: '2026-10-18T09:00:00.000Z',
     travelDate: '2026-11-04T00:00:00.000Z',
     status: 'CONFIRMED',
-    paymentStatus: 'PAID',
+    paymentStatus: 'SUCCEEDED',
     grossAmount: 420,
     subtotal: 420,
     currency: 'USD',
@@ -60,7 +60,7 @@ export const BOOKINGS = [
     createdAt: '2026-10-16T09:00:00.000Z',
     travelDate: '2026-10-01T00:00:00.000Z',
     status: 'COMPLETED',
-    paymentStatus: 'PAID',
+    paymentStatus: 'SUCCEEDED',
     grossAmount: 300,
     subtotal: 300,
     currency: 'USD',
@@ -181,6 +181,19 @@ export async function installApiMocks(page, overrides = {}) {
     }
 
     if (path.includes('/travioghana/supplier/bookings')) {
+      // `/travioghana/supplier/bookings/:id` is the detail panel's endpoint;
+      // the bare path is the list.
+      const tail = path.split('/travioghana/supplier/bookings')[1] || '';
+      const id = tail.replace(/^\//, '').split('/')[0];
+      if (id) {
+        const booking = BOOKINGS.find((entry) => entry.id === id);
+        if (!booking) {
+          return route.fulfill(json({ status: 'fail', message: 'Booking not found' }, 404));
+        }
+        return route.fulfill(
+          json({ status: 'success', data: { booking: { ...booking, review: null } } }),
+        );
+      }
       return route.fulfill(json(bookingPage(request.url())));
     }
 

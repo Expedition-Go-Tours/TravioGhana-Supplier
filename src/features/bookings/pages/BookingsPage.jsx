@@ -31,6 +31,7 @@ import {
 import { getAuthToken } from "@/stores/authStore";
 import BookingCard from "../components/BookingCard";
 import CancelBookingModal from "../components/CancelBookingModal";
+import BookingDetailDrawer from "../components/BookingDetailDrawer";
 import BulkCancelWizard from "../components/BulkCancelWizard";
 import CancellationRequestsPanel from "../components/CancellationRequestsPanel";
 
@@ -58,6 +59,9 @@ export default function BookingsPage() {
   const [highlightedBookingId, setHighlightedBookingId] = useState(
     searchParams.get("bookingId") || null
   );
+  // The detail panel is URL-driven so a supplier can share or reload a link to
+  // one booking, and so Back closes the panel before leaving the page.
+  const detailBookingId = searchParams.get("detail") || null;
 
   const page = parseInt(searchParams.get("page") || "0", 10);
   const pageSize = parseInt(
@@ -216,6 +220,15 @@ export default function BookingsPage() {
     setLocal(value);
     updateFilters({ [key]: value || undefined, page: 0 });
   };
+
+  const openDetail = useCallback(
+    (booking) => updateFilters({ detail: booking.id }),
+    [updateFilters]
+  );
+  const closeDetail = useCallback(
+    () => updateFilters({ detail: undefined }),
+    [updateFilters]
+  );
 
   const handleTabClick = (tabKey) => updateFilters({ tab: tabKey, page: 0 });
 
@@ -686,6 +699,7 @@ export default function BookingsPage() {
                 isHighlighted={highlightedBookingId === booking.id}
                 onMessageCustomer={handleMessageCustomer}
                 onWithdrawRequest={handleWithdrawRequest}
+                onOpenDetail={openDetail}
               />
             ))}
           </div>
@@ -749,6 +763,15 @@ export default function BookingsPage() {
         </div>
       )}
         </>
+      )}
+      {detailBookingId && (
+        <BookingDetailDrawer
+          bookingId={detailBookingId}
+          onClose={closeDetail}
+          onMessageCustomer={handleMessageCustomer}
+          onStatusUpdate={handleStatusUpdate}
+          isUpdating={updatingId === detailBookingId}
+        />
       )}
       <CancelBookingModal
         isOpen={!!cancelBooking}

@@ -13,6 +13,7 @@ import {
   CreditCard,
   Ban,
   Tag,
+  Info,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -35,6 +36,11 @@ const STATUS_ACTIONS = {
     { value: "CANCELLED", label: "Cancel", variant: "danger" },
   ],
   CONFIRMED: [
+    // Both of these are post-activity states — the backend refuses to complete
+    // a future booking and no-show is only meaningful after the date — so the
+    // card filters them out until the activity date has passed.
+    { value: "COMPLETED", label: "Mark completed", variant: "primary" },
+    { value: "NO_SHOW", label: "Mark no-show", variant: "secondary" },
     { value: "CANCELLED", label: "Cancel", variant: "danger" },
   ],
   COMPLETED: [],
@@ -148,6 +154,7 @@ export default function BookingCard({
   isHighlighted,
   onMessageCustomer,
   onWithdrawRequest,
+  onOpenDetail,
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const isPayLater = booking.paymentTiming === 'later';
@@ -163,6 +170,9 @@ export default function BookingCard({
     (a) => !(payLaterUnpaid && a.value === 'CONFIRMED')
   ).filter(
     (a) => !(travelDatePassed && a.value === 'CONFIRMED')
+  ).filter(
+    // Post-activity states: only after the activity date has passed.
+    (a) => !((a.value === 'COMPLETED' || a.value === 'NO_SHOW') && !travelDatePassed)
   );
   const pickup = booking.pickup || {};
   const pickupDeferred =
@@ -744,6 +754,15 @@ export default function BookingCard({
                   className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-slate-500 hover:text-[#044b3b] hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition-all"
                 >
                   <MessageCircle size={13} /> Message customer
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenDetail?.(booking);
+                  }}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-[#044b3b] hover:bg-emerald-50 border border-emerald-200 transition-all"
+                >
+                  <Info size={13} /> View details
                 </button>
               </div>
             </div>
