@@ -40,7 +40,10 @@ export async function sendMessage(conversationId, content, attachment) {
 }
 
 export async function markConversationAsRead(conversationId) {
-  const res = await api.patch(`/chat/conversations/${conversationId}/read`, {
+  // The second argument is the request BODY, not the axios config: this used to
+  // pass `{ skipGlobalErrorHandler: true }` as the payload, so the server was
+  // asked to mark the conversation read with a stray config object as the body.
+  const res = await api.patch(`/chat/conversations/${conversationId}/read`, null, {
     skipGlobalErrorHandler: true,
   });
   return res.data.data;

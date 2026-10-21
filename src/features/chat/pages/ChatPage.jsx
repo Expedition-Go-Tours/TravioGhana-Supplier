@@ -37,6 +37,8 @@ export default function ChatPage() {
   const [showDetailsPanel, setShowDetailsPanel] = useState(false);
   const [mobileView, setMobileView] = useState('list');
   const isFetchingRef = useRef(false);
+  // Monotonic counter for message loads: only the newest fetch may land.
+  const loadSeqRef = useRef(0);
   const lastProcessedCustomerId = useRef(null);
 
   const conversations = useChatStore((s) => s.conversations);
@@ -98,9 +100,18 @@ export default function ChatPage() {
     };
   }, [currentUserId, loadConversations]);
 
+  /**
+   * Load the first page of one conversation.
+   *
+   * Conversation switching used to early-return whenever a previous fetch was
+   * still in flight, so a fast A→B click left customer A's messages on screen
+   * under customer B's header — and then marked B read. Instead, every call
+   * bumps a sequence number and only the newest response is allowed to land.
+   * Resolves to true when the response was applied.
+   */
   const loadMessages = useCallback(async (convId, conv) => {
-    if (!convId || isFetchingRef.current) return;
-    isFetchingRef.current = true;
+    if (!convId) return false;
+    const requestId = ++loadSeqRef.current;
     setLoadingMsgs(true);
     setMessageStatuses({});
     setMessages([]);
@@ -108,6 +119,9 @@ export default function ChatPage() {
     setHasMore(false);
     try {
       const data = await getMessages(convId, null, PAGE_SIZE);
+      // Stale response: another conversation was selected while this fetch was
+      // out. Never render it, never mark anything read.
+      if (loadSeqRef.current !== requestId) return false;
       const msgs = data.messages || [];
       setMessages(msgs);
       setCursor(data.cursor || null);
@@ -121,11 +135,12 @@ export default function ChatPage() {
         initialStatuses[m.id] = new Date(m.createdAt).getTime() <= lastReadAt ? "read" : "sent";
       });
       setMessageStatuses(initialStatuses);
+      return true;
     } catch {
       // handled globally
+      return false;
     } finally {
-      setLoadingMsgs(false);
-      isFetchingRef.current = false;
+      if (loadSeqRef.current === requestId) setLoadingMsgs(false);
     }
   }, [currentUserId, setMessages, setCursor, setHasMore, setMessageStatuses, setLoadingMsgs]);
 
@@ -133,7 +148,11 @@ export default function ChatPage() {
     setSelectedConv(conv);
     setShowDetailsPanel(false);
     setMobileView('chat');
-    await loadMessages(conv.id, conv);
+    const applied = await loadMessages(conv.id, conv);
+    // Only the conversation actually on screen may be marked read: marking B
+    // read because a fetch for it was superseded by A is exactly the bug this
+    // guards.
+    if (!applied || useChatStore.getState().selectedConv?.id !== conv.id) return;
     try {
       await markConversationAsRead(conv.id);
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
@@ -197,8 +216,12 @@ export default function ChatPage() {
     if (!selectedConv?.id || !hasMore || loadingMore || isFetchingRef.current) return;
     isFetchingRef.current = true;
     setLoadingMore(true);
+    const convId = selectedConv.id;
     try {
-      const data = await getMessages(selectedConv.id, cursor, PAGE_SIZE);
+      const data = await getMessages(convId, cursor, PAGE_SIZE);
+      // Conversation switched mid-fetch: older pages of A must not be spliced
+      // into B's thread.
+      if (useChatStore.getState().selectedConv?.id !== convId) return;
       const msgs = data.messages || [];
       appendMessages(msgs);
       setCursor(data.cursor || null);
