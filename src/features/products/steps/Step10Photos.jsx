@@ -3,7 +3,8 @@ import { useDropzone } from 'react-dropzone'
 import { HelpCircle, Upload, Image, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Check, X, Trash2 } from 'lucide-react'
 import { useProductBuilderStore } from '@/features/products/productBuilderStore'
 import { useStepErrors } from '@/features/products/useStepErrors'
-import { uploadPhotos, deleteTourPhoto } from '@/features/products/api'
+import { deleteTourPhoto, uploadPhotos } from '@/features/products/api'
+import { removalIndices } from '@/features/products/photoSelection'
 import { safeId } from '@/lib/utils'
 import { transformImage } from '@/lib/image'
 
@@ -123,15 +124,14 @@ export default function Step10Photos() {
         setCoverPhoto('')
       }
     })
-    const idsToRemove = selectedIds
-    const newPhotos = photos.filter((p) => !idsToRemove.has(p.id))
-    newPhotos.forEach((_, i) => {
-      const oldIdx = photos.findIndex((p) => p.id === newPhotos[i].id)
-      if (oldIdx !== i) removePhoto(oldIdx)
-    })
-    for (let i = photos.length - 1; i >= 0; i--) {
-      if (idsToRemove.has(photos[i].id)) removePhoto(i)
-    }
+
+    // Remove by index, highest first. The old code removed "stale" indices
+    // forwards and then removed the same rows again in reverse, which shifted
+    // the array under itself and could delete photos that were never selected.
+    // Descending indices are always valid because each removal happens below
+    // every index still to come.
+    removalIndices(photos, selectedIds).forEach((index) => removePhoto(index))
+
     setSelectedIds(new Set())
   }, [photos, selectedIds, savedProductId, coverPhoto, setCoverPhoto, removePhoto])
 

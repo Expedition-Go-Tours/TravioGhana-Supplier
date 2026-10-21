@@ -369,7 +369,11 @@ export function useAutoSave() {
             store.setDraftStatus('PENDING_APPROVAL')
             store.setAutosaveError(message)
           } else if (status >= 400 && status < 500) {
-            useProductBuilderStore.getState().markSaved()
+            // A 4xx is a rejected draft, not a saved one. Marking it saved
+            // cleared `isDirty`, so the builder showed "Saved" while the
+            // supplier's latest edits only existed in their browser tab —
+            // a refresh dropped them with no warning. The draft stays dirty
+            // and the reason is surfaced instead.
             useProductBuilderStore.getState().setAutosaveError(message)
           } else {
             useProductBuilderStore.getState().setAutosaveError(message)
