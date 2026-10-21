@@ -6,6 +6,7 @@ import {
   FileText,
   Upload,
   Loader2,
+  RefreshCw,
   Car,
   Users,
   Plus,
@@ -18,7 +19,7 @@ import {
   Eye,
   UserCheck,
 } from "lucide-react";
-import { loadSupplierVerification } from "@/features/auth/api";
+import { fetchSupplierVerification } from "@/features/auth/api";
 import { replaceDocument, addDocument, addVehicle, removeVehicle, addGuide, removeGuide } from "@/features/supplier/api";
 import { formatDate } from "@/lib/utils";
 
@@ -449,9 +450,14 @@ export default function VerificationPage() {
   const [guideSaving, setGuideSaving] = useState(false);
   const [docSaving, setDocSaving] = useState(false);
 
-  const { data, isLoading } = useQuery({
+  // The strict fetch: a failed load is an ERROR state here, never an empty
+  // checklist. "No documents required" and "All clear" out of a failed request
+  // would tell a supplier they are compliant when nobody knows.
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["supplier", "application-status"],
-    queryFn: () => loadSupplierVerification(),
+    queryFn: () => fetchSupplierVerification(),
+    // Retry policy comes from the QueryClient (one retry in the app), so tests
+    // and the app disagree about nothing.
   });
 
   const profile = data?.profile || null;
@@ -703,6 +709,26 @@ export default function VerificationPage() {
         <div className="flex flex-col items-center justify-center gap-3 py-20 text-sm text-slate-500">
           <Loader2 size={22} className="animate-spin text-emerald-600" />
           Loading your verification details…
+        </div>
+      ) : isError ? (
+        <div role="alert" className="flex flex-col items-center justify-center gap-3 rounded-xl border border-red-200 bg-white py-16 text-center">
+          <AlertTriangle size={28} className="text-red-400" />
+          <div>
+            <p className="text-sm font-semibold text-slate-800">
+              We couldn't load your verification status
+            </p>
+            <p className="mt-1 max-w-[420px] text-xs text-slate-500">
+              This is a loading failure — it is NOT a statement that you have no
+              documents to provide. Nothing has been changed; please retry.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+          >
+            <RefreshCw size={14} /> Retry
+          </button>
         </div>
       ) : (
         <>

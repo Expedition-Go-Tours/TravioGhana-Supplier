@@ -11,9 +11,11 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const loadSupplierVerification = vi.fn();
+const fetchSupplierVerification = vi.fn();
 
 vi.mock('@/features/auth/api', () => ({
   loadSupplierVerification: (...args) => loadSupplierVerification(...args),
+  fetchSupplierVerification: (...args) => fetchSupplierVerification(...args),
 }));
 
 vi.mock('@/features/supplier/api', () => ({
@@ -30,6 +32,7 @@ import VerificationPage from '../pages/VerificationPage';
 
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  fetchSupplierVerification.mockImplementation((...args) => loadSupplierVerification(...args));
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
@@ -309,5 +312,57 @@ describe('VerificationPage — dynamic by operator type', () => {
     renderPage();
 
     await waitFor(() => expect(screen.getByText(/5 days overdue/)).toBeInTheDocument());
+  });
+});
+
+describe('VerificationPage — a failed load is not a clean bill of health', () => {
+  it('says it could not load instead of showing "no documents required"', async () => {
+    loadSupplierVerification.mockReset().mockRejectedValue(new Error('gateway down'));
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText(/couldn't load your verification status/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/not a statement that you have no documents/i)).toBeInTheDocument();
+
+    // The exact misreading this guards against: a failed fetch must not render
+    // the "everything is fine" screens.
+    expect(screen.queryByText(/no documents required/i)).toBeNull();
+    expect(screen.queryByText(/All clear/i)).toBeNull();
+  });
+
+  it('retries into the real checklist', async () => {
+    loadSupplierVerification
+      .mockReset()
+      .mockRejectedValueOnce(new Error('gateway down'))
+      .mockResolvedValueOnce({
+        profile: { supplierType: 'INDIVIDUAL', documents: [], vehicles: [], guides: [] },
+        requirements: {
+          supplierType: 'INDIVIDUAL',
+          documentationGraceDays: 30,
+          documentationDeadline: null,
+          vehicles: 'hidden',
+          guides: 'hidden',
+          documents: [
+            { type: 'GHANA_CARD', label: 'Ghana Card', detail: GHANA_CARD_DETAIL, required: true, timing: 'upfront', enforced: true },
+          ],
+          vehicleDocuments: [],
+          guideDocuments: [],
+        },
+      });
+
+    renderPage();
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Verification checklist')).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 });

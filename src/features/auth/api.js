@@ -41,6 +41,27 @@ export async function loadSupplierVerification(authToken = getAuthToken()) {
   };
 }
 
+/**
+ * The same payload, but it THROWS when the request fails.
+ *
+ * `loadSupplierVerification` swallows failures (the route guard must not lock
+ * anyone out over a hiccup), which made the Verification page render "No
+ * documents required for your type" and "All clear" out of a failed fetch —
+ * a supplier would read that as "I am compliant" while nobody knew. The KYC
+ * page must distinguish "nothing required" from "we could not find out".
+ */
+export async function fetchSupplierVerification(authToken = getAuthToken()) {
+  const response = await api.get("/suppliers/application/status", {
+    skipGlobalErrorHandler: true,
+    ...(authToken ? { headers: { Authorization: `Bearer ${authToken}` } } : {}),
+  });
+  const data = response.data?.data || null;
+  return {
+    profile: data?.supplierProfile || data || null,
+    requirements: data?.verificationRequirements || null,
+  };
+}
+
 export async function loginWithEmail(email, password) {
   const response = await api.post(
     "/auth/login",
