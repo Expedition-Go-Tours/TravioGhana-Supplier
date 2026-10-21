@@ -1,4 +1,5 @@
 import api from "@/lib/axios";
+import { withIdempotencyKey } from "@/lib/idempotency";
 import { formatCurrency } from "@/lib/utils";
 
 export function mapClaim(claim) {
@@ -34,7 +35,12 @@ export async function fetchSupplierClaims(status) {
 }
 
 export async function approveClaim(id) {
-  const res = await api.patch(`/refund-claims/supplier/${id}/approve`, {}, { skipGlobalErrorHandler: true });
+  // Approving releases money to the customer. A retried approval must not
+  // release it twice, so the attempt carries one Idempotency-Key.
+  const res = await api.patch(`/refund-claims/supplier/${id}/approve`, {}, {
+    ...withIdempotencyKey("refund-claim-approve"),
+    skipGlobalErrorHandler: true,
+  });
   return mapClaim(res.data?.data?.claim);
 }
 

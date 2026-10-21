@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useParams } from "react-router-dom";
 import ScrollToTop from "@/components/shared/ScrollToTop";
 import { TeamRoleProvider } from "@/contexts/TeamRoleProvider";
+import { useSessionTimeout } from "@/hooks/useSessionTimeout";
 import { Toaster } from "sonner";
 
 const LEGACY_STEP_MAP = {
@@ -30,6 +31,11 @@ export function ProductBuilderRedirect() {
 }
 
 export default function RootLayout() {
+  // Idle timeout (a mounted hook, inside the router so it can navigate): an
+  // abandoned supplier laptop is a live money-moving session. It only arms
+  // itself while a session exists.
+  useSessionTimeout();
+
   return (
     <>
       <ScrollToTop />

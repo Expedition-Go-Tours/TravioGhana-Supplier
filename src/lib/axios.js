@@ -13,6 +13,12 @@ const AUTH_REQUIRED_PREFIXES = [
   "/reviews",
   "/refund-claims",
   "/payout",
+  // The Ghana rewrite moves the supplier endpoints into a brand namespace
+  // (/travioghana/supplier/*). Without these two entries the guard matched
+  // nothing after the rewrite, so an unauthenticated request was sent to the
+  // API instead of being refused in the browser.
+  "/travioghana/supplier",
+  "/travioafrica/supplier",
 ];
 
 const api = axios.create({
@@ -218,8 +224,14 @@ api.interceptors.response.use(
       }
     }
 
-    // Retry logic for retryable errors
-    if (isRetryableError(error) && !originalRequest._retry) {
+    // Retry logic for retryable errors. Only idempotent requests are retried:
+    // replaying a POST/PATCH/DELETE after a timeout can cancel two bookings,
+    // request two payouts or send the same message twice. Mutating callers get
+    // a chance to opt in with `idempotent: true` once they carry an
+    // Idempotency-Key the server honours.
+    const method = (originalRequest?.method || "get").toLowerCase();
+    const isIdempotent = ["get", "head", "options"].includes(method) || originalRequest?.idempotent === true;
+    if (isRetryableError(error) && isIdempotent && !originalRequest._retry) {
       originalRequest._retry = true;
       originalRequest._retryCount = (originalRequest._retryCount || 0) + 1;
 

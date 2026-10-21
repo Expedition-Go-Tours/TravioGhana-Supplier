@@ -37,37 +37,58 @@ export default function AuthCallback() {
       return;
     }
 
-    localStorage.setItem("auth_token", accessToken);
-    if (refreshToken) {
-      localStorage.setItem("refresh_token", refreshToken);
-    }
+    // The token arrives in the URL because the main site redirects here, but
+    // it must NOT be written to localStorage until it has been proven: a
+    // truncated, expired or replayed token would otherwise leave a half-signed
+    // session that every later request fails against. `login()` below is what
+    // persists it, and only after the user and profile fetches succeed.
+    let cancelled = false;
+    let redirectTimer = null;
 
-    fetchCurrentUser(accessToken)
-      .then(async (user) => {
+    const fail = (message) => {
+      if (cancelled) return;
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("refresh_token");
+      localStorage.removeItem("auth_user");
+      useAuthStore.getState().setUnauthenticated();
+      setStatus("error");
+      setErrorMessage(message);
+      toast.error(message);
+    };
+
+    (async () => {
+      try {
+        const user = await fetchCurrentUser(accessToken);
         if (!user) {
           throw new Error("Backend did not return user data.");
         }
 
         const supplierProfile = await loadSupplierProfile(accessToken);
+        if (cancelled) return;
+
         login(user, accessToken, supplierProfile);
+        if (refreshToken) {
+          localStorage.setItem("refresh_token", refreshToken);
+        }
 
         setStatus("success");
 
         const returnUrl = getSafeReturnUrl();
         const redirectTo = returnUrl || getPostLoginPath(supplierProfile);
 
-        setTimeout(() => {
+        redirectTimer = setTimeout(() => {
           localStorage.removeItem("auth_return_url");
           navigate(redirectTo, { replace: true });
         }, 1500);
-      })
-      .catch((err) => {
-        const message = getLoginErrorMessage(err);
+      } catch (err) {
+        fail(getLoginErrorMessage(err));
+      }
+    })();
 
-        setStatus("error");
-        setErrorMessage(message);
-        toast.error(message);
-      });
+    return () => {
+      cancelled = true;
+      if (redirectTimer) clearTimeout(redirectTimer);
+    };
   }, [searchParams, login, navigate, accessToken, refreshToken, hasToken]);
 
   return (

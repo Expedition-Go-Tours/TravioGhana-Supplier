@@ -11,8 +11,12 @@ export function useSessionTimeout() {
   const timerRef = useRef(null)
   const lastActivityRef = useRef(0)
   const timeoutMs = config.auth.sessionTimeout
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
 
   useEffect(() => {
+    // Never armed on the login screens: an anonymous visitor has nothing to
+    // time out, and a forced redirect there would fight the login flow.
+    if (!isAuthenticated) return
     if (!timeoutMs || timeoutMs <= 0) return
 
     lastActivityRef.current = Date.now()
@@ -54,5 +58,5 @@ export function useSessionTimeout() {
         window.removeEventListener(event, handleActivity)
       }
     }
-  }, [navigate, timeoutMs])
+  }, [isAuthenticated, navigate, timeoutMs])
 }
