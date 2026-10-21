@@ -2,10 +2,11 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import RefundClaimsPage from "@/features/refund-claims/pages/RefundClaimsPage";
+import TaxSummaryTab from "../components/TaxSummaryTab";
 import { useSearchParams } from "react-router-dom";
 import {
   DollarSign, Wallet, CreditCard, Loader2, RefreshCw, Plus, Trash2,
-  TrendingUp, Landmark, Smartphone, Eye, EyeOff, FileText,
+  TrendingUp, Landmark, Smartphone, Eye, EyeOff, FileText, Receipt,
   CheckCircle2, AlertTriangle, X, ChevronDown, ChevronLeft, ChevronRight, Banknote,
   Calendar, Info, Search, Lock, XCircle, Undo2,
   ListFilter as FilterIcon,
@@ -33,6 +34,7 @@ const TABS = [
   { key: "invoices", label: "Invoices", icon: FileText },
   { key: "refunds", label: "Refunds", icon: Undo2 },
   { key: "claims", label: "Refund Requests", icon: Undo2 },
+  { key: "tax", label: "Tax summary", icon: Receipt },
   { key: "methods", label: "Payout Methods", icon: CreditCard },
 ];
 
@@ -338,7 +340,8 @@ export default function FinancePage() {
         const result = await fetchPayoutMethods();
         setMethods(result);
       }
-      // 'claims' tab loads its own data (RefundClaimsPage) — nothing to fetch here.
+      // 'claims' and 'tax' load their own data (RefundClaimsPage,
+      // TaxSummaryTab) — nothing to fetch here.
     } catch (err) {
       if (err.code === "AUTH_REQUIRED") return;
       setError(err.response?.data?.message || err.message || "Failed to load finance data");
@@ -1669,6 +1672,8 @@ export default function FinancePage() {
         {activeTab === "claims" && (
           <RefundClaimsPage />
         )}
+
+        {activeTab === "tax" && <TaxSummaryTab />}
 
         {/* PAYOUT METHODS TAB */}
         {activeTab === "methods" && (

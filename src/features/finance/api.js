@@ -119,6 +119,19 @@ export function cancelPayoutRequest(id) {
   return api.patch(`/finance/payouts/requests/${id}/cancel`, {}, { skipGlobalErrorHandler: true });
 }
 
+/**
+ * GET /finance/tax-summary — tax charged on paid bookings, bucketed by month
+ * and currency. The response carries its own disclaimer (a record, not advice)
+ * and never a cross-currency total.
+ */
+export async function fetchTaxSummary(params = {}) {
+  const response = await api.get("/finance/tax-summary", {
+    params,
+    skipGlobalErrorHandler: true,
+  });
+  return response.data?.data || null;
+}
+
 // ── Finance v3: automatic invoices ──
 
 export async function fetchMyInvoices(params = {}) {
