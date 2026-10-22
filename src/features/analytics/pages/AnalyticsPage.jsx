@@ -9,6 +9,7 @@ import { formatCurrency } from "@/lib/utils";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { getAuthToken } from "@/stores/authStore";
 import { fetchSupplierAnalytics, fetchMonthlyRevenue, fetchProductAnalytics } from "../api";
+import Ga4FunnelPanel from "../components/Ga4FunnelPanel";
 import { compareLastTwoMonths, formatDelta } from "../comparisons";
 
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -441,6 +442,10 @@ export default function AnalyticsPage() {
           <p className="text-xs text-slate-400 text-center py-8">No product data available yet</p>
         )}
       </div>
+
+      {/* The storefront funnel only GA4 can see: who looked at a product and
+          never booked is invisible in every table we own. */}
+      <Ga4FunnelPanel />
     </div>
   );
 }

@@ -35,3 +35,19 @@ export async function fetchMonthlyRevenue(months = 12) {
     bookings: Number(month.bookings ?? month.bookingCount) || 0,
   }));
 }
+
+/**
+ * GET /suppliers/analytics/ga4-funnel — the storefront funnel GA4 measures:
+ * items viewed → added to cart → purchased → item revenue, per product.
+ *
+ * `enabled: false` means this server cannot see GA4: those columns are UNKNOWN
+ * and `reason` says so. Callers must render that as its own state — never as a
+ * table of zeros, which would read as "nobody looked at my products".
+ */
+export async function fetchGa4Funnel(params = {}) {
+  const response = await api.get("/suppliers/analytics/ga4-funnel", {
+    params,
+    skipGlobalErrorHandler: true,
+  });
+  return response.data?.data || null;
+}
