@@ -16,7 +16,16 @@ test.describe('Bookings export', () => {
           status: 200,
           contentType: 'text/csv; charset=utf-8',
           headers: {
-            'content-disposition': 'attachment; filename="travio-bookings-2026-10-21.csv"',
+            // Deliberately NOT today's date: the client's fallback name is
+            // `travio-bookings-<today>.csv`, so a date-shaped name here would
+            // pass even if the client never read this header.
+            'content-disposition': 'attachment; filename="travio-bookings-2026-Q4-review.csv"',
+            // `Content-Disposition` is not CORS-safelisted: the browser only
+            // hands it to JS when the server exposes it. This mirrors the real
+            // API (app.js corsOptions.exposedHeaders) — without it the client
+            // falls back to its own filename.
+            'access-control-expose-headers': 'content-disposition',
+            'access-control-allow-origin': '*',
           },
           body: 'Reference,Status\r\nTRG-10000001-2026-01,CONFIRMED\r\n',
         }),
@@ -28,7 +37,7 @@ test.describe('Bookings export', () => {
       page.getByRole('button', { name: /export csv/i }).click(),
     ]);
 
-    expect(download.suggestedFilename()).toBe('travio-bookings-2026-10-21.csv');
+    expect(download.suggestedFilename()).toBe('travio-bookings-2026-Q4-review.csv');
   });
 
   test('carries the filters currently on screen', async ({ page }) => {
