@@ -33,7 +33,6 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.2.1",
     "dompurify": "^3.4.12",
-    "firebase": "^12.13.0",
     "framer-motion": "^12.40.0",
     "libphonenumber-js": "^1.13.9",
     "lucide-react": "^1.16.0",
@@ -78,8 +77,5 @@
     "terser": "^5.47.1",
     "vite": "^8.0.12",
     "vitest": "^4.1.11"
-  },
-  "overrides": {
-    "@grpc/grpc-js": "^1.14.6"
   }
 }

@@ -52,13 +52,6 @@ const env = {
   VITE_TOKEN_REFRESH_INTERVAL: envNum(import.meta.env.VITE_TOKEN_REFRESH_INTERVAL, 300000),
   VITE_SESSION_TIMEOUT: envNum(import.meta.env.VITE_SESSION_TIMEOUT, 3600000),
 
-  // Firebase
-  VITE_FIREBASE_API_KEY: envString(import.meta.env.VITE_FIREBASE_API_KEY, ''),
-  VITE_FIREBASE_AUTH_DOMAIN: envString(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN, ''),
-  VITE_FIREBASE_PROJECT_ID: envString(import.meta.env.VITE_FIREBASE_PROJECT_ID, ''),
-  VITE_FIREBASE_APP_ID: envString(import.meta.env.VITE_FIREBASE_APP_ID, ''),
-  VITE_FIREBASE_MESSAGING_SENDER_ID: envString(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID, ''),
-
   // Features
   VITE_FEATURE_ANALYTICS: envBool(import.meta.env.VITE_FEATURE_ANALYTICS, true),
   VITE_FEATURE_NOTIFICATIONS: envBool(import.meta.env.VITE_FEATURE_NOTIFICATIONS, true),
