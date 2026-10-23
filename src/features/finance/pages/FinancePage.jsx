@@ -426,6 +426,11 @@ export default function FinancePage() {
   // When the summary could not be loaded, every money figure is unknown.
   const money = (value) => (summaryFailed ? "—" : value);
 
+  // Money whose payment succeeded but that has not cleared into a window yet
+  // (payoutStatus PENDING). Enrolled suppliers have no legacy "Pending
+  // clearance" card, so without this line the amount appeared nowhere.
+  const clearingAmount = moneyTotal(summary?.pendingClearance);
+
   // Eligibility for a manual payout request: true when any currency holds a
   // positive balance. The scalar total is deliberately NOT summed across
   // currencies — it is only ever used to answer "is there anything at all".
@@ -683,6 +688,19 @@ export default function FinancePage() {
                     </>
                   ) : (
                     <p className="text-xs text-gray-500 mt-0.5">No pending payout window yet</p>
+                  )}
+                  {/* Money whose payment succeeded but that has not cleared
+                      into a window yet. On the enrolled flow this state sits
+                      between "balance" and "next payout" and used to be visible
+                      nowhere — a supplier could reconcile every card and still
+                      be missing money they had earned. */}
+                  {clearingAmount > 0 && (
+                    <p className="text-xs text-amber-700 mt-1">
+                      Plus {moneyLine(summary?.pendingClearance)} still clearing
+                      {summary?.pendingClearance?.bookingCount
+                        ? ` (${summary.pendingClearance.bookingCount} booking${summary.pendingClearance.bookingCount === 1 ? "" : "s"})`
+                        : ""} — not in a window yet
+                    </p>
                   )}
                 </div>
                 <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">

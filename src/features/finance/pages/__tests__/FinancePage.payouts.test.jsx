@@ -650,6 +650,20 @@ describe('FinancePage — finance v3: automatic invoices', () => {
     expect(screen.queryByText('Available for payout')).not.toBeInTheDocument();
   });
 
+  it('shows money that is still clearing — it used to be visible nowhere', async () => {
+    renderPage();
+    await ready();
+
+    // Payment succeeded but the money has not cleared into a window yet. On
+    // the enrolled flow this sits between "balance" and "next payout" and had
+    // no card: a supplier could reconcile every figure and still be missing
+    // money they had earned.
+    const clearing = await screen.findByText(/still clearing/i);
+    expect(clearing.textContent).toContain('$433.50');
+    expect(clearing.textContent).toContain('2 bookings');
+    expect(clearing.textContent).toContain('not in a window yet');
+  });
+
   it('does not offer a manual payout request to an enrolled supplier — invoices are automatic', async () => {
     renderPage();
     await ready();

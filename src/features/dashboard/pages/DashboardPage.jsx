@@ -30,7 +30,20 @@ const NOTIFICATION_ICONS = {
 
 const STATS_CONFIG = [
   { label: "Total Bookings", icon: ShoppingBag, accent: "border-l-emerald-600", iconBg: "bg-emerald-50", iconBorder: "border-emerald-200/60", iconColor: "text-emerald-600", path: "/bookings" },
-  { label: "Total Earnings", icon: TrendingUp, accent: "border-l-emerald-500", iconBg: "bg-emerald-50", iconBorder: "border-emerald-200/60", iconColor: "text-emerald-600", path: "/finance" },
+  {
+    label: "Total Earnings",
+    // "Earnings" reads to many suppliers as "money in my bank". It is not: it
+    // is the supplier's cut on every booking whose PAYMENT SUCCEEDED, over the
+    // account's lifetime — it includes what is still owed and what has not
+    // cleared yet. The hint says so on the card.
+    hint: "Lifetime · your cut on paid bookings",
+    icon: TrendingUp,
+    accent: "border-l-emerald-500",
+    iconBg: "bg-emerald-50",
+    iconBorder: "border-emerald-200/60",
+    iconColor: "text-emerald-600",
+    path: "/finance",
+  },
   { label: "Active Tours", icon: MapPin, accent: "border-l-emerald-400", iconBg: "bg-emerald-50", iconBorder: "border-emerald-200/60", iconColor: "text-emerald-600", path: "/products", state: { statusFilter: "ACTIVE" } },
   { label: "Pending Bookings", icon: ClipboardList, accent: "border-l-amber-400", iconBg: "bg-amber-50", iconBorder: "border-amber-200/60", iconColor: "text-amber-600", path: "/bookings?tab=PENDING" },
 ];
@@ -153,12 +166,35 @@ export default function DashboardPage() {
   // completed. `bookings.total` was already returned by the dashboard
   // endpoint; only the binding was wrong.
   const totalBookings = bookings.total || 0;
-  const totalRevenue = Number(earnings.totalEarnings) || 0;
   const pendingBookings = bookings.pending || 0;
+
+  // Earnings are per currency. The endpoint returns a scalar ONLY for a
+  // single-currency account and `byCurrency` always; printing the scalar of a
+  // multi-currency account would be a total no one holds.
+  const earningsRows = earnings.byCurrency || [];
+  const earningsValue = (() => {
+    if (earningsRows.length > 1) {
+      // One line per currency — two balances, not one invented total.
+      return (
+        <span className="block text-[15px] leading-tight">
+          {earningsRows.map((row) => (
+            <span key={row.currency} className="block">
+              {formatCurrency(row.supplierCut, row.currency)}
+            </span>
+          ))}
+        </span>
+      );
+    }
+    if (earningsRows.length === 1) {
+      return formatCurrency(earningsRows[0].supplierCut, earningsRows[0].currency);
+    }
+    // Older payloads without byCurrency: the scalar, when it exists.
+    return formatCurrency(Number(earnings.totalEarnings) || 0);
+  })();
 
   const statsValues = [
     { value: totalBookings },
-    { value: formatCurrency(totalRevenue) },
+    { value: earningsValue },
     { value: activeTours },
     { value: pendingBookings },
   ];
@@ -238,6 +274,9 @@ export default function DashboardPage() {
                 <>
                   <p className="text-lg font-bold text-slate-800">{statsValues[i].value}</p>
                   <p className="text-xs font-medium text-slate-500 mt-0.5">{s.label}</p>
+                  {s.hint && (
+                    <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">{s.hint}</p>
+                  )}
                 </>
               )}
             </div>
