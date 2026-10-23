@@ -408,6 +408,7 @@
   display: none;
 }
 
+
 .dashboard-date-picker .availability-day-cell {
   display: flex;
   flex-direction: column;
@@ -812,4 +813,63 @@
 /* Global focus outline reset — outside @layer to override Tailwind preflight */
 *:focus {
   outline: none;
+}
+
+/* The create-booking drawer shows the inline calendar as a compact month grid
+   beside the time and party controls. The shared inline calendar is built for
+   the availability page, where every day cell holds inventory dots and prices
+   and therefore needs generous height; in this card that same height reads as
+   an empty grid. Scoped, and specific enough to beat that page's rules. */
+.dashboard-date-picker.create-booking-calendar .react-datepicker {
+  width: max-content;
+  max-width: 100%;
+  margin: 0 auto;
+}
+.dashboard-date-picker.create-booking-calendar .react-datepicker__week,
+.dashboard-date-picker.create-booking-calendar .react-datepicker__day-names {
+  justify-content: center;
+}
+.dashboard-date-picker.create-booking-calendar .react-datepicker__day-name,
+.dashboard-date-picker.create-booking-calendar .react-datepicker__day {
+  flex: 0 0 2.15rem;
+  width: 2.15rem;
+  max-width: 2.15rem;
+  height: 2.15rem;
+  min-height: 0;
+  line-height: 2.15rem;
+  margin: 0.1rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+}
+.dashboard-date-picker.create-booking-calendar .react-datepicker__header {
+  padding-bottom: 0.25rem;
+}
+.dashboard-date-picker.create-booking-calendar .react-datepicker__current-month {
+  font-size: 0.8125rem;
+}
+
+/* react-datepicker marks the day it would focus with the same class family it
+   uses for a real choice. With no date picked yet that paints today as if it
+   were selected, while the summary still says "No date yet". A real selection
+   keeps the filled treatment; keyboard focus gets a quiet outline. */
+.dashboard-date-picker.create-booking-calendar
+  .react-datepicker__day--keyboard-selected:not(.react-datepicker__day--selected) {
+  background: transparent;
+  color: #1e293b;
+  box-shadow: inset 0 0 0 1px #cbd5e1;
+}
+
+/* The amount field is a plain number input; the browser's spinner arrows sit
+   on top of the currency prefix and read as an unfinished control. */
+.create-booking-drawer input[type="number"]::-webkit-outer-spin-button,
+.create-booking-drawer input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.create-booking-drawer input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }

@@ -46,26 +46,42 @@ beforeEach(() => {
   createSupplierBooking.mockResolvedValue({ id: "b-1", bookingNumber: "TGA-2048" });
 });
 
-/** Fill step 1 and reach the pricing step. */
-async function reachCollectionStep() {
+/** Step 1: pick the tour, then a day on the inline calendar. */
+async function fillExperience() {
   fireEvent.click(screen.getByRole("button", { name: "Shai Hills Safari" }));
-  fireEvent.change(screen.getByLabelText("Activity date"), {
-    target: { value: "2026-11-04" },
-  });
+
+  // The calendar is the app's DatePicker (react-datepicker), rendered inline:
+  // any selectable day in the visible month is a valid choice.
+  const cells = Array.from(
+    document.querySelectorAll(
+      ".react-datepicker__day:not(.react-datepicker__day--outside-month):not(.react-datepicker__day--disabled)"
+    )
+  );
+  expect(cells.length).toBeGreaterThan(0);
+  fireEvent.click(cells[cells.length - 1]);
+
   await waitFor(() => expect(quoteSupplierBooking).toHaveBeenCalled());
+}
+
+/** Steps 1 → 2, ending on the pricing & collection step. */
+async function reachCollectionStep() {
+  render(<CreateBookingDrawer open tours={tours} onClose={() => {}} />);
+  await fillExperience();
+
   fireEvent.click(screen.getByRole("button", { name: /Continue/ }));
+  fireEvent.change(await screen.findByLabelText("Lead traveller name"), {
+    target: { value: "Kwame Mensah" },
+  });
   fireEvent.click(screen.getByRole("button", { name: /Continue/ }));
-  // The name appears in the step rail too; the heading is the unambiguous one.
-  await screen.findByRole("heading", { name: "Pricing & collection" });
+  await screen.findByRole("heading", { name: "Payment" });
 }
 
 describe("the price is the server's, never the browser's", () => {
   it("shows the quoted total and submits no total or price field at all", async () => {
-    render(<CreateBookingDrawer open tours={tours} onClose={() => {}} />);
     await reachCollectionStep();
 
-    // The total on screen came from the quote response (it shows in the price
-    // block and again as the outstanding balance).
+    // The total on screen came from the quote response (the price card and the
+    // summary rail both carry it).
     expect(screen.getAllByText("$400.00").length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole("button", { name: /Continue/ }));
@@ -83,26 +99,21 @@ describe("the price is the server's, never the browser's", () => {
 
   it("re-quotes when the party changes rather than adjusting the number itself", async () => {
     render(<CreateBookingDrawer open tours={tours} onClose={() => {}} />);
-    fireEvent.click(screen.getByRole("button", { name: "Shai Hills Safari" }));
-    fireEvent.change(screen.getByLabelText("Activity date"), {
-      target: { value: "2026-11-04" },
-    });
-    await waitFor(() => expect(quoteSupplierBooking).toHaveBeenCalledTimes(1));
+    await fillExperience();
+    expect(quoteSupplierBooking).toHaveBeenCalledTimes(1);
 
-    fireEvent.change(screen.getByLabelText("adults"), { target: { value: "4" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add adults" }));
     await waitFor(() => expect(quoteSupplierBooking).toHaveBeenCalledTimes(2));
   });
 });
 
 describe("offline money is named honestly", () => {
   it('says "Recorded as collected" and states that offline payments are not verified', async () => {
-    render(<CreateBookingDrawer open tours={tours} onClose={() => {}} />);
     await reachCollectionStep();
 
-    // The phrase appears as the field label and in the summary; the point is
+    // The phrase appears as the field label and in the ledger; the point is
     // that it appears at all instead of "Paid".
     expect(screen.getAllByText(/Recorded as collected/).length).toBeGreaterThan(0);
-    // Said twice on the step: as the field hint and in the summary box.
     expect(
       screen.getAllByText(/TravioAfrica does not verify offline payments/).length
     ).toBeGreaterThan(0);
@@ -112,17 +123,29 @@ describe("offline money is named honestly", () => {
   });
 
   it('says "Unpaid reservation" when no collection is reported', async () => {
-    render(<CreateBookingDrawer open tours={tours} onClose={() => {}} />);
     await reachCollectionStep();
 
     fireEvent.click(screen.getByRole("button", { name: /Continue/ }));
     expect(await screen.findByText("Unpaid reservation")).toBeInTheDocument();
   });
+
+  it("will not record more money than the booking costs", async () => {
+    await reachCollectionStep();
+
+    // The backend refuses this too; the wizard says so before the round trip
+    // instead of letting the supplier discover it as a failed submission.
+    fireEvent.change(screen.getByLabelText("Amount collected"), {
+      target: { value: "500" },
+    });
+    expect(await screen.findByText(/More than the booking total/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Continue/ }));
+    expect(await screen.findByRole("button", { name: /Create booking/ })).toBeDisabled();
+  });
 });
 
 describe("retries cannot create a second booking", () => {
   it("sends one stable idempotency key across attempts", async () => {
-    render(<CreateBookingDrawer open tours={tours} onClose={() => {}} />);
     await reachCollectionStep();
     fireEvent.click(screen.getByRole("button", { name: /Continue/ }));
 
@@ -132,9 +155,7 @@ describe("retries cannot create a second booking", () => {
 
     // The failure says a re-submit is safe instead of claiming the booking
     // failed outright.
-    expect(
-      await screen.findByText(/Re-submitting is safe/)
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/Re-submitting is safe/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Create booking/ }));
     await waitFor(() => expect(createSupplierBooking).toHaveBeenCalledTimes(2));

@@ -333,7 +333,7 @@ export function updateBookingPickup(id, payload) {
  * and re-quotes whenever the party or the date changes.
  */
 export async function quoteSupplierBooking(payload) {
-  const response = await api.post("/supplier/bookings/quote", payload, {
+  const response = await api.post("/bookings/supplier/bookings/quote", payload, {
     skipGlobalErrorHandler: true,
   });
   return response.data?.data || null;
@@ -345,7 +345,7 @@ export async function quoteSupplierBooking(payload) {
  * button's disabled state is not the safety net.
  */
 export async function createSupplierBooking(payload, idempotencyKey) {
-  const response = await api.post("/supplier/bookings", payload, {
+  const response = await api.post("/bookings/supplier/bookings", payload, {
     headers: { "Idempotency-Key": idempotencyKey },
     skipGlobalErrorHandler: true,
   });
@@ -353,7 +353,7 @@ export async function createSupplierBooking(payload, idempotencyKey) {
 }
 
 export async function fetchBookingCollections(bookingId) {
-  const response = await api.get(`/supplier/bookings/${bookingId}/collections`, {
+  const response = await api.get(`/bookings/supplier/bookings/${bookingId}/collections`, {
     skipGlobalErrorHandler: true,
   });
   return response.data?.data || null;
@@ -361,7 +361,7 @@ export async function fetchBookingCollections(bookingId) {
 
 /** Record money the supplier reports collecting. Partial collections are separate rows. */
 export async function recordBookingCollection(bookingId, payload, idempotencyKey) {
-  const response = await api.post(`/supplier/bookings/${bookingId}/collections`, payload, {
+  const response = await api.post(`/bookings/supplier/bookings/${bookingId}/collections`, payload, {
     headers: { "Idempotency-Key": idempotencyKey },
     skipGlobalErrorHandler: true,
   });
@@ -370,7 +370,7 @@ export async function recordBookingCollection(bookingId, payload, idempotencyKey
 
 /** Record money the supplier returned to the customer outside the platform. */
 export async function recordBookingRefund(bookingId, payload, idempotencyKey) {
-  const response = await api.post(`/supplier/bookings/${bookingId}/refunds`, payload, {
+  const response = await api.post(`/bookings/supplier/bookings/${bookingId}/refunds`, payload, {
     headers: { "Idempotency-Key": idempotencyKey },
     skipGlobalErrorHandler: true,
   });

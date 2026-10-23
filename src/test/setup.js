@@ -1,6 +1,14 @@
 import { expect, afterEach, afterAll, beforeAll, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import * as matchers from '@testing-library/jest-dom/matchers';
+import { MotionGlobalConfig } from 'framer-motion';
+
+// jsdom does not advance the animation frames framer-motion schedules, so
+// anything gated on an animation finishing never happens: a wizard that swaps
+// steps with `AnimatePresence mode="wait"` would sit forever on the exiting
+// step and its next step would never mount. Resolving animations immediately
+// keeps tests deterministic; the browser still runs the real transitions.
+MotionGlobalConfig.skipAnimations = true;
 
 // Extend Vitest's expect with jest-dom matchers
 expect.extend(matchers);
