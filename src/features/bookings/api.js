@@ -319,3 +319,60 @@ export function updateBookingPickup(id, payload) {
     { skipGlobalErrorHandler: true }
   );
 }
+
+// ── Supplier-created bookings (walk-ins, offline collection) ────────────────
+//
+// Everything authoritative is computed server-side: the quote below is the
+// only price the UI may show, and `create` never accepts a total, a supplier,
+// an origin or a commission. Money a supplier collects is reported through
+// `recordBookingCollection`; that is a different fact from a platform payment
+// and never becomes one.
+
+/**
+ * Server-authoritative price + availability verdict. The wizard displays this
+ * and re-quotes whenever the party or the date changes.
+ */
+export async function quoteSupplierBooking(payload) {
+  const response = await api.post("/supplier/bookings/quote", payload, {
+    skipGlobalErrorHandler: true,
+  });
+  return response.data?.data || null;
+}
+
+/**
+ * Create the booking. `idempotencyKey` travels in the header so a retried
+ * submit replays the same booking instead of creating a second one — the
+ * button's disabled state is not the safety net.
+ */
+export async function createSupplierBooking(payload, idempotencyKey) {
+  const response = await api.post("/supplier/bookings", payload, {
+    headers: { "Idempotency-Key": idempotencyKey },
+    skipGlobalErrorHandler: true,
+  });
+  return response.data?.data?.booking || null;
+}
+
+export async function fetchBookingCollections(bookingId) {
+  const response = await api.get(`/supplier/bookings/${bookingId}/collections`, {
+    skipGlobalErrorHandler: true,
+  });
+  return response.data?.data || null;
+}
+
+/** Record money the supplier reports collecting. Partial collections are separate rows. */
+export async function recordBookingCollection(bookingId, payload, idempotencyKey) {
+  const response = await api.post(`/supplier/bookings/${bookingId}/collections`, payload, {
+    headers: { "Idempotency-Key": idempotencyKey },
+    skipGlobalErrorHandler: true,
+  });
+  return response.data?.data?.collection || null;
+}
+
+/** Record money the supplier returned to the customer outside the platform. */
+export async function recordBookingRefund(bookingId, payload, idempotencyKey) {
+  const response = await api.post(`/supplier/bookings/${bookingId}/refunds`, payload, {
+    headers: { "Idempotency-Key": idempotencyKey },
+    skipGlobalErrorHandler: true,
+  });
+  return response.data?.data?.refund || null;
+}

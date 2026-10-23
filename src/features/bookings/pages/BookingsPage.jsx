@@ -17,6 +17,7 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTeamRole } from "@/hooks/useTeamRole";
 import {
   DEFAULT_PAGE_SIZE,
   PAGE_SIZE_OPTIONS,
@@ -36,6 +37,8 @@ import CancelBookingModal from "../components/CancelBookingModal";
 import BookingDetailDrawer from "../components/BookingDetailDrawer";
 import BulkCancelWizard from "../components/BulkCancelWizard";
 import CancellationRequestsPanel from "../components/CancellationRequestsPanel";
+import CreateBookingDrawer from "../components/CreateBookingDrawer";
+import { listMyProducts } from "@/features/products/api";
 
 const QUICK_FILTERS = [
   { key: "ALL", label: "All bookings" },
@@ -59,6 +62,11 @@ export default function BookingsPage() {
   const [showBulkCancel, setShowBulkCancel] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [view, setView] = useState("bookings"); // bookings | requests
+  // Supplier-created bookings: the wizard owns its own state; these two hold
+  // the drawer and the tour catalogue it picks from (fetched on open).
+  const [showCreateBooking, setShowCreateBooking] = useState(false);
+  const [createTours, setCreateTours] = useState([]);
+  const { hasPermission } = useTeamRole();
   const [highlightedBookingId, setHighlightedBookingId] = useState(
     searchParams.get("bookingId") || null
   );
@@ -465,18 +473,45 @@ export default function BookingsPage() {
             </button>
           </div>
           {view === "bookings" && (
-            <button
-              onClick={loadBookings}
-              disabled={loading}
-              className="flex items-center gap-1.5 px-4 py-2 bg-white border border-emerald-100/60 rounded-xl text-sm font-medium text-slate-600 hover:bg-emerald-50/40 hover:text-slate-800 transition-all disabled:opacity-50 shadow-sm"
-            >
-              {loading ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <RefreshCw size={14} />
+            <>
+              {hasPermission("bookings.manage") && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setShowCreateBooking(true);
+                    if (createTours.length === 0) {
+                      try {
+                        const res = await listMyProducts({ limit: 200 });
+                        const tours = res.data?.data?.tours || [];
+                        // Only tours a booking can actually be made on.
+                        setCreateTours(
+                          tours.filter(
+                            (t) => !["DRAFT", "ARCHIVED", "REJECTED"].includes(t.status)
+                          )
+                        );
+                      } catch {
+                        setCreateTours([]);
+                      }
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-[#044b3b] text-white rounded-xl text-sm font-semibold hover:bg-[#033629] transition-colors shadow-sm"
+                >
+                  <Calendar size={14} /> Create booking
+                </button>
               )}
-              Refresh
-            </button>
+              <button
+                onClick={loadBookings}
+                disabled={loading}
+                className="flex items-center gap-1.5 px-4 py-2 bg-white border border-emerald-100/60 rounded-xl text-sm font-medium text-slate-600 hover:bg-emerald-50/40 hover:text-slate-800 transition-all disabled:opacity-50 shadow-sm"
+              >
+                {loading ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <RefreshCw size={14} />
+                )}
+                Refresh
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -848,6 +883,12 @@ export default function BookingsPage() {
         isOpen={showBulkCancel}
         onClose={() => setShowBulkCancel(false)}
         onCompleted={() => loadBookings({ silent: true })}
+      />
+      <CreateBookingDrawer
+        open={showCreateBooking}
+        onClose={() => setShowCreateBooking(false)}
+        tours={createTours}
+        onCreated={() => loadBookings({ silent: true })}
       />
     </div>
   );

@@ -39,6 +39,14 @@ vi.mock("../components/BookingCard", () => ({
 vi.mock("../components/CancelBookingModal", () => ({ default: () => null }));
 vi.mock("../components/BulkCancelWizard", () => ({ default: () => null }));
 vi.mock("../components/CancellationRequestsPanel", () => ({ default: () => null }));
+vi.mock("../components/CreateBookingDrawer", () => ({ default: () => null }));
+
+// The create-booking button reads the acting team's permissions and opens the
+// wizard with the supplier's tours; both live elsewhere and are stubbed here.
+vi.mock("@/hooks/useTeamRole", () => ({
+  useTeamRole: () => ({ hasPermission: () => true }),
+}));
+vi.mock("@/features/products/api", () => ({ listMyProducts: vi.fn() }));
 
 import BookingsPage from "../pages/BookingsPage";
 

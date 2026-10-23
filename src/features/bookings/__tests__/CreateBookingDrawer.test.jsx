@@ -1,0 +1,147 @@
+/**
+ * The create-booking wizard: the four things that make it trustworthy.
+ *
+ *  1. THE PRICE ON SCREEN IS THE SERVER'S. The wizard fetches a quote and
+ *     submits no total, no price, no supplier and no commission — a browser
+ *     cannot be trusted with the amount a booking costs.
+ *  2. OFFLINE MONEY IS NAMED HONESTLY. A supplier-collected payment is shown
+ *     as "Recorded as collected", never "Paid", and the step says plainly that
+ *     TravioAfrica does not verify offline payments.
+ *  3. RETRIES ARE SAFE. The same idempotency key goes out on every attempt for
+ *     one booking, so re-submitting after an uncertain response cannot create
+ *     a second booking — and the failure copy says so instead of guessing.
+ *  4. AN UNPAID RESERVATION IS A REAL STATE. With no collection reported, the
+ *     review says "Unpaid reservation" rather than implying money changed
+ *     hands.
+ */
+import { describe, expect, it, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+
+const quoteSupplierBooking = vi.fn();
+const createSupplierBooking = vi.fn();
+
+vi.mock("../api", () => ({
+  quoteSupplierBooking: (...a) => quoteSupplierBooking(...a),
+  createSupplierBooking: (...a) => createSupplierBooking(...a),
+  fetchBookingCollections: vi.fn(),
+  recordBookingCollection: vi.fn(),
+  recordBookingRefund: vi.fn(),
+}));
+
+import CreateBookingDrawer from "../components/CreateBookingDrawer";
+
+const tours = [{ id: "tour-1", title: "Shai Hills Safari", status: "PUBLISHED" }];
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  quoteSupplierBooking.mockResolvedValue({
+    currency: "USD",
+    subtotal: 400,
+    discount: 0,
+    total: 400,
+    available: true,
+    unavailableReason: null,
+    commission: { policy: "APPLY", rate: 0.15, amount: 60 },
+  });
+  createSupplierBooking.mockResolvedValue({ id: "b-1", bookingNumber: "TGA-2048" });
+});
+
+/** Fill step 1 and reach the pricing step. */
+async function reachCollectionStep() {
+  fireEvent.click(screen.getByRole("button", { name: "Shai Hills Safari" }));
+  fireEvent.change(screen.getByLabelText("Activity date"), {
+    target: { value: "2026-11-04" },
+  });
+  await waitFor(() => expect(quoteSupplierBooking).toHaveBeenCalled());
+  fireEvent.click(screen.getByRole("button", { name: /Continue/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Continue/ }));
+  // The name appears in the step rail too; the heading is the unambiguous one.
+  await screen.findByRole("heading", { name: "Pricing & collection" });
+}
+
+describe("the price is the server's, never the browser's", () => {
+  it("shows the quoted total and submits no total or price field at all", async () => {
+    render(<CreateBookingDrawer open tours={tours} onClose={() => {}} />);
+    await reachCollectionStep();
+
+    // The total on screen came from the quote response (it shows in the price
+    // block and again as the outstanding balance).
+    expect(screen.getAllByText("$400.00").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: /Continue/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Create booking/ }));
+
+    await waitFor(() => expect(createSupplierBooking).toHaveBeenCalled());
+    const [payload] = createSupplierBooking.mock.calls[0];
+    expect(payload.total).toBeUndefined();
+    expect(payload.price).toBeUndefined();
+    expect(payload.grossAmount).toBeUndefined();
+    expect(payload.supplierId).toBeUndefined();
+    expect(payload.status).toBeUndefined();
+    expect(payload.commissionRate).toBeUndefined();
+  });
+
+  it("re-quotes when the party changes rather than adjusting the number itself", async () => {
+    render(<CreateBookingDrawer open tours={tours} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "Shai Hills Safari" }));
+    fireEvent.change(screen.getByLabelText("Activity date"), {
+      target: { value: "2026-11-04" },
+    });
+    await waitFor(() => expect(quoteSupplierBooking).toHaveBeenCalledTimes(1));
+
+    fireEvent.change(screen.getByLabelText("adults"), { target: { value: "4" } });
+    await waitFor(() => expect(quoteSupplierBooking).toHaveBeenCalledTimes(2));
+  });
+});
+
+describe("offline money is named honestly", () => {
+  it('says "Recorded as collected" and states that offline payments are not verified', async () => {
+    render(<CreateBookingDrawer open tours={tours} onClose={() => {}} />);
+    await reachCollectionStep();
+
+    // The phrase appears as the field label and in the summary; the point is
+    // that it appears at all instead of "Paid".
+    expect(screen.getAllByText(/Recorded as collected/).length).toBeGreaterThan(0);
+    // Said twice on the step: as the field hint and in the summary box.
+    expect(
+      screen.getAllByText(/TravioAfrica does not verify offline payments/).length
+    ).toBeGreaterThan(0);
+    // The collection is a different fact from a platform payment, and the
+    // wizard must never call it one.
+    expect(screen.queryByText(/^Total paid/)).toBeNull();
+  });
+
+  it('says "Unpaid reservation" when no collection is reported', async () => {
+    render(<CreateBookingDrawer open tours={tours} onClose={() => {}} />);
+    await reachCollectionStep();
+
+    fireEvent.click(screen.getByRole("button", { name: /Continue/ }));
+    expect(await screen.findByText("Unpaid reservation")).toBeInTheDocument();
+  });
+});
+
+describe("retries cannot create a second booking", () => {
+  it("sends one stable idempotency key across attempts", async () => {
+    render(<CreateBookingDrawer open tours={tours} onClose={() => {}} />);
+    await reachCollectionStep();
+    fireEvent.click(screen.getByRole("button", { name: /Continue/ }));
+
+    createSupplierBooking.mockRejectedValueOnce(new Error("network"));
+    fireEvent.click(screen.getByRole("button", { name: /Create booking/ }));
+    await waitFor(() => expect(createSupplierBooking).toHaveBeenCalledTimes(1));
+
+    // The failure says a re-submit is safe instead of claiming the booking
+    // failed outright.
+    expect(
+      await screen.findByText(/Re-submitting is safe/)
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Create booking/ }));
+    await waitFor(() => expect(createSupplierBooking).toHaveBeenCalledTimes(2));
+
+    const [, keyFirst] = createSupplierBooking.mock.calls[0];
+    const [, keySecond] = createSupplierBooking.mock.calls[1];
+    expect(keyFirst).toBeTruthy();
+    expect(keySecond).toBe(keyFirst);
+  });
+});
