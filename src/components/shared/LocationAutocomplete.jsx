@@ -454,7 +454,11 @@ const LocationAutocomplete = forwardRef(function LocationAutocomplete(
                         <div className="font-medium leading-snug truncate">
                           {highlightText(result.formatted, query)}
                         </div>
-                        {result.name && result.name !== result.formatted && (
+                        {/* Only when the name is NOT already part of the label
+                            — "Ghana Girl Guides Training Center, Accra, Ghana"
+                            does not need "Ghana Girl Guides Training Center"
+                            repeated underneath it. */}
+                        {result.name && !String(result.formatted).includes(result.name) && (
                           <div className="text-xs text-slate-400 truncate leading-snug mt-0.5">
                             {result.name}
                           </div>
