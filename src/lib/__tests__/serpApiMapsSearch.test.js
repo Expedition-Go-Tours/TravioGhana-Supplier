@@ -53,8 +53,12 @@ describe('searchGoogleMaps', () => {
 
     expect(outcome.status).toBe('ok');
     expect(outcome.results[0]).toMatchObject({ source: 'google_maps' });
-    // Our own endpoint — never a direct call to SerpApi from the browser.
-    expect(fetchSpy.mock.calls[0][0]).toContain('/locations/google-search');
+    // On the API HOST — a relative URL would hit this app's own origin and be
+    // answered by the SPA's catch-all rewrite with HTML, which is exactly the
+    // "We could not reach Google Maps just now" this produced.
+    expect(fetchSpy.mock.calls[0][0]).toMatch(/^https?:\/\//);
+    expect(fetchSpy.mock.calls[0][0]).toContain('/api/locations/google-search');
+    // Never a direct call to SerpApi from the browser.
     expect(fetchSpy.mock.calls[0][0]).not.toContain('serpapi.com');
   });
 

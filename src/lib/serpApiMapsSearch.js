@@ -13,9 +13,19 @@
  * module only ever calls our own route (see `noClientSerpKey` test: a build
  * that references the key in client code fails).
  *
+ * The route lives on the API HOST, not on this app's origin. The storefront
+ * could fetch its own `/api/maps-search` relatively because that route was its
+ * own Vercel middleware; this dashboard is served from a different domain than
+ * the API, so a relative URL here hits the SPA's catch-all rewrite and comes
+ * back as HTML — which surfaced as "We could not reach Google Maps just now."
+ *
  * Results are LRU-cached per query + search area, so re-running the same
  * search never spends another SerpApi credit on either side.
  */
+
+import config from "@/config";
+
+const apiBase = config.api.baseURL;
 
 export const GOOGLE_PLACE_SOURCE = "google_maps";
 
@@ -91,7 +101,7 @@ export async function searchGoogleMaps(query, origin = null) {
 
   let response;
   try {
-    response = await fetch(`/locations/google-search?${params.toString()}`, {
+    response = await fetch(`${apiBase}/locations/google-search?${params.toString()}`, {
       headers: { Accept: "application/json" },
     });
   } catch {
