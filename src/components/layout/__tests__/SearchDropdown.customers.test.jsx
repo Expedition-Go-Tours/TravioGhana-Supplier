@@ -116,7 +116,7 @@ describe('finding a customer in bookings', () => {
     );
   });
 
-  it('opens their bookings on Enter', async () => {
+  it('opens their bookings on Enter, scoped to the customer', async () => {
     renderPalette();
     const user = await openAndType('Kwame');
 
@@ -126,9 +126,8 @@ describe('finding a customer in bookings', () => {
     await user.keyboard('{Enter}');
 
     await waitFor(() => {
-      expect(screen.getByTestId('location').textContent).toContain('/bookings?search=');
+      expect(screen.getByTestId('location').textContent).toBe('/bookings?customerId=cust-1');
     });
-    expect(screen.getByTestId('location').textContent).toContain('kwame%40example.com');
   });
 
   it('opens the conversation from the message action', async () => {

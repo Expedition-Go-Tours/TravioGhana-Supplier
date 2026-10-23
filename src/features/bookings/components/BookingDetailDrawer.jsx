@@ -528,7 +528,7 @@ export default function BookingDetailDrawer({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Fact label="Lead traveller">{booking.leadTravelerName || booking.customerName}</Fact>
                   <Fact label="Booked by">{booking.customerName}</Fact>
-                  <Fact label="Email">
+                  <Fact label="Contact">
                     <a
                       href={`mailto:${booking.customerEmail}`}
                       className="inline-flex items-center gap-1 text-[#044b3b] hover:underline break-all"

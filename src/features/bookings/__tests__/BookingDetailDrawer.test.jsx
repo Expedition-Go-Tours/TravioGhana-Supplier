@@ -127,15 +127,33 @@ describe('loading and failure', () => {
 
 describe('what the panel shows', () => {
   it('shows the customer contact details the list does not carry', async () => {
-    fetchBookingDetail.mockResolvedValue(mapBookingRow(rawBooking()));
+    // The API sends the RELAY address in place of the real inbox (see
+    // services/supplierContact): the panel's mailto still reaches the guest,
+    // and the reply lands in the app thread. The fixture mirrors what the
+    // backend actually returns — no test should assert a real address appears.
+    fetchBookingDetail.mockResolvedValue(
+      mapBookingRow(rawBooking({
+        customer: {
+          id: 'u-1',
+          name: 'Kwame Mensah',
+          email: 'c-0123456789abcdef@messages.travioghana.com',
+          phone: '+233201111111',
+          photoURL: '',
+        },
+      })),
+    );
 
     renderDrawer();
 
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: /kwame@example.com/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole('link', { name: /c-0123456789abcdef@messages\.travioghana\.com/i }),
+      ).toBeInTheDocument();
     });
     expect(screen.getByRole('link', { name: /\+233201111111/i })).toBeInTheDocument();
     expect(screen.getByText('Shai Hills Safari')).toBeInTheDocument();
+    // The guarantee: the guest's real inbox is not on the page at all.
+    expect(document.body.innerHTML).not.toContain('kwame@example.com');
   });
 
   it('marks the payment as taken, not as an estimate', async () => {

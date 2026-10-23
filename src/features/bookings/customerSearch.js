@@ -90,13 +90,18 @@ export function groupCustomerResults(rows) {
 }
 
 /**
- * Where a customer row goes: their bookings, filtered by the email — the one
- * query the server-side search treats as unique. Falls back to the name when
- * the row has no email.
+ * Where a customer row goes: their bookings, scoped to that CUSTOMER.
+ *
+ * It used to deep-link with `?search=<email>`, but the address the palette now
+ * shows is the RELAY (the customer's real inbox never reaches a supplier
+ * payload), and the server's search matches the real address — so searching
+ * for the relay would find nothing. `customerId` is exact and needs no name
+ * matching, which also means two "Kwames" never share a link.
  */
 export function customerBookingsPath(customer) {
-  const q = customer.email || customer.name || "";
-  return `/bookings?search=${encodeURIComponent(q)}`;
+  if (customer.id) return `/bookings?customerId=${encodeURIComponent(customer.id)}`;
+  // Legacy rows without an id: fall back to a name search.
+  return `/bookings?search=${encodeURIComponent(customer.name || "")}`;
 }
 
 /** The secondary action: open the conversation with this customer. */

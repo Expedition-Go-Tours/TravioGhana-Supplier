@@ -73,6 +73,9 @@ export default function BookingsPage() {
   );
   const activeTab = searchParams.get("tab") || "ALL";
   const searchTerm = searchParams.get("search") || "";
+  // Exact customer scoping (from the header search's customer rows). Unlike
+  // `search`, this is unambiguous — two guests can share a name.
+  const customerIdParam = searchParams.get("customerId") || "";
   const purchaseDateFrom = searchParams.get("purchaseFrom") || "";
   const purchaseDateTo = searchParams.get("purchaseTo") || "";
   const activityDateFrom = searchParams.get("activityFrom") || "";
@@ -98,6 +101,7 @@ export default function BookingsPage() {
         page: page + 1,
         limit: pageSize,
         ...(apiStatus ? { status: apiStatus } : {}),
+        ...(customerIdParam ? { customerId: customerIdParam } : {}),
         ...(searchTerm ? { search: searchTerm } : {}),
         ...(purchaseDateFrom ? { purchaseFrom: purchaseDateFrom } : {}),
         ...(purchaseDateTo ? { purchaseTo: purchaseDateTo } : {}),
@@ -121,6 +125,7 @@ export default function BookingsPage() {
     page,
     pageSize,
     apiStatus,
+    customerIdParam,
     searchTerm,
     purchaseDateFrom,
     purchaseDateTo,
@@ -192,6 +197,7 @@ export default function BookingsPage() {
     setLocActivityTo("");
     setSearchParams({});
   };
+
 
   // Search is a server-side filter. Debouncing keeps a fast typist from
   // firing one request per keystroke, and pushing it into the URL makes the
@@ -412,6 +418,7 @@ export default function BookingsPage() {
   }, [filteredData, bookingSummary, pagination]);
 
   const hasFilters = Boolean(
+    customerIdParam ||
     searchTerm ||
     purchaseDateFrom ||
     purchaseDateTo ||

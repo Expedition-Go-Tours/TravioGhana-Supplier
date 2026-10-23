@@ -100,11 +100,14 @@ describe('customerActivityLine', () => {
 describe('where a customer row goes', () => {
   const customer = { id: 'cust-1', name: 'Kwame Mensah', email: 'kwame@example.com', bookings: [] };
 
-  it('opens their bookings, searched by email — the unique key', () => {
-    expect(customerBookingsPath(customer)).toBe('/bookings?search=kwame%40example.com');
+  it('opens their bookings scoped to the customer — not by email', () => {
+    // The address shown is the relay, and the server's search matches the real
+    // inbox: a `?search=<email>` link would find nothing. The id is exact and
+    // two "Kwames" never share a link.
+    expect(customerBookingsPath(customer)).toBe('/bookings?customerId=cust-1');
   });
 
-  it('falls back to the name when there is no email', () => {
+  it('falls back to a name search only when the row has no id', () => {
     expect(customerBookingsPath({ name: 'Kwame Mensah' })).toBe('/bookings?search=Kwame%20Mensah');
   });
 
