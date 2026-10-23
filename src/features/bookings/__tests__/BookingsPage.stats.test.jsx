@@ -41,10 +41,18 @@ vi.mock("../components/BulkCancelWizard", () => ({ default: () => null }));
 vi.mock("../components/CancellationRequestsPanel", () => ({ default: () => null }));
 vi.mock("../components/CreateBookingDrawer", () => ({ default: () => null }));
 
-// The create-booking button reads the acting team's permissions and opens the
-// wizard with the supplier's tours; both live elsewhere and are stubbed here.
+// The create-booking button reads the acting team's permissions AND the
+// server's answer on whether supplier-created bookings are enabled for this
+// brand — the backend refuses the create either way, so offering it when the
+// flag is off only invites a 403. Both live elsewhere and are stubbed here.
+let supplierCreatedBookings = true;
 vi.mock("@/hooks/useTeamRole", () => ({
-  useTeamRole: () => ({ hasPermission: () => true }),
+  useTeamRole: () => ({
+    hasPermission: () => true,
+    get supplierCreatedBookings() {
+      return supplierCreatedBookings;
+    },
+  }),
 }));
 vi.mock("@/features/products/api", () => ({ listMyProducts: vi.fn() }));
 
@@ -79,6 +87,7 @@ const BOOKINGS = [
 
 beforeEach(() => {
   seq = 0;
+  supplierCreatedBookings = true;
   fetchSupplierBookings.mockReset();
   fetchSupplierBookings.mockResolvedValue({
     bookings: BOOKINGS,
@@ -175,5 +184,25 @@ describe("the bookings stat row", () => {
     const className = statGrid()?.className;
     expect(className).toContain("grid-cols-2");
     expect(className).toContain("sm:grid-cols-3");
+  });
+});
+
+// A brand with the feature switched off would get a 403 from the create path,
+// so the button must not be offered at all rather than failing after the click.
+describe("the create-booking entry point", () => {
+  it("is shown when the server says the brand has the feature enabled", async () => {
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText("Total Bookings")).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: /Create booking/ })).toBeInTheDocument();
+  });
+
+  it("is hidden when the brand has supplier-created bookings switched off", async () => {
+    supplierCreatedBookings = false;
+
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText("Total Bookings")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: /Create booking/ })).toBeNull();
   });
 });

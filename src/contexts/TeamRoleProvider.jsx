@@ -11,6 +11,11 @@ export function TeamRoleProvider({ children }) {
   // Storefronts the BUSINESS is on (['GHANA','EXPEDITION']), from /my-role.
   // Never a member's own roles — those are ['customer'] and carry no brand.
   const [storefronts, setStorefronts] = useState([]);
+  // Whether the SERVER says supplier-created bookings are switched on for this
+  // business's brand. The backend enforces this on every call, so offering the
+  // flow when it is off just earns a 403 — the create button is hidden unless
+  // the same answer the server would give says yes.
+  const [supplierCreatedBookings, setSupplierCreatedBookings] = useState(false);
   const [loading, setLoading] = useState(true);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
@@ -25,12 +30,14 @@ export function TeamRoleProvider({ children }) {
       setPermissions(data?.permissions || []);
       setIsOwner(data?.isOwner || false);
       setStorefronts(data?.storefronts || []);
+      setSupplierCreatedBookings(data?.supplierCreatedBookings || false);
     } catch {
       setTeamRole(null);
       setTeamRoles([]);
       setPermissions([]);
       setIsOwner(false);
       setStorefronts([]);
+      setSupplierCreatedBookings(false);
     }
   }, []);
 
@@ -51,6 +58,7 @@ export function TeamRoleProvider({ children }) {
         setPermissions([]);
         setIsOwner(false);
         setStorefronts([]);
+        setSupplierCreatedBookings(false);
         setLoading(false);
       });
       return () => { cancelled = true; };
@@ -74,6 +82,7 @@ export function TeamRoleProvider({ children }) {
           setPermissions(data?.permissions || []);
           setIsOwner(data?.isOwner || false);
           setStorefronts(data?.storefronts || []);
+          setSupplierCreatedBookings(data?.supplierCreatedBookings || false);
         } catch {
           if (cancelled) return;
           setTeamRole(null);
@@ -81,6 +90,7 @@ export function TeamRoleProvider({ children }) {
           setPermissions([]);
           setIsOwner(false);
           setStorefronts([]);
+          setSupplierCreatedBookings(false);
         } finally {
           if (!cancelled) setLoading(false);
         }
@@ -117,6 +127,7 @@ export function TeamRoleProvider({ children }) {
         permissions,
         isOwner,
         storefronts,
+        supplierCreatedBookings,
         loading,
         refetch,
         hasPermission,

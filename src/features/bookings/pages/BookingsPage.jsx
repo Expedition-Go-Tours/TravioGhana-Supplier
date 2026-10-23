@@ -66,7 +66,7 @@ export default function BookingsPage() {
   // the drawer and the tour catalogue it picks from (fetched on open).
   const [showCreateBooking, setShowCreateBooking] = useState(false);
   const [createTours, setCreateTours] = useState([]);
-  const { hasPermission } = useTeamRole();
+  const { hasPermission, supplierCreatedBookings } = useTeamRole();
   const [highlightedBookingId, setHighlightedBookingId] = useState(
     searchParams.get("bookingId") || null
   );
@@ -474,7 +474,10 @@ export default function BookingsPage() {
           </div>
           {view === "bookings" && (
             <>
-              {hasPermission("bookings.manage") && (
+              {/* Hidden unless the server says the brand has supplier-created
+                  bookings switched on. The backend refuses the create anyway,
+                  so showing the button only invites a 403. */}
+              {hasPermission("bookings.manage") && supplierCreatedBookings && (
                 <button
                   type="button"
                   onClick={async () => {
