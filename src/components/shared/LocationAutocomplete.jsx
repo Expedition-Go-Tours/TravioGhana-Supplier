@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, useImperativeHandle, forwardR
 import { MapPin, Loader2, X, AlertTriangle, RefreshCw, Search } from "lucide-react";
 import { useGeocoding } from "@/hooks/useGeocoding";
 import { searchGoogleMaps } from "@/lib/serpApiMapsSearch";
+import { hasRelevantLocationSuggestion } from "@/lib/locationRelevance";
 
 const MARK_STYLE =
   "relative inline-block after:absolute after:inset-0 after:bg-amber-100/60 after:rounded-sm after:-my-px";
@@ -329,27 +330,6 @@ const LocationAutocomplete = forwardRef(function LocationAutocomplete(
           {!loading && !debouncing && !error && results.length === 0 && (
             <div className="px-4 py-3 text-sm text-slate-500 space-y-2">
               <p>No locations found.</p>
-              {/* Google Maps (SerpApi) fallback — offered only when the
-                  ordinary search found nothing, and only when this server has
-                  a key (`off` hides it entirely rather than pretending the
-                  search returned no matches). */}
-              {googleState === "idle" && query.trim().length >= minChars && (
-                <button
-                  type="button"
-                  onClick={() => void runGoogleSearch()}
-                  className="flex items-start gap-2.5 w-full text-left rounded-lg border border-slate-100 px-3 py-2.5 hover:bg-slate-50 transition-colors"
-                >
-                  <Search size={14} className="mt-0.5 shrink-0 text-slate-400" />
-                  <span className="min-w-0">
-                    <span className="block font-medium text-slate-700">
-                      Can&rsquo;t find your location? Search Google Maps
-                    </span>
-                    <span className="block text-xs text-slate-400 mt-0.5">
-                      We&rsquo;ll look it up on Google Maps in Ghana.
-                    </span>
-                  </span>
-                </button>
-              )}
               {onAddCustom && query.trim().length >= minChars && (
                 <button
                   type="button"
@@ -399,8 +379,39 @@ const LocationAutocomplete = forwardRef(function LocationAutocomplete(
               </div>
             ))}
 
-          {/* The Google Maps fallback: one explicit, credit-cached search for
-              the typed place, hard-filtered to Ghana. */}
+          {/* Google Maps (SerpApi) fallback — offered when NOTHING RELEVANT
+              was found, which includes both "no results" and the nastier case
+              of weak, unrelated suggestions for a place we don't really know.
+              It never competes with a real match, and it only spends a
+              SerpApi credit when clicked. `off` hides it entirely when this
+              server has no key, rather than pretending a search happened. */}
+          {!loading &&
+            !debouncing &&
+            !error &&
+            googleState === "idle" &&
+            query.trim().length >= minChars &&
+            !hasRelevantLocationSuggestion(query, results) && (
+              <div className="border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => void runGoogleSearch()}
+                  className="flex items-start gap-2.5 w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors"
+                >
+                  <Search size={14} className="mt-0.5 shrink-0 text-slate-400" />
+                  <span className="min-w-0">
+                    <span className="block font-medium text-slate-700">
+                      Can&rsquo;t find your location? Search Google Maps
+                    </span>
+                    <span className="block text-xs text-slate-400 mt-0.5">
+                      We&rsquo;ll look it up on Google Maps in Ghana.
+                    </span>
+                  </span>
+                </button>
+              </div>
+            )}
+
+          {/* The Google Maps fallback results: one explicit, credit-cached
+              search for the typed place, hard-filtered to Ghana. */}
           {googleState === "loading" && (
             <div className="flex items-center gap-2 border-t border-slate-100 px-4 py-3 text-sm text-slate-500">
               <Loader2 size={14} className="animate-spin text-emerald-600" />

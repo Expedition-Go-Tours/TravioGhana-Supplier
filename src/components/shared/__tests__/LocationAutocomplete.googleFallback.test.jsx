@@ -196,12 +196,44 @@ describe('when the fallback cannot answer', () => {
   });
 });
 
+describe('when the ordinary search returns only weak matches', () => {
+  it('still offers the fallback — this is the case that strands suppliers', async () => {
+    // The supplier typed a place the catalog does not really know; the
+    // dropdown offers unrelated suggestions. Without the relevance rule the
+    // fallback never appears and they are stuck with noise.
+    stubGeocoding({
+      results: [
+        {
+          formatted: 'Tosu Lodge, Ghana',
+          latitude: 5.08,
+          longitude: -1.35,
+          country: 'Ghana',
+          source: 'geoapify',
+        },
+      ],
+    });
+    renderPicker();
+
+    await typeQuery('Ghana Girl Guides Training Center');
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /can’t find your location\? search google maps/i }),
+      ).toBeInTheDocument();
+    });
+    // The weak suggestion is still there to click — the fallback is offered
+    // alongside it, not instead of it.
+    expect(screen.getByRole('option', { name: /Tosu Lodge/ })).toBeInTheDocument();
+    expect(searchGoogleMaps).not.toHaveBeenCalled();
+  });
+});
+
 describe('when the ordinary search already found something', () => {
   it('does not compete with real suggestions', async () => {
     stubGeocoding({
       results: [
         {
-          formatted: 'Elmina, Ghana',
+          formatted: 'Elmina Castle, Central Region, Ghana',
           latitude: 5.08,
           longitude: -1.35,
           city: 'Elmina',
@@ -213,10 +245,10 @@ describe('when the ordinary search already found something', () => {
     });
     renderPicker();
 
-    await typeQuery('Elmina');
+    await typeQuery('Elmina Castle');
 
     await waitFor(() => {
-      expect(screen.getByRole('option', { name: /Elmina, Ghana/ })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: /Elmina Castle/ })).toBeInTheDocument();
     });
     expect(
       screen.queryByRole('button', { name: /search google maps/i }),
