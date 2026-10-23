@@ -50,7 +50,7 @@ import { quoteSupplierBooking, createSupplierBooking } from "../api";
  *  - the price shown is the SERVER's quote, recomputed whenever the party or
  *    date changes. The browser never computes or submits a total.
  *  - a supplier-collected payment is labelled "Recorded as collected", never
- *    "Paid": TravioAfrica does not verify it, and the step says so where the
+ *    "Paid": TravioGhana does not verify it, and the step says so where the
  *    supplier reports it.
  *
  * Uncertain responses: the idempotency key is minted once per attempt and kept
@@ -323,7 +323,7 @@ export default function CreateBookingDrawer({ open, onClose, tours = [], onCreat
                 Create booking
               </h2>
               <p className="mt-0.5 text-xs text-slate-500">
-                For a customer, including a walk-in — the price comes from TravioAfrica, never from this screen.
+                For a customer, including a walk-in — the price comes from TravioGhana, never from this screen.
               </p>
             </div>
             <button
@@ -617,7 +617,7 @@ export default function CreateBookingDrawer({ open, onClose, tours = [], onCreat
                         <SectionTitle
                           icon={User}
                           title="Who is going?"
-                          sub="A walk-in does not need a TravioAfrica account. We never create one for them."
+                          sub="A walk-in does not need a TravioGhana account. We never create one for them."
                         />
                         <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">
                           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-sm font-bold text-emerald-700">
@@ -699,7 +699,7 @@ export default function CreateBookingDrawer({ open, onClose, tours = [], onCreat
                         <div className="rounded-xl border border-slate-200 bg-white p-4">
                           <div className="flex items-start justify-between gap-3">
                             <div>
-                              <p className="text-[11px] uppercase tracking-wide text-slate-400">Price, calculated by TravioAfrica</p>
+                              <p className="text-[11px] uppercase tracking-wide text-slate-400">Price, calculated by TravioGhana</p>
                               <div className="mt-1 h-8">
                                 {quoting ? (
                                   <span className="inline-flex items-center gap-2 text-sm text-slate-400">
@@ -847,7 +847,7 @@ export default function CreateBookingDrawer({ open, onClose, tours = [], onCreat
                           </div>
                           <p className="mt-3 flex items-start gap-1.5 text-[11px] leading-relaxed text-slate-400">
                             <ShieldCheck size={12} className="mt-0.5 shrink-0" />
-                            TravioAfrica does not verify offline payments. A reported collection is not a platform payment.
+                            TravioGhana does not verify offline payments. A reported collection is not a platform payment.
                           </p>
                         </div>
                       </div>
@@ -895,7 +895,7 @@ export default function CreateBookingDrawer({ open, onClose, tours = [], onCreat
                               <dt className="text-xs text-slate-500">Price</dt>
                               <dd className="text-xs font-semibold tabular-nums text-slate-900">
                                 {quote ? formatCurrency(total, quoteCurrency) : "—"}
-                                <span className="ml-1 font-normal text-slate-400">calculated by TravioAfrica</span>
+                                <span className="ml-1 font-normal text-slate-400">calculated by TravioGhana</span>
                               </dd>
                             </div>
                             <div className="flex items-center justify-between gap-3 px-3 py-2">
@@ -994,7 +994,7 @@ export default function CreateBookingDrawer({ open, onClose, tours = [], onCreat
                     </motion.p>
                   </AnimatePresence>
                 </div>
-                <p className="mt-0.5 text-[10px] text-slate-400">Calculated by TravioAfrica</p>
+                <p className="mt-0.5 text-[10px] text-slate-400">Calculated by TravioGhana</p>
               </div>
 
               <div className="mt-4 rounded-lg bg-slate-50 p-3">

@@ -6,7 +6,7 @@
  *     cannot be trusted with the amount a booking costs.
  *  2. OFFLINE MONEY IS NAMED HONESTLY. A supplier-collected payment is shown
  *     as "Recorded as collected", never "Paid", and the step says plainly that
- *     TravioAfrica does not verify offline payments.
+ *     TravioGhana does not verify offline payments.
  *  3. RETRIES ARE SAFE. The same idempotency key goes out on every attempt for
  *     one booking, so re-submitting after an uncertain response cannot create
  *     a second booking — and the failure copy says so instead of guessing.
@@ -115,7 +115,7 @@ describe("offline money is named honestly", () => {
     // that it appears at all instead of "Paid".
     expect(screen.getAllByText(/Recorded as collected/).length).toBeGreaterThan(0);
     expect(
-      screen.getAllByText(/TravioAfrica does not verify offline payments/).length
+      screen.getAllByText(/TravioGhana does not verify offline payments/).length
     ).toBeGreaterThan(0);
     // The collection is a different fact from a platform payment, and the
     // wizard must never call it one.
