@@ -2,12 +2,18 @@ import { useState, useRef, useEffect, useMemo, useCallback, Fragment } from "rea
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Clock, X, CornerDownLeft, Package, Loader2 } from "lucide-react";
+import { Search, Clock, X, CornerDownLeft, Package, Loader2, Users, MessageCircle } from "lucide-react";
 import { useTeamRole } from "@/hooks/useTeamRole";
 import { PAGE_ACCESS, canOpenSettingsTab } from "@/config/pageAccess";
 import { cn } from "@/lib/utils";
 import { productsListQuery } from "@/features/products/api";
 import { searchTours, tourSubtitle } from "@/features/products/tourSearch";
+import { fetchSupplierBookings } from "@/features/bookings/api";
+import {
+  groupCustomerResults,
+  customerBookingsPath,
+  customerChatPath,
+} from "@/features/bookings/customerSearch";
 import { getAuthToken } from "@/stores/authStore";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 
@@ -153,6 +159,30 @@ export default function SearchDropdown() {
   const { hasPermission } = useTeamRole();
 
   const canSearchTours = hasPermission("tours.view") && Boolean(getAuthToken());
+  // Customers come from the bookings search — same key the Bookings page is
+  // gated by. A support member without it gets no customer section at all:
+  // the palette must not leak people the sidebar's pages would refuse.
+  const canSearchCustomers = hasPermission("bookings.view") && Boolean(getAuthToken());
+
+  // Bookings are searched server-side (there can be thousands), debounced so
+  // typing a name is one request rather than one per keystroke. Every setState
+  // happens inside the timer, so the effect body stays synchronous.
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  useEffect(() => {
+    const q = query.trim();
+    const timer = setTimeout(
+      () => setDebouncedQuery(q.length >= 2 ? q : ""),
+      250,
+    );
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  const customerQuery = useQuery({
+    queryKey: ["header-search", "customers", debouncedQuery],
+    queryFn: () => fetchSupplierBookings({ search: debouncedQuery, limit: 25 }),
+    enabled: canSearchCustomers && debouncedQuery.length >= 2,
+    staleTime: 30 * 1000,
+  });
 
   // Shared with the Products page (same query key) so the list is fetched once
   // and cached. Independent of Redis — data comes straight from Postgres.
@@ -219,14 +249,40 @@ export default function SearchDropdown() {
     }));
   }, [canSearchTours, query, tourQuery.data]);
 
+  const customerResults = useMemo(() => {
+    if (!canSearchCustomers || !query.trim()) return [];
+    return groupCustomerResults(customerQuery.data?.bookings || [])
+      .slice(0, 5)
+      .map((customer) => ({
+        kind: "customer",
+        id: customer.id,
+        label: customer.name,
+        subtitle: customer.subtitle,
+        path: customerBookingsPath(customer),
+        chatPath: customerChatPath(customer),
+      }));
+  }, [canSearchCustomers, query, customerQuery.data]);
+
   // Combined, flat list of results for keyboard navigation. Recent shows
-  // pages only (tours are discoverable by typing).
+  // pages only (tours and customers are discoverable by typing).
   const displayItems = useMemo(() => {
     if (!query.trim()) return [...recentItems, ...recentTourItems];
-    return [...pageResults.map((i) => ({ ...i, kind: "page" })), ...tourResults];
-  }, [query, pageResults, tourResults, recentItems, recentTourItems]);
+    return [
+      ...pageResults.map((i) => ({ ...i, kind: "page" })),
+      ...tourResults,
+      ...customerResults,
+    ];
+  }, [query, pageResults, tourResults, customerResults, recentItems, recentTourItems]);
 
-  const isEmpty = query.trim() ? displayItems.length === 0 : (recentItems.length === 0 && recentTourItems.length === 0);
+  // A search that is still running has no verdict yet: "No results for X"
+  // while the bookings request is in flight is a claim the app cannot make.
+  const customerPending =
+    canSearchCustomers &&
+    query.trim().length >= 2 &&
+    (customerQuery.isFetching || debouncedQuery !== query.trim());
+  const isEmpty = query.trim()
+    ? displayItems.length === 0 && !customerPending
+    : (recentItems.length === 0 && recentTourItems.length === 0);
   const tourCount = tourQuery.data?.tours?.length ?? 0;
 
   useEffect(() => {
@@ -289,6 +345,25 @@ export default function SearchDropdown() {
     [navigate, close, displayItems],
   );
 
+  // Customer rows carry their own target (a filtered bookings list), which is
+  // not a nav path — so unlike pages they must not go through goTo(), which
+  // rejects anything outside the sidebar's permission-filtered set.
+  const goToCustomer = useCallback(
+    (customer) => {
+      close();
+      navigate(customer.path);
+    },
+    [navigate, close],
+  );
+
+  const goToChat = useCallback(
+    (customer) => {
+      close();
+      navigate(customer.chatPath);
+    },
+    [navigate, close],
+  );
+
   const handleKeyDown = (e) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -301,6 +376,7 @@ export default function SearchDropdown() {
       const target = displayItems[highlight];
       if (target) {
         if (target.kind === "tour") goToTour(target.id);
+        else if (target.kind === "customer") goToCustomer(target);
         else goTo(target.path);
       }
     } else if (e.key === "Escape") {
@@ -325,7 +401,7 @@ export default function SearchDropdown() {
             ? "text-[#044b3b] sm:border-[#044b3b]/40 sm:ring-2 sm:ring-[#044b3b]/10 sm:text-[#1e293b] sm:shadow"
             : "text-[#64748b] sm:border-[#eaeaea] sm:hover:border-[#044b3b]/30 sm:hover:text-[#1e293b]",
         )}
-        aria-label="Search pages and products"
+        aria-label="Search pages, products and customers"
         aria-expanded={open}
         aria-haspopup="dialog"
       >
@@ -348,7 +424,7 @@ export default function SearchDropdown() {
             className="fixed sm:absolute top-16 sm:top-full sm:mt-2 left-4 sm:left-0 right-4 sm:right-auto sm:w-full min-w-0 sm:min-w-[280px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-[#eaeaea] bg-white shadow-lg z-50"
             role="dialog"
             aria-modal="true"
-            aria-label="Search pages and products"
+            aria-label="Search pages, products and customers"
           >
             {/* Search Input */}
             <div className="flex items-center gap-3 border-b border-[#eaeaea] px-4">
@@ -358,7 +434,7 @@ export default function SearchDropdown() {
                 value={query}
                 onChange={(e) => { setQuery(e.target.value); setHighlight(0); }}
                 onKeyDown={handleKeyDown}
-                placeholder="Search pages, products…"
+                placeholder="Search pages, products, customers…"
                 className="h-12 w-full bg-transparent py-3 text-sm text-[#1e293b] placeholder:text-[#94a3a0] outline-none"
               />
               {query && (
@@ -386,11 +462,17 @@ export default function SearchDropdown() {
                     {query.trim() ? `No results for "${query}"` : "No recent searches"}
                   </p>
                   <p className="text-xs text-[#94a3a3] mt-1">
-                    {query.trim() ? "Try a different search term" : "Start typing to search pages and products"}
+                    {query.trim() ? "Try a different search term" : "Start typing to search pages, products and customers"}
                   </p>
                 </div>
               ) : (
                 <>
+                  {customerPending && (
+                    <div className="flex items-center gap-2 px-3 py-2 text-xs text-[#94a3a3]">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Searching customers&hellip;
+                    </div>
+                  )}
                   {!query.trim() && recentItems.length > 0 && (
                     <div className="flex items-center gap-2 px-3 py-1.5">
                       <Clock className="h-3 w-3 text-[#94a3a3]" />
@@ -401,13 +483,16 @@ export default function SearchDropdown() {
                   )}
                   {displayItems.map((item, idx) => {
                     const isTour = item.kind === "tour";
-                    const showPagesHeader = query.trim() && !isTour && idx === 0;
+                    const isCustomer = item.kind === "customer";
+                    const showPagesHeader = query.trim() && item.kind === "page" && idx === 0;
                     const showProductsHeader = query.trim() && isTour && (idx === 0 || displayItems[idx - 1]?.kind !== "tour");
+                    const showCustomersHeader = query.trim() && isCustomer && (idx === 0 || displayItems[idx - 1]?.kind !== "customer");
                     const showRecentToursHeader = !query.trim() && isTour && recentTourItems.length > 0 && idx === recentItems.length;
                     return (
-                      <Fragment key={isTour ? `tour-${item.id}` : item.path}>
+                      <Fragment key={isTour ? `tour-${item.id}` : isCustomer ? `customer-${item.id || item.path}` : item.path}>
                         {showPagesHeader && <SectionHeader>Pages</SectionHeader>}
                         {showProductsHeader && <SectionHeader>Products</SectionHeader>}
+                        {showCustomersHeader && <SectionHeader>Customers</SectionHeader>}
                         {showRecentToursHeader && (
                           <div className="flex items-center gap-2 px-3 pt-2 pb-1 mt-1 border-t border-[#eaeaea]">
                             <Clock className="h-3 w-3 text-[#94a3a3]" />
@@ -416,6 +501,47 @@ export default function SearchDropdown() {
                             </span>
                           </div>
                         )}
+                        {isCustomer ? (
+                          // Two buttons, not one with a nested button: the row
+                          // opens their bookings, the icon opens the
+                          // conversation. Both are things a supplier wants
+                          // from a name they typed.
+                          <div className="flex items-center gap-1 px-1">
+                            <button
+                              type="button"
+                              onClick={() => goToCustomer(item)}
+                              onMouseEnter={() => setHighlight(idx)}
+                              className={cn(
+                                "flex min-w-0 flex-1 items-center gap-3 rounded-xl px-2 py-2.5 text-left text-sm transition-colors",
+                                idx === highlight
+                                  ? "bg-[#044b3b]/5 text-[#044b3b]"
+                                  : "text-[#1e293b] hover:bg-[#f8fafc]",
+                              )}
+                            >
+                              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#eaeaea] bg-[#f8fafc] text-xs font-semibold text-[#044b3b]">
+                                {(item.label || "?").trim().charAt(0).toUpperCase()}
+                              </span>
+                              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                                <span className="truncate font-medium">
+                                  {highlightMatch(item.label, query.trim())}
+                                </span>
+                                {item.subtitle && (
+                                  <span className="truncate text-[11px] text-[#94a3a3]">{item.subtitle}</span>
+                                )}
+                              </span>
+                              <Users className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={`Message ${item.label}`}
+                              title="Message customer"
+                              onClick={() => goToChat(item)}
+                              className="shrink-0 rounded-lg p-2 text-[#94a3a3] transition-colors hover:bg-[#f8fafc] hover:text-[#044b3b]"
+                            >
+                              <MessageCircle className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ) : (
                         <button
                           onClick={() => (isTour ? goToTour(item.id) : goTo(item.path))}
                           onMouseEnter={() => setHighlight(idx)}
@@ -468,6 +594,7 @@ export default function SearchDropdown() {
                             <CornerDownLeft className="h-3.5 w-3.5 shrink-0 opacity-60" />
                           )}
                         </button>
+                        )}
                       </Fragment>
                     );
                   })}

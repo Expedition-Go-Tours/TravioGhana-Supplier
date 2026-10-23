@@ -45,10 +45,27 @@ function mockSupplierTours(tours) {
   )
 }
 
+/**
+ * The palette also searches customers (server-side, through the bookings
+ * search). These tests are about tours, so the customer lookup must settle
+ * immediately — an unhandled request keeps the "searching" state alive, and
+ * the palette correctly refuses to say "No results" while a search is running.
+ */
+function mockBookingsSearch(rows = []) {
+  server.use(
+    http.get(`${API_BASE_URL}/travioghana/supplier/bookings`, () =>
+      HttpResponse.json({
+        status: 'success',
+        data: { bookings: rows, summary: null, pagination: null },
+      }),
+    ),
+  )
+}
+
 async function openAndType(user, text) {
   renderWithProviders(<SearchDropdown />)
-  await user.click(screen.getByRole('button', { name: 'Search pages and products' }))
-  const input = screen.getByPlaceholderText('Search pages, products…')
+  await user.click(screen.getByRole('button', { name: 'Search pages, products and customers' }))
+  const input = screen.getByPlaceholderText('Search pages, products, customers…')
   await user.type(input, text)
   return input
 }
@@ -58,6 +75,7 @@ describe('SearchDropdown tour search', () => {
     localStorage.clear()
     localStorage.setItem('auth_token', 'test-token')
     mockSupplierTours([AKOSOMBO_TOUR])
+    mockBookingsSearch([])
   })
 
   it('finds a product by an itinerary stop name', async () => {
