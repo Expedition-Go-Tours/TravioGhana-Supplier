@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useImperativeHandle, forwardRef } from "react";
-import { MapPin, Loader2, X, AlertTriangle, RefreshCw } from "lucide-react";
+import { MapPin, Loader2, X, AlertTriangle, RefreshCw, Search } from "lucide-react";
 import { useGeocoding } from "@/hooks/useGeocoding";
+import { searchGoogleMaps } from "@/lib/serpApiMapsSearch";
 
 const MARK_STYLE =
   "relative inline-block after:absolute after:inset-0 after:bg-amber-100/60 after:rounded-sm after:-my-px";
@@ -51,6 +52,51 @@ const LocationAutocomplete = forwardRef(function LocationAutocomplete(
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  /**
+   * Google Maps (SerpApi) fallback search — the escape hatch for a place the
+   * catalog and the free geocoders do not know: a small hotel, a village
+   * junction, a landmark. `off` means this server has no key configured and
+   * the option never appears (it must not look like "no matches").
+   */
+  const [googleState, setGoogleState] = useState("idle");
+  const [googleResults, setGoogleResults] = useState([]);
+  const [googleNote, setGoogleNote] = useState(null);
+
+  // Every row the dropdown may act on: the ordinary results first, then the
+  // Google Maps fallback rows. Keyboard navigation walks this one list.
+  const options = googleState === "done" ? [...results, ...googleResults] : results;
+
+  const runGoogleSearch = useCallback(async () => {
+    const q = query.trim();
+    if (q.length < minChars) return;
+    setGoogleState("loading");
+    setGoogleNote(null);
+    const outcome = await searchGoogleMaps(q);
+    if (outcome.status === "not_configured") {
+      // This server cannot search Google Maps at all: hide the option rather
+      // than report a search that never happened.
+      setGoogleState("off");
+      setGoogleResults([]);
+      return;
+    }
+    if (outcome.status === "quota") {
+      setGoogleState("quota");
+      setGoogleResults([]);
+      setGoogleNote("Google Maps search is busy right now — try again in a moment.");
+      return;
+    }
+    if (outcome.status === "ok" || outcome.status === "empty") {
+      setGoogleState("done");
+      setGoogleResults(outcome.results);
+      if (outcome.results.length === 0) {
+        setGoogleNote("Google Maps has no match either.");
+      }
+      return;
+    }
+    setGoogleState("error");
+    setGoogleResults([]);
+    setGoogleNote("We could not reach Google Maps just now.");
+  }, [query, minChars]);
 
   const inputRef = useRef(null);
   const listRef = useRef(null);
@@ -136,7 +182,7 @@ const LocationAutocomplete = forwardRef(function LocationAutocomplete(
       return;
     }
 
-    const count = results.length;
+    const count = options.length;
 
     switch (e.key) {
       case "ArrowDown":
@@ -150,9 +196,9 @@ const LocationAutocomplete = forwardRef(function LocationAutocomplete(
       case "Enter":
         e.preventDefault();
         if (highlightedIndex >= 0 && highlightedIndex < count) {
-          handleSelect(results[highlightedIndex]);
+          handleSelect(options[highlightedIndex]);
         } else if (count > 0) {
-          handleSelect(results[0]);
+          handleSelect(options[0]);
         }
         break;
       case "Escape":
@@ -178,7 +224,7 @@ const LocationAutocomplete = forwardRef(function LocationAutocomplete(
   }, [highlightedIndex]);
 
   const isDropdown = mode === "dropdown";
-  const canOpen = open && (results.length > 0 || loading || error || (query.trim().length >= minChars && !error));
+  const canOpen = open && (options.length > 0 || loading || error || googleState === "loading" || (query.trim().length >= minChars && !error));
 
   return (
     <div ref={containerRef} className={className || "relative"}>
@@ -283,6 +329,27 @@ const LocationAutocomplete = forwardRef(function LocationAutocomplete(
           {!loading && !debouncing && !error && results.length === 0 && (
             <div className="px-4 py-3 text-sm text-slate-500 space-y-2">
               <p>No locations found.</p>
+              {/* Google Maps (SerpApi) fallback — offered only when the
+                  ordinary search found nothing, and only when this server has
+                  a key (`off` hides it entirely rather than pretending the
+                  search returned no matches). */}
+              {googleState === "idle" && query.trim().length >= minChars && (
+                <button
+                  type="button"
+                  onClick={() => void runGoogleSearch()}
+                  className="flex items-start gap-2.5 w-full text-left rounded-lg border border-slate-100 px-3 py-2.5 hover:bg-slate-50 transition-colors"
+                >
+                  <Search size={14} className="mt-0.5 shrink-0 text-slate-400" />
+                  <span className="min-w-0">
+                    <span className="block font-medium text-slate-700">
+                      Can&rsquo;t find your location? Search Google Maps
+                    </span>
+                    <span className="block text-xs text-slate-400 mt-0.5">
+                      We&rsquo;ll look it up on Google Maps in Ghana.
+                    </span>
+                  </span>
+                </button>
+              )}
               {onAddCustom && query.trim().length >= minChars && (
                 <button
                   type="button"
@@ -331,6 +398,63 @@ const LocationAutocomplete = forwardRef(function LocationAutocomplete(
                 </div>
               </div>
             ))}
+
+          {/* The Google Maps fallback: one explicit, credit-cached search for
+              the typed place, hard-filtered to Ghana. */}
+          {googleState === "loading" && (
+            <div className="flex items-center gap-2 border-t border-slate-100 px-4 py-3 text-sm text-slate-500">
+              <Loader2 size={14} className="animate-spin text-emerald-600" />
+              Searching Google Maps…
+            </div>
+          )}
+
+          {googleNote && (googleState === "done" || googleState === "quota" || googleState === "error") && (
+            <div className="border-t border-slate-100 px-4 py-3 text-xs text-slate-500">
+              {googleNote}
+            </div>
+          )}
+
+          {googleState === "done" && googleResults.length > 0 && (
+            <>
+              <div className="border-t border-slate-100 px-4 pb-1 pt-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Google Maps · Ghana
+              </div>
+              {googleResults.map((result, i) => {
+                const index = results.length + i;
+                return (
+                  <div
+                    key={`google-${result.externalId || index}-${index}`}
+                    id={`location-option-${index}`}
+                    role="option"
+                    aria-selected={index === highlightedIndex}
+                    onClick={() => handleSelect(result)}
+                    onMouseEnter={() => setHighlightedIndex(index)}
+                    className={`px-4 py-2.5 cursor-pointer text-sm transition-colors ${
+                      i < googleResults.length - 1 ? "border-b border-slate-50" : ""
+                    } ${
+                      index === highlightedIndex
+                        ? "bg-emerald-50 text-emerald-900"
+                        : "text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <MapPin size={14} className="text-slate-400 shrink-0 mt-0.5" />
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium leading-snug truncate">
+                          {highlightText(result.formatted, query)}
+                        </div>
+                        {result.name && result.name !== result.formatted && (
+                          <div className="text-xs text-slate-400 truncate leading-snug mt-0.5">
+                            {result.name}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          )}
         </div>
       )}
 
