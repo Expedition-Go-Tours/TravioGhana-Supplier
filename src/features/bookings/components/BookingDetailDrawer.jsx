@@ -27,6 +27,7 @@ import {
   formatPartySummary,
   formatTravelerDetails,
 } from "../lib/formatTravelers";
+import { pickupDisplay } from "../lib/pickupHelpers";
 
 /**
  * Booking detail panel — the GYG-style slide-over that opens from a booking
@@ -426,6 +427,10 @@ export default function BookingDetailDrawer({
   }, [onClose]);
 
   const pickup = booking?.pickup || null;
+  // A storefront pickup snapshot stores `address` as an object. Never render
+  // raw snapshot fields: the shared helper resolves them to strings in the same
+  // priority the Pickup Planner uses.
+  const pickupInfo = pickupDisplay(pickup);
 
   // The commission ledger exists only for money the supplier collected
   // offline. It is fetched with the collection history — "recorded as
@@ -671,10 +676,17 @@ export default function BookingDetailDrawer({
               {pickup && (
                 <Section title="Pickup" icon={MapPinned}>
                   <p className="text-sm text-slate-800">
-                    {pickup.name || pickup.address || "Pickup not selected yet."}
+                    {pickupInfo.primary || "Pickup not selected yet."}
                   </p>
-                  {pickup.address && pickup.name && (
-                    <p className="text-xs text-slate-500 mt-0.5">{pickup.address}</p>
+                  {pickupInfo.secondary && (
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {pickupInfo.secondary}
+                    </p>
+                  )}
+                  {pickupInfo.zone && pickupInfo.zone !== pickupInfo.primary && (
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Zone: {pickupInfo.zone}
+                    </p>
                   )}
                 </Section>
               )}

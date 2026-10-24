@@ -156,6 +156,39 @@ describe('what the panel shows', () => {
     expect(document.body.innerHTML).not.toContain('kwame@example.com');
   });
 
+  it('renders a structured pickup address instead of crashing on the object', async () => {
+    // Storefront snapshots keep `address` as { lat, lng, name, address }; the
+    // panel used to hand that object straight to React (error #31).
+    fetchBookingDetail.mockResolvedValue(
+      mapBookingRow(rawBooking({
+        pickup: {
+          mode: 'area',
+          time: '',
+          status: 'selected',
+          areaName: 'Cantonments, La',
+          pickupLater: false,
+          instructions: '',
+          address: {
+            lat: 5.5555469,
+            lng: -0.1705662,
+            name: 'Suncity, Omanye Street, Accra, Ghana',
+            address: 'Suncity, Omanye Street, Accra, Ghana',
+          },
+        },
+      })),
+    );
+
+    renderDrawer();
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Suncity, Omanye Street, Accra, Ghana'),
+      ).toBeInTheDocument();
+    });
+    expect(screen.getByText(/Zone: Cantonments, La/)).toBeInTheDocument();
+    expect(screen.queryByText('[object Object]')).toBeNull();
+  });
+
   it('marks the payment as taken, not as an estimate', async () => {
     fetchBookingDetail.mockResolvedValue(mapBookingRow(rawBooking()));
 
