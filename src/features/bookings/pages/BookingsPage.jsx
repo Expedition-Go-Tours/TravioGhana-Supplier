@@ -26,6 +26,7 @@ import { formatCurrency } from "@/lib/utils";
 import DatePicker from "@/components/forms/DatePicker";
 import {
   fetchSupplierBookings,
+  fetchCommissionCover,
   updateBookingStatus,
   cancelBookingStructured,
   withdrawCancellationRequest,
@@ -66,6 +67,10 @@ export default function BookingsPage() {
   // the drawer and the tour catalogue it picks from (fetched on open).
   const [showCreateBooking, setShowCreateBooking] = useState(false);
   const [createTours, setCreateTours] = useState([]);
+  // No credit: commission on an offline booking must be covered by money the
+  // platform already holds for this supplier. Fetched with the list so the
+  // button can explain itself instead of failing on submit.
+  const [commissionCover, setCommissionCover] = useState(null);
   const { hasPermission, supplierCreatedBookings } = useTeamRole();
   const [highlightedBookingId, setHighlightedBookingId] = useState(
     searchParams.get("bookingId") || null
@@ -157,6 +162,25 @@ export default function BookingsPage() {
     const id = setInterval(() => loadBookings({ silent: true }), 30_000);
     return () => clearInterval(id);
   }, [loadBookings]);
+
+  // Commission cover moves whenever a payout settles or a collection is
+  // recorded, so it is refreshed alongside the list rather than once.
+  useEffect(() => {
+    if (!supplierCreatedBookings) return undefined;
+    let cancelled = false;
+    fetchCommissionCover()
+      .then((cover) => {
+        if (!cancelled) setCommissionCover(cover);
+      })
+      .catch(() => {
+        // A failed read is not permission to create: leave the last known
+        // answer in place (null on first load blocks the button).
+        if (!cancelled) setCommissionCover((prev) => prev);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [supplierCreatedBookings, bookings.length]);
 
   useEffect(() => {
     if (highlightedBookingId && bookings.length > 0) {
@@ -477,31 +501,50 @@ export default function BookingsPage() {
               {/* Hidden unless the server says the brand has supplier-created
                   bookings switched on. The backend refuses the create anyway,
                   so showing the button only invites a 403. */}
-              {hasPermission("bookings.manage") && supplierCreatedBookings && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setShowCreateBooking(true);
-                    if (createTours.length === 0) {
-                      try {
-                        const res = await listMyProducts({ limit: 200 });
-                        const tours = res.data?.data?.tours || [];
-                        // Only tours a booking can actually be made on.
-                        setCreateTours(
-                          tours.filter(
-                            (t) => !["DRAFT", "ARCHIVED", "REJECTED"].includes(t.status)
-                          )
-                        );
-                      } catch {
-                        setCreateTours([]);
+              {hasPermission("bookings.manage") && supplierCreatedBookings && (() => {
+                // Commission is never extended on credit. The gate is the
+                // platform's own balance for this supplier, so the button is
+                // disabled (and explains itself) before any request is sent —
+                // the server enforces exactly the same rule.
+                const coverUsd = commissionCover?.currencies?.find((c) => c.currency === "USD");
+                const coverReady = Boolean(commissionCover?.usable);
+                const coverTitle = commissionCover == null
+                  ? "Checking your available earnings…"
+                  : coverReady
+                    ? "Create a booking and record the money you collect"
+                    : `You have no available earnings to cover commission${coverUsd ? ` (${formatCurrency(coverUsd.available, "USD")} available)` : ""}. `
+                      + "Commission on money you collect offline is deducted from earnings the platform already holds for you — "
+                      + "it cannot be extended on credit. Settle your balance or wait for an eligible payout first.";
+                return (
+                  <button
+                    type="button"
+                    disabled={!coverReady}
+                    title={coverTitle}
+                    aria-disabled={!coverReady}
+                    onClick={async () => {
+                      if (!coverReady) return;
+                      setShowCreateBooking(true);
+                      if (createTours.length === 0) {
+                        try {
+                          const res = await listMyProducts({ limit: 200 });
+                          const tours = res.data?.data?.tours || [];
+                          // Only tours a booking can actually be made on.
+                          setCreateTours(
+                            tours.filter(
+                              (t) => !["DRAFT", "ARCHIVED", "REJECTED"].includes(t.status)
+                            )
+                          );
+                        } catch {
+                          setCreateTours([]);
+                        }
                       }
-                    }
-                  }}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-[#044b3b] text-white rounded-xl text-sm font-semibold hover:bg-[#033629] transition-colors shadow-sm"
-                >
-                  <Calendar size={14} /> Create booking
-                </button>
-              )}
+                    }}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-[#044b3b] text-white rounded-xl text-sm font-semibold hover:bg-[#033629] transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#044b3b]"
+                  >
+                    <Calendar size={14} /> Create booking
+                  </button>
+                );
+              })()}
               <button
                 onClick={loadBookings}
                 disabled={loading}

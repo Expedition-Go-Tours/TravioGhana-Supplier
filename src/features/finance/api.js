@@ -264,7 +264,7 @@ export async function updatePayoutSettings(cycle) {
   return response.data?.data || {};
 }
 
-// ── Cancellation fees ledger (open fees are netted off the next payout) ──
+// ── Platform charges ledger (open charges are netted off the next payout) ──
 
 export async function getFinanceCharges() {
   const response = await api.get("/finance/charges", { skipGlobalErrorHandler: true });
@@ -274,6 +274,9 @@ export async function getFinanceCharges() {
     amount: Number(c.amount) || 0,
     currency: c.currency || "USD",
     reason: c.reason || "",
+    // "Commission on money collected" vs "Cancellation fee" — the server owns
+    // the wording so both paths say the same thing.
+    label: c.label || c.reason || "",
     status: c.status,
     notes: c.notes || "",
     createdAt: c.createdAt,
@@ -282,12 +285,26 @@ export async function getFinanceCharges() {
     bookingNumber: c.bookingNumber || "—",
     payoutRequestId: c.payoutRequestId,
     payoutRequestNumber: c.payoutRequestNumber || null,
+    invoiceId: c.invoiceId || null,
+    invoiceNumber: c.invoiceNumber || null,
+    invoiceStatus: c.invoiceStatus || null,
+    isCredit: Boolean(c.isCredit),
+    reversalOfId: c.reversalOfId || null,
   }));
   const openTotals = Object.entries(payload.openTotals || {}).map(([currency, amount]) => ({
     currency,
     amount: Number(amount) || 0,
   }));
-  return { charges, openTotals };
+  // The same open balance split by what it is for: commission withheld from
+  // offline money vs cancellation fees.
+  const openByReason = Object.entries(payload.openByReason || {}).reduce((acc, [reason, byCurrency]) => {
+    acc[reason] = Object.entries(byCurrency || {}).map(([currency, amount]) => ({
+      currency,
+      amount: Number(amount) || 0,
+    }));
+    return acc;
+  }, {});
+  return { charges, openTotals, openByReason };
 }
 
 // ── Refund requests (supplier-initiated; stored as disputes) ──

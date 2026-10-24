@@ -238,7 +238,15 @@ export default function CreateBookingDrawer({ open, onClose, tours = [], onCreat
   const stepOneValid = Boolean(form.tourId && form.travelDate && partySize >= 1);
   const stepTwoValid = Boolean(form.guestName.trim());
 
-  const canSubmit = Boolean(quote && quote.available && !overCollected && !submitting);
+  const canSubmit = Boolean(
+    quote
+    && quote.available
+    && !overCollected
+    && !submitting
+    // No credit: the commission this booking would owe must already be covered
+    // by earnings the platform holds. The server refuses the same request.
+    && quote.cover?.sufficient !== false,
+  );
 
   const submit = async () => {
     if (submitting) return;
@@ -737,6 +745,21 @@ export default function CreateBookingDrawer({ open, onClose, tours = [], onCreat
                             <p className="mt-2 text-xs text-amber-700">
                               {quote.unavailableReason || "No availability for that date. Pick another date or party size."}
                             </p>
+                          )}
+                          {quote && quote.available && quote.cover && !quote.cover.sufficient && (
+                            <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                              <p className="font-medium">
+                                Commission is not extended on credit.
+                              </p>
+                              <p className="mt-0.5">
+                                This booking needs {formatCurrency(quote.cover.required, quoteCurrency)} of cover;
+                                you have {formatCurrency(quote.cover.available, quoteCurrency)} available
+                                {quote.cover.shortfall > 0
+                                  ? ` — ${formatCurrency(quote.cover.shortfall, quoteCurrency)} short`
+                                  : ""}.
+                                Settle your balance or wait for an eligible payout before recording this booking.
+                              </p>
+                            </div>
                           )}
                         </div>
 

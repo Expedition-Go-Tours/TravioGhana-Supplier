@@ -22,7 +22,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { BOOKING_STATUSES } from "@/lib/constants";
 import { formatCurrency, formatDate, formatTime, cn } from "@/lib/utils";
-import { fetchBookingDetail, updateBookingNotes, rescheduleBooking } from "../api";
+import { fetchBookingDetail, fetchBookingCollections, updateBookingNotes, rescheduleBooking } from "../api";
 import {
   formatPartySummary,
   formatTravelerDetails,
@@ -427,6 +427,31 @@ export default function BookingDetailDrawer({
 
   const pickup = booking?.pickup || null;
 
+  // The commission ledger exists only for money the supplier collected
+  // offline. It is fetched with the collection history — "recorded as
+  // collected" is the money, commission is what the platform is owed on top of
+  // it, and the two must never be conflated on screen.
+  const [ledger, setLedger] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    Promise.resolve().then(async () => {
+      if (!booking || booking.origin !== "SUPPLIER_CREATED") {
+        if (!cancelled) setLedger(null);
+        return;
+      }
+      try {
+        const data = await fetchBookingCollections(booking.id);
+        if (!cancelled) setLedger(data);
+      } catch {
+        // A failed read shows "unavailable" rather than a made-up zero.
+        if (!cancelled) setLedger({ error: true });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [booking]);
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div
@@ -599,6 +624,49 @@ export default function BookingDetailDrawer({
                               : "Payment status unknown."}
                 </p>
               </Section>
+
+              {booking.origin === "SUPPLIER_CREATED" && (
+                <Section title="Commission on money collected" icon={CreditCard}>
+                  {!ledger || ledger.error ? (
+                    <p className="text-sm text-slate-500">
+                      {ledger?.error ? "Commission could not be loaded right now." : "Loading…"}
+                    </p>
+                  ) : (
+                    <div className="rounded-lg border border-slate-200 divide-y divide-slate-100 text-sm">
+                      <div className="flex justify-between px-3 py-2">
+                        <span className="text-slate-600">Recorded as collected</span>
+                        <span className="tabular-nums">
+                          {formatCurrency(ledger.collected || 0, ledger.currency || booking.currency)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between px-3 py-2">
+                        <span className="text-slate-600">
+                          Commission ({(Number(ledger.commission?.rate || 0) * 100).toFixed(2)}%)
+                        </span>
+                        <span className="tabular-nums">
+                          {formatCurrency(ledger.commission?.accrued || 0, ledger.currency || booking.currency)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between px-3 py-2">
+                        <span className="text-slate-600">Already settled</span>
+                        <span className="tabular-nums">
+                          {formatCurrency(ledger.commission?.settled || 0, ledger.currency || booking.currency)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between px-3 py-2 bg-slate-50">
+                        <span className="font-semibold text-slate-800">Still to settle</span>
+                        <span className="font-bold text-slate-900 tabular-nums">
+                          {formatCurrency(ledger.commission?.open || 0, ledger.currency || booking.currency)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  <p className="mt-2 text-xs text-slate-500">
+                    The platform never collected this money — you did. Commission is charged only on
+                    what you record as collected, and settles from your next payout or invoice.
+                  </p>
+                </Section>
+              )}
 
               {pickup && (
                 <Section title="Pickup" icon={MapPinned}>

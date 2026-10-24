@@ -19,9 +19,13 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
 const fetchSupplierBookings = vi.fn();
+const fetchCommissionCover = vi.fn();
 
 vi.mock("../api", () => ({
   fetchSupplierBookings: (...a) => fetchSupplierBookings(...a),
+  // The create-booking button is gated on the supplier's available balance:
+  // commission is never extended on credit.
+  fetchCommissionCover: (...a) => fetchCommissionCover(...a),
   updateBookingStatus: vi.fn(),
   cancelBookingStructured: vi.fn(),
   withdrawCancellationRequest: vi.fn(),
@@ -93,6 +97,11 @@ beforeEach(() => {
     bookings: BOOKINGS,
     summary: null,
     pagination: { currentPage: 1, totalPages: 1, totalCount: BOOKINGS.length, limit: 25 },
+  });
+  fetchCommissionCover.mockReset();
+  fetchCommissionCover.mockResolvedValue({
+    usable: true,
+    currencies: [{ currency: "USD", available: 500, eligible: 500, openCharges: 0 }],
   });
 });
 
@@ -204,5 +213,27 @@ describe("the create-booking entry point", () => {
 
     await waitFor(() => expect(screen.getByText("Total Bookings")).toBeInTheDocument());
     expect(screen.queryByRole("button", { name: /Create booking/ })).toBeNull();
+  });
+
+  it("is disabled, and explains why, when there are no available earnings to cover commission", async () => {
+    fetchCommissionCover.mockResolvedValue({
+      usable: false,
+      currencies: [{ currency: "USD", available: 0, eligible: 0, openCharges: 0 }],
+    });
+
+    renderPage();
+
+    const button = await screen.findByRole("button", { name: /Create booking/ });
+    await waitFor(() => expect(button).toBeDisabled());
+    // The reason is on the control itself, not hidden in a disabled tooltip
+    // library: title is what a keyboard or mouse user gets before submitting.
+    expect(button).toHaveAttribute("title", expect.stringMatching(/no available earnings/i));
+  });
+
+  it("is enabled once the supplier has cover", async () => {
+    renderPage();
+
+    const button = await screen.findByRole("button", { name: /Create booking/ });
+    await waitFor(() => expect(button).not.toBeDisabled());
   });
 });

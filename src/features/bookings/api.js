@@ -6,6 +6,10 @@ export function mapBookingRow(booking) {
   return {
     id: booking.id,
     bookingNumber: booking.bookingNumber,
+    // MARKETPLACE | SUPPLIER_CREATED. The detail panel uses this to show the
+    // commission ledger, which only exists for money the supplier collected
+    // offline.
+    origin: booking.origin || null,
     // Which storefront the customer booked through: 'GHANA' | 'EXPEDITION'.
     // Fallback parses the booking-number prefix so older rows still label correctly.
     // TRG is the Ghana prefix (config/brands.js bookingPrefix); EXP is Expedition's.
@@ -337,6 +341,24 @@ export async function quoteSupplierBooking(payload) {
     skipGlobalErrorHandler: true,
   });
   return response.data?.data || null;
+}
+
+/**
+ * GET /finance/commission-cover
+ * How much of the supplier's money the platform is holding, per currency,
+ * against the commission a supplier-created booking would raise. Commission is
+ * never extended on credit, so this is what decides whether "Create booking"
+ * can even be pressed — the backend re-checks the same balance under a lock.
+ */
+export async function fetchCommissionCover() {
+  const response = await api.get("/finance/commission-cover", {
+    skipGlobalErrorHandler: true,
+  });
+  const data = response.data?.data || {};
+  return {
+    usable: Boolean(data.usable),
+    currencies: Array.isArray(data.currencies) ? data.currencies : [],
+  };
 }
 
 /**

@@ -284,7 +284,7 @@ export default function FinancePage() {
   const [earningsPagination, setEarningsPagination] = useState(null);
   const [payoutsPagination, setPayoutsPagination] = useState(null);
   const [disputesPagination, setDisputesPagination] = useState(null);
-  const [charges, setCharges] = useState({ rows: [], openTotals: [], loading: true, error: null });
+  const [charges, setCharges] = useState({ rows: [], openTotals: [], openByReason: {}, loading: true, error: null });
   const [invoices, setInvoices] = useState([]);
   const [invoicesPagination, setInvoicesPagination] = useState(null);
   // Status filter for the Invoices tab. Empty = every status the endpoint
@@ -368,13 +368,19 @@ export default function FinancePage() {
     setCharges((s) => ({ ...s, loading: true, error: null }));
     try {
       const result = await getFinanceCharges();
-      setCharges({ rows: result.charges, openTotals: result.openTotals, loading: false, error: null });
+      setCharges({
+        rows: result.charges,
+        openTotals: result.openTotals,
+        openByReason: result.openByReason || {},
+        loading: false,
+        error: null,
+      });
     } catch (err) {
       if (err.code === "AUTH_REQUIRED") return;
       setCharges((s) => ({
         ...s,
         loading: false,
-        error: err.response?.data?.message || "Could not load cancellation fees.",
+        error: err.response?.data?.message || "Could not load platform charges.",
       }));
     }
   }, []);
@@ -1275,18 +1281,17 @@ export default function FinancePage() {
         {/* PAYOUTS TAB — withdrawal requests */}
         {activeTab === "payouts" && (
           <motion.div key="payouts" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }} className="space-y-4">
-            {/* Cancellation fees */}
+            {/* Platform charges — commission on offline money + cancellation fees */}
             <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 space-y-4">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
-                  <XCircle size={20} className="text-red-500" />
+                <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
+                  <XCircle size={20} className="text-amber-500" />
                 </div>
                 <div>
-                  <h3 className="text-base font-semibold text-gray-900">Cancellation fees</h3>
+                  <h3 className="text-base font-semibold text-gray-900">Platform charges</h3>
                   <p className="text-sm text-gray-500 mt-0.5">
-                    {isEnrolled
-                      ? "25% cancellation fees are deducted automatically from your next invoice."
-                      : "25% cancellation fees are deducted automatically from your next payout request."}
+                    Commission on money you collected offline, and cancellation fees. Open charges are
+                    deducted automatically from your next {isEnrolled ? "invoice" : "payout request"}.
                   </p>
                 </div>
               </div>
@@ -1299,15 +1304,29 @@ export default function FinancePage() {
               )}
 
               {!charges.loading && !charges.error && charges.openTotals.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {charges.openTotals.map((total) => (
-                    <span
-                      key={total.currency}
-                      className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200"
-                    >
-                      {total.currency} {formatCurrency(total.amount, total.currency)} open
-                    </span>
-                  ))}
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    {charges.openTotals.map((total) => (
+                      <span
+                        key={total.currency}
+                        className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200"
+                      >
+                        {total.currency} {formatCurrency(total.amount, total.currency)} open
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                    {(charges.openByReason?.SUPPLIER_COMMISSION || []).filter((t) => t.amount !== 0).map((t) => (
+                      <span key={`comm-${t.currency}`}>
+                        Commission on collected money: {t.currency} {formatCurrency(t.amount, t.currency)}
+                      </span>
+                    ))}
+                    {(charges.openByReason?.CANCELLATION_FEE || []).filter((t) => t.amount !== 0).map((t) => (
+                      <span key={`fee-${t.currency}`}>
+                        Cancellation fees: {t.currency} {formatCurrency(t.amount, t.currency)}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -1326,11 +1345,11 @@ export default function FinancePage() {
                   <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center mb-3">
                     <CheckCircle2 size={22} className="text-emerald-400" />
                   </div>
-                  <h4 className="text-sm font-semibold text-gray-700 mb-1">No cancellation fees yet</h4>
-                  <p className="text-sm text-gray-500 max-w-[380px]">
-                    {isEnrolled
-                      ? "When you cancel a booking, the 25% fee is recorded here and settled automatically from your next invoice."
-                      : "When you cancel a booking, the 25% fee is recorded here and settled automatically from your next payout request."}
+                  <h4 className="text-sm font-semibold text-gray-700 mb-1">No platform charges yet</h4>
+                  <p className="text-sm text-gray-500 max-w-[420px]">
+                    When you record money collected for a booking, commission is charged on that money.
+                    Cancellation fees are recorded here too. Both settle automatically from your next{" "}
+                    {isEnrolled ? "invoice" : "payout request"}.
                   </p>
                 </div>
               ) : (
@@ -1344,7 +1363,7 @@ export default function FinancePage() {
                           <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
                           <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Reason</th>
                           <th className="py-3 px-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                          <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Settled against payout</th>
+                          <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Settled against</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1354,15 +1373,24 @@ export default function FinancePage() {
                             <td className="py-3 px-4">
                               <span className="font-mono text-xs font-medium text-emerald-700">{charge.bookingNumber}</span>
                             </td>
-                            <td className="py-3 px-4 text-right text-sm font-semibold text-red-600 tabular-nums whitespace-nowrap">
-                              -{formatCurrency(charge.amount, charge.currency)}
+                            <td className={`py-3 px-4 text-right text-sm font-semibold tabular-nums whitespace-nowrap ${
+                              charge.isCredit ? "text-emerald-600" : "text-red-600"
+                            }`}>
+                              {charge.isCredit ? "+" : "-"}{formatCurrency(Math.abs(charge.amount), charge.currency)}
                             </td>
                             <td className="py-3 px-4 text-sm text-gray-700 max-w-[240px]">
-                              <span className="block truncate" title={charge.reason}>{charge.reason || "—"}</span>
+                              <span className="block truncate" title={charge.notes || charge.label}>
+                                {charge.label || "—"}
+                              </span>
+                              {charge.reversalOfId && (
+                                <span className="block text-[11px] text-gray-400">Credit for an earlier charge</span>
+                              )}
                             </td>
                             <td className="py-3 px-4 text-center"><ChargeStatusBadge status={charge.status} /></td>
                             <td className="py-3 px-4 text-sm text-gray-500">
-                              {charge.payoutRequestNumber ? (
+                              {charge.invoiceNumber ? (
+                                <span className="font-mono text-xs">{charge.invoiceNumber}</span>
+                              ) : charge.payoutRequestNumber ? (
                                 <span className="font-mono text-xs">{charge.payoutRequestNumber}</span>
                               ) : charge.status === "WAIVED" ? (
                                 "Waived"
