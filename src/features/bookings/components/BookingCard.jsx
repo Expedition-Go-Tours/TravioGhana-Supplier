@@ -25,6 +25,7 @@ import {
   formatTravelerDetails,
   getTravelerDetails,
 } from "../lib/formatTravelers";
+import { pickupDisplay } from "../lib/pickupHelpers";
 import {
   PendingCancellationBadge,
   WithdrawCancellationButton,
@@ -175,6 +176,9 @@ export default function BookingCard({
     (a) => !((a.value === 'COMPLETED' || a.value === 'NO_SHOW') && !travelDatePassed)
   );
   const pickup = booking.pickup || {};
+  // The card and the detail panel must read the same snapshot the same way:
+  // exact street address first, then the short label, legacy place and zone.
+  const pickupInfo = pickupDisplay(pickup);
   const pickupDeferred =
     booking.pickupDeferred ||
     pickup.pickupLater ||
@@ -657,18 +661,22 @@ export default function BookingCard({
                       The customer chose to arrange pickup later — set the time and location in the Pickup Planner.
                     </p>
                   </div>
-                ) : pickup.place ||
-                  pickup.areaName ||
-                  pickup.locationName ||
-                  pickup.address ? (
+                ) : pickupInfo.hasLocation ? (
                   <div className="space-y-1.5">
                     <p className="flex items-center gap-1.5 text-sm text-slate-700">
                       <MapPinned size={14} className="text-slate-400 shrink-0" />
-                      {pickup.place ||
-                        pickup.areaName ||
-                        pickup.locationName ||
-                        pickup.address?.name}
+                      {pickupInfo.primary}
                     </p>
+                    {pickupInfo.secondary && (
+                      <p className="flex items-start gap-1.5 text-sm text-slate-500 pl-[22px]">
+                        {pickupInfo.secondary}
+                      </p>
+                    )}
+                    {pickupInfo.zone && pickupInfo.zone !== pickupInfo.primary && (
+                      <p className="flex items-start gap-1.5 text-sm text-slate-500 pl-[22px]">
+                        Zone: {pickupInfo.zone}
+                      </p>
+                    )}
                     {pickup.time && (
                       <p className="flex items-center gap-1.5 text-sm text-slate-500 pl-[22px]">
                         Pickup time: {formatTime(pickup.time)}
@@ -679,13 +687,6 @@ export default function BookingCard({
                         {pickup.instructions}
                       </p>
                     )}
-                    {pickup.address &&
-                      typeof pickup.address === "object" &&
-                      pickup.address.address && (
-                        <p className="flex items-start gap-1.5 text-sm text-slate-500 pl-[22px]">
-                          {pickup.address.address}
-                        </p>
-                      )}
                   </div>
                 ) : (
                   <p className="text-sm text-slate-400 italic">
