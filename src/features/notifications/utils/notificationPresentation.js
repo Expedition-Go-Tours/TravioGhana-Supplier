@@ -1,5 +1,8 @@
 const BACKEND_TYPE_TO_UI = {
   BOOKING_CONFIRMED: "booking",
+  // A supplier recorded a booking by hand (offline money). It is a booking
+  // notification like any other, so it gets the booking icon and filters.
+  BOOKING_CREATED_BY_SUPPLIER: "booking",
   BOOKING_CANCELLED: "booking",
   BOOKING_STATUS_UPDATED: "booking",
   BOOKING_MODIFIED: "booking",

@@ -127,6 +127,26 @@ describe("notificationPresentation — cancellation decisions", () => {
   });
 });
 
+describe("notificationPresentation — supplier-recorded bookings", () => {
+  it("maps a booking the supplier recorded to the booking type and its booking", () => {
+    const mapped = mapBackendNotification({
+      id: "n-scb",
+      type: "BOOKING_CREATED_BY_SUPPLIER",
+      title: "Booking recorded",
+      message: "Booking TGA-3 for Ama was recorded. $150.00 recorded as collected.",
+      createdAt: "2026-05-21T09:00:00.000Z",
+      data: { bookingId: "BK-3", origin: "SUPPLIER_CREATED" },
+    });
+
+    // Unknown types fall back to the system icon; this one is a booking.
+    expect(mapped.type).toBe("booking");
+    expect(NOTIFICATION_TYPES.booking.icon).toBeTruthy();
+    expect(mapped.action).toBe("/bookings?bookingId=BK-3");
+    expect(mapped.actionLabel).toBe("View Booking");
+    expect(mapped.message).toMatch(/recorded as collected/);
+  });
+});
+
 describe("notificationPresentation — payout request deep links", () => {
   it("maps PAYOUT_REQUEST_APPROVED with a payoutRequestId to the Payouts tab", () => {
     const mapped = mapBackendNotification({
