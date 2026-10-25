@@ -498,6 +498,12 @@ export default function BookingDetailDrawer({
   // priority the Pickup Planner uses.
   const pickupInfo = pickupDisplay(pickup);
 
+  // The phone a guest gives at checkout is stored on the booking row
+  // (`leadTravelerPhone`), not on the customer account — which is why the list
+  // card showed a number while this panel said "Not provided". Prefer the
+  // account number when there is one, then fall back to the booking's.
+  const contactPhone = booking?.customerPhone || booking?.leadTravelerPhone || "";
+
   // The commission ledger exists only for money the supplier collected
   // offline. It is fetched with the collection history — "recorded as
   // collected" is the money, commission is what the platform is owed on top of
@@ -638,20 +644,28 @@ export default function BookingDetailDrawer({
                   <Fact label="Lead traveller">{booking.leadTravelerName || booking.customerName}</Fact>
                   <Fact label="Booked by">{booking.customerName}</Fact>
                   <Fact label="Contact">
-                    <a
-                      href={`mailto:${booking.customerEmail}`}
-                      className="inline-flex items-center gap-1 text-[#044b3b] hover:underline break-all"
-                    >
-                      <Mail size={13} /> {booking.customerEmail}
-                    </a>
+                    {booking.customerEmail ? (
+                      <a
+                        href={`mailto:${booking.customerEmail}`}
+                        className="inline-flex items-center gap-1 text-[#044b3b] hover:underline break-all"
+                      >
+                        <Mail size={13} /> {booking.customerEmail}
+                      </a>
+                    ) : (
+                      // The relay helper blanks the address rather than ever
+                      // substituting the customer's real inbox. Show the same
+                      // honest placeholder the phone row uses instead of an
+                      // empty mailto: link.
+                      <span className="text-slate-400">Not provided</span>
+                    )}
                   </Fact>
                   <Fact label="Phone">
-                    {booking.customerPhone ? (
+                    {contactPhone ? (
                       <a
-                        href={`tel:${booking.customerPhone}`}
+                        href={`tel:${contactPhone}`}
                         className="inline-flex items-center gap-1 text-[#044b3b] hover:underline"
                       >
-                        <Phone size={13} /> {booking.customerPhone}
+                        <Phone size={13} /> {contactPhone}
                       </a>
                     ) : (
                       <span className="text-slate-400">Not provided</span>

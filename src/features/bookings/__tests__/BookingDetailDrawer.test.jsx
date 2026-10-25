@@ -156,6 +156,48 @@ describe('what the panel shows', () => {
     expect(document.body.innerHTML).not.toContain('kwame@example.com');
   });
 
+  it('falls back to the booking phone when the customer account has none', async () => {
+    // The number a guest gives at checkout is stored on the booking row
+    // (`leadTravelerPhone`), not on the User account. The list card showed it
+    // while this panel said "Not provided", because the panel only read
+    // `customer.phone`.
+    fetchBookingDetail.mockResolvedValue(
+      mapBookingRow(rawBooking({
+        customer: { id: 'u-1', name: 'Kwame Mensah', email: '', phone: '', photoURL: '' },
+        leadTravelerPhone: '+447723715044',
+      })),
+    );
+
+    renderDrawer();
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: /\+447723715044/i })).toBeInTheDocument();
+    });
+    expect(screen.getByRole('link', { name: /\+447723715044/i })).toHaveAttribute(
+      'href',
+      'tel:+447723715044',
+    );
+  });
+
+  it('shows an honest placeholder when no relay address could be minted', async () => {
+    // The relay helper blanks the address rather than ever substituting the
+    // customer's real inbox (services/supplierContact). A dangling mailto:
+    // with no text next to it is not a contact detail.
+    fetchBookingDetail.mockResolvedValue(
+      mapBookingRow(rawBooking({
+        customer: { id: 'u-1', name: 'Kwame Mensah', email: '', phone: '+233201111111', photoURL: '' },
+        leadTravelerEmail: '',
+      })),
+    );
+
+    renderDrawer();
+
+    await waitFor(() => {
+      expect(screen.getByText('Not provided')).toBeInTheDocument();
+    });
+    expect(document.querySelector('a[href^="mailto:"]')).toBeNull();
+  });
+
   it('renders a structured pickup address instead of crashing on the object', async () => {
     // Storefront snapshots keep `address` as { lat, lng, name, address }; the
     // panel used to hand that object straight to React (error #31).
