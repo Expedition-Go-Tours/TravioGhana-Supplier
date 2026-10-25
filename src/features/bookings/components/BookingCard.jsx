@@ -14,6 +14,7 @@ import {
   Ban,
   Tag,
   Info,
+  RefreshCw,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -30,6 +31,7 @@ import {
   PendingCancellationBadge,
   WithdrawCancellationButton,
 } from "./PendingCancellationBadge";
+import BookingAttentionPanel, { AttentionBadge } from "./BookingAttention";
 
 const STATUS_ACTIONS = {
   PENDING: [
@@ -59,8 +61,10 @@ const PAYMENT_META = {
     dot: "bg-emerald-500",
   },
   RESERVE_LATER: {
-    label: "Reserve now, pay later",
-    hint: "Reserved · charge due before the activity",
+    // Payment status is authoritative: a reservation is not paid until Stripe
+    // settles it. Never phrase this as if the money had already been taken.
+    label: "Payment unconfirmed",
+    hint: "Reserved; no successful charge yet",
     icon: Clock,
     styles: "bg-amber-50 text-amber-700 border-amber-200",
     dot: "bg-amber-500",
@@ -156,6 +160,9 @@ export default function BookingCard({
   onMessageCustomer,
   onWithdrawRequest,
   onOpenDetail,
+  onPaymentLinkAction,
+  onRefresh,
+  mutationError,
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const isPayLater = booking.paymentTiming === 'later';
@@ -242,12 +249,13 @@ export default function BookingCard({
               <h3 className="flex-1 min-w-0 text-[15px] font-semibold text-slate-900 leading-snug line-clamp-2">
                 {booking.tourName}
               </h3>
-              <div className="shrink-0">
+              <div className="shrink-0 flex flex-col items-end gap-1">
                 <StatusBadge
                   status={booking.status}
                   label={BOOKING_STATUSES[booking.status]?.label || booking.status}
                   size="sm"
                 />
+                <AttentionBadge attention={booking.attention} />
               </div>
             </div>
             {partySummary && (
@@ -284,13 +292,13 @@ export default function BookingCard({
             {formatCurrency(booking.total, booking.currency)}
           </p>
           <div className="flex flex-1 min-w-0 flex-wrap items-center gap-1.5">
-            {booking.paymentStatus === 'FAILED' ? (
+            {booking.attention ? null : booking.paymentStatus === 'FAILED' ? (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 border border-red-200/60 text-[10px] font-semibold text-red-700 whitespace-nowrap">
                 <Ban size={10} className="shrink-0" /> Payment failed
               </span>
             ) : payLaterUnpaid ? (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200/60 text-[10px] font-semibold text-amber-700 whitespace-nowrap">
-                <Clock size={10} className="shrink-0" /> Pay later
+                <Clock size={10} className="shrink-0" /> Payment unconfirmed
               </span>
             ) : null}
             {booking.discount > 0 && (
@@ -386,6 +394,7 @@ export default function BookingCard({
             label={BOOKING_STATUSES[booking.status]?.label || booking.status}
             size="sm"
           />
+          <AttentionBadge attention={booking.attention} />
           <p className="text-base font-bold text-slate-900 whitespace-nowrap">
             {formatCurrency(booking.total, booking.currency)}
           </p>
@@ -435,6 +444,52 @@ export default function BookingCard({
             className="overflow-hidden"
           >
             <div className="px-4 sm:px-5 pb-5 border-t border-slate-100">
+              {/* Server-authoritative attention is shown before any payment
+                  summary so an unpaid booking cannot look successful. */}
+              <div className="pt-4">
+                <BookingAttentionPanel
+                  attention={booking.attention}
+                  onAction={onPaymentLinkAction ? (payload) => onPaymentLinkAction(booking, payload) : undefined}
+                  onRefresh={onRefresh}
+                  variant="card"
+                />
+              </div>
+
+              {mutationError && (
+                <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5" role="alert">
+                  <p className="text-sm font-medium text-red-800">{mutationError.message}</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {mutationError.retry && onStatusUpdate && mutationError.status && (
+                      <button
+                        type="button"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          await onStatusUpdate(booking.id, mutationError.status);
+                          onRefresh?.();
+                        }}
+                        disabled={isUpdating}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-red-200 text-red-800 hover:bg-red-100 disabled:opacity-50"
+                      >
+                        {isUpdating ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                        Try again
+                      </button>
+                    )}
+                    {onRefresh && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRefresh();
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-800 hover:bg-red-100"
+                      >
+                        <RefreshCw size={12} /> Refresh booking
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* ── Payment status (paid / reserve-now-pay-later) ── */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 justify-between pt-4 pb-4 border-b border-slate-100">
                 <PaymentStatus paymentStatus={booking.paymentStatus} paymentTiming={booking.paymentTiming} />

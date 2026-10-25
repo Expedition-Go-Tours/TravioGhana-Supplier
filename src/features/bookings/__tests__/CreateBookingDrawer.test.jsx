@@ -166,3 +166,32 @@ describe("retries cannot create a second booking", () => {
     expect(keySecond).toBe(keyFirst);
   });
 });
+
+describe("availability failures stay inside the flow", () => {
+  it("keeps the entered details, explains the change, and offers a fresh quote", async () => {
+    await reachCollectionStep();
+    fireEvent.click(screen.getByRole("button", { name: /Continue/ }));
+
+    createSupplierBooking.mockRejectedValueOnce({
+      response: {
+        status: 409,
+        data: {
+          code: "RESERVATION_UNAVAILABLE",
+          message: "That date is no longer available.",
+        },
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Create booking/ }));
+
+    expect(await screen.findByText(/That date is no longer available/)).toBeInTheDocument();
+    expect(screen.getByText(/details are still here/i)).toBeInTheDocument();
+    const before = quoteSupplierBooking.mock.calls.length;
+    fireEvent.click(screen.getByRole("button", { name: /Refresh quote/i }));
+    await waitFor(() =>
+      expect(quoteSupplierBooking.mock.calls.length).toBeGreaterThan(before),
+    );
+    // The wizard never fabricates a booking or claims one was created.
+    expect(screen.queryByRole("heading", { name: /Booking created/i })).toBeNull();
+  });
+});

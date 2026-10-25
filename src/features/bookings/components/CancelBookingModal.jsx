@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, Loader2, CheckCircle2, X } from "lucide-react";
+import { AlertTriangle, Loader2, CheckCircle2, X, RefreshCw } from "lucide-react";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { getCancellationTaxonomy } from "../api";
 import {
@@ -30,6 +30,7 @@ export default function CancelBookingModal({
   onConfirm,
   booking,
   isLoading = false,
+  onRefresh,
 }) {
   const [view, setView] = useState("reason"); // reason | confirm | success
   const [form, setForm] = useState(null);
@@ -38,6 +39,7 @@ export default function CancelBookingModal({
   const [taxonomyError, setTaxonomyError] = useState(false);
   const [result, setResult] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
   const dialogRef = useRef(null);
 
   const loadTaxonomy = useCallback(async () => {
@@ -60,6 +62,7 @@ export default function CancelBookingModal({
     setWizardSeed(null);
     setTaxonomyError(false);
     setResult(null);
+    setSubmitError(null);
   }
   if (!isOpen && prevOpen) {
     setPrevOpen(false);
@@ -114,12 +117,20 @@ export default function CancelBookingModal({
       return;
     }
     setSubmitting(true);
+    setSubmitError(null);
     try {
       const data = await onConfirm?.(cancellationPayload(form));
       if (data) {
         setResult(data);
         setView("success");
       }
+    } catch (err) {
+      const ambiguous = !err?.response;
+      setSubmitError(
+        ambiguous
+          ? "We could not confirm whether the cancellation went through. Refresh the booking to see the latest status before trying again."
+          : err?.response?.data?.message || "Failed to cancel booking",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -261,6 +272,24 @@ export default function CancelBookingModal({
                     View your rate
                   </a>
                 </p>
+
+                {submitError && (
+                  <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5" role="alert">
+                    <p className="text-sm font-medium text-red-800">{submitError}</p>
+                    {onRefresh && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onRefresh();
+                          onClose?.();
+                        }}
+                        className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-red-800 underline underline-offset-2"
+                      >
+                        <RefreshCw size={12} /> Refresh booking
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex items-center justify-end gap-3 mt-5">
                   <button

@@ -31,6 +31,7 @@ import {
   cancelBookingStructured,
   withdrawCancellationRequest,
   exportSupplierBookingsCsv,
+  sendBookingPaymentLink,
 } from "../api";
 import { getAuthToken } from "@/stores/authStore";
 import BookingCard from "../components/BookingCard";
@@ -58,6 +59,10 @@ export default function BookingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [updatingId, setUpdatingId] = useState(null);
+  // Persistent inline mutation failure per booking. A toast disappears; a
+  // supplier who looks back at the row must still see that the server refused
+  // the change and what to do next.
+  const [mutationErrors, setMutationErrors] = useState({});
   const [showFilters, setShowFilters] = useState(false);
   const [cancelBooking, setCancelBooking] = useState(null);
   const [showBulkCancel, setShowBulkCancel] = useState(false);
@@ -273,6 +278,15 @@ export default function BookingsPage() {
 
   const handleTabClick = (tabKey) => updateFilters({ tab: tabKey, page: 0 });
 
+  const clearMutationError = useCallback((bookingId) => {
+    setMutationErrors((prev) => {
+      if (!prev[bookingId]) return prev;
+      const next = { ...prev };
+      delete next[bookingId];
+      return next;
+    });
+  }, []);
+
   const handleStatusUpdate = useCallback(
     async (bookingId, status) => {
       if (status === "CANCELLED") {
@@ -281,19 +295,27 @@ export default function BookingsPage() {
         return;
       }
       setUpdatingId(bookingId);
+      clearMutationError(bookingId);
       try {
         await updateBookingStatus(bookingId, { status });
         toast.success("Booking status updated");
-        await loadBookings();
+        await loadBookings({ silent: true });
       } catch (err) {
-        toast.error(
-          err.response?.data?.message || "Failed to update booking status"
-        );
+        const ambiguous = !err.response;
+        const message = ambiguous
+          ? "We could not confirm whether the status change went through. Refresh the booking before trying again."
+          : err.response?.data?.message || "Failed to update booking status";
+        // The last server-confirmed row stays on screen; nothing optimistic is
+        // applied. Retry is only offered when the server actually answered.
+        setMutationErrors((prev) => ({
+          ...prev,
+          [bookingId]: { message, status, retry: !ambiguous, code: err.response?.data?.code || null },
+        }));
       } finally {
         setUpdatingId(null);
       }
     },
-    [bookings, loadBookings]
+    [bookings, loadBookings, clearMutationError]
   );
 
   /**
@@ -316,12 +338,18 @@ export default function BookingsPage() {
         await loadBookings({ silent: true });
         return data;
       } catch (err) {
-        if (err.code !== "AUTH_REQUIRED") {
-          toast.error(
-            err.response?.data?.message || "Failed to cancel booking"
-          );
-        }
-        return null;
+        const ambiguous = !err.response;
+        setMutationErrors((prev) => ({
+          ...prev,
+          [cancelBooking.id]: {
+            message: ambiguous
+              ? "We could not confirm whether the cancellation went through. Refresh the booking before trying again."
+              : err.response?.data?.message || "Failed to cancel booking",
+            retry: !ambiguous,
+            code: err.response?.data?.code || null,
+          },
+        }));
+        throw err;
       } finally {
         setUpdatingId(null);
       }
@@ -357,6 +385,28 @@ export default function BookingsPage() {
         );
         throw err;
       }
+    },
+    [loadBookings]
+  );
+
+  const handlePaymentLinkAction = useCallback(
+    async (booking, payload) => {
+      const mode =
+        payload.action === "RESEND_PAYMENT_LINK"
+          ? "resend"
+          : payload.action === "REGENERATE_PAYMENT_LINK"
+            ? "regenerate"
+            : "create";
+      const response = await sendBookingPaymentLink(booking.id, {
+        mode,
+        sendInChat: payload.sendInChat,
+        idempotencyKey: payload.idempotencyKey,
+      });
+      // Re-read the list so the badge/attention reflect the server's new
+      // projection rather than a local guess about what the click did. A failed
+      // refresh must not turn a delivered link into an apparent action failure.
+      await loadBookings({ silent: true }).catch(() => {});
+      return response.data?.data || {};
     },
     [loadBookings]
   );
@@ -845,6 +895,12 @@ export default function BookingsPage() {
                 onMessageCustomer={handleMessageCustomer}
                 onWithdrawRequest={handleWithdrawRequest}
                 onOpenDetail={openDetail}
+                onPaymentLinkAction={(booking, payload) => {
+                  clearMutationError(booking.id);
+                  return handlePaymentLinkAction(booking, payload);
+                }}
+                onRefresh={() => loadBookings({ silent: true })}
+                mutationError={mutationErrors[booking.id]}
               />
             ))}
           </div>
@@ -916,6 +972,9 @@ export default function BookingsPage() {
           onMessageCustomer={handleMessageCustomer}
           onStatusUpdate={handleStatusUpdate}
           isUpdating={updatingId === detailBookingId}
+          onRefresh={() => loadBookings({ silent: true })}
+          onPaymentLinkUpdated={() => loadBookings({ silent: true })}
+          mutationError={mutationErrors[detailBookingId]}
         />
       )}
       <CancelBookingModal
@@ -924,6 +983,7 @@ export default function BookingsPage() {
         onConfirm={handleConfirmCancel}
         booking={cancelBooking}
         isLoading={!!updatingId}
+        onRefresh={() => loadBookings({ silent: true })}
       />
       <BulkCancelWizard
         isOpen={showBulkCancel}

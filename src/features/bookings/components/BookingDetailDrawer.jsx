@@ -22,7 +22,14 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { BOOKING_STATUSES } from "@/lib/constants";
 import { formatCurrency, formatDate, formatTime, cn } from "@/lib/utils";
-import { fetchBookingDetail, fetchBookingCollections, updateBookingNotes, rescheduleBooking } from "../api";
+import {
+  fetchBookingDetail,
+  fetchBookingCollections,
+  updateBookingNotes,
+  rescheduleBooking,
+  sendBookingPaymentLink,
+} from "../api";
+import BookingAttentionPanel, { AttentionBadge } from "./BookingAttention";
 import {
   formatPartySummary,
   formatTravelerDetails,
@@ -150,17 +157,19 @@ const MIN_RESCHEDULE_DATE = new Date(Date.now() + 24 * 60 * 60 * 1000)
  * written — the supplier must never be nudged into a move that changes what
  * the customer paid. Two steps, so a date typed into a box cannot fire.
  */
-function RescheduleForm({ booking, onMoved }) {
+function RescheduleForm({ booking, onMoved, onRefresh }) {
   const [date, setDate] = useState("");
   const [time, setTime] = useState(booking.selectedTime || "");
   const [reason, setReason] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
 
   const canSubmit = Boolean(date) && !submitting;
 
   const submit = async () => {
     setSubmitting(true);
+    setError(null);
     try {
       const response = await rescheduleBooking(booking.id, {
         travelDate: date,
@@ -178,9 +187,17 @@ function RescheduleForm({ booking, onMoved }) {
       setReason("");
       onMoved?.();
     } catch (err) {
-      // The server's refusal is the truth here (price would change, date full,
-      // payout began) — show it exactly as given.
-      toast.error(err.response?.data?.message || "Failed to move this booking");
+      // Never clear the entered date/time/reason on failure. Keep the last
+      // server-confirmed booking above untouched and show the refusal inline;
+      // an ambiguous network failure can be reconciled by refreshing first.
+      const message = err.response?.data?.message || "Failed to move this booking";
+      const ambiguous = !err.response;
+      setError(
+        ambiguous
+          ? "We could not confirm whether the move went through. Refresh the booking to see the latest date before trying again."
+          : message,
+      );
+      if (!ambiguous) toast.error(message);
     } finally {
       setSubmitting(false);
     }
@@ -234,6 +251,30 @@ function RescheduleForm({ booking, onMoved }) {
         The price never changes on a move. If the new date is priced differently,
         the move is refused and you'll see both figures.
       </p>
+
+      {error && (
+        <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5" role="alert">
+          <p className="text-sm font-medium text-red-800">{error}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={submit}
+              disabled={!canSubmit}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-red-200 text-red-800 hover:bg-red-100 disabled:opacity-50"
+            >
+              {submitting ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+              Try again
+            </button>
+            <button
+              type="button"
+              onClick={onRefresh || onMoved}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-800 hover:bg-red-100"
+            >
+              <RefreshCw size={12} /> Refresh booking
+            </button>
+          </div>
+        </div>
+      )}
 
       {confirming ? (
         <div className="mt-3 p-3 rounded-lg border border-amber-200 bg-amber-50">
@@ -338,8 +379,8 @@ function StatusActions({ booking, onStatusUpdate, isUpdating, onChanged }) {
               type="button"
               disabled={isUpdating || action.disabled}
               title={action.disabled ? action.disabledReason : undefined}
-              onClick={() => {
-                onStatusUpdate(booking.id, action.value);
+              onClick={async () => {
+                await onStatusUpdate(booking.id, action.value);
                 onChanged?.();
               }}
               className={cn(
@@ -376,6 +417,9 @@ export default function BookingDetailDrawer({
   onMessageCustomer,
   onStatusUpdate,
   isUpdating,
+  onRefresh,
+  onPaymentLinkUpdated,
+  mutationError,
 }) {
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -386,9 +430,9 @@ export default function BookingDetailDrawer({
   // booking (URL navigation) while a load is still out.
   const loadSeqRef = useRef(0);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ silent = false } = {}) => {
     const requestId = ++loadSeqRef.current;
-    setLoading(true);
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const detail = await fetchBookingDetail(bookingId);
@@ -425,6 +469,28 @@ export default function BookingDetailDrawer({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  const handlePaymentLinkAction = useCallback(async (payload) => {
+    const mode =
+      payload.action === "RESEND_PAYMENT_LINK"
+        ? "resend"
+        : payload.action === "REGENERATE_PAYMENT_LINK"
+          ? "regenerate"
+          : "create";
+    const response = await sendBookingPaymentLink(bookingId, {
+      mode,
+      sendInChat: payload.sendInChat,
+      idempotencyKey: payload.idempotencyKey,
+    });
+    // The action response is authoritative for delivery state. Re-read the
+    // booking before telling the supplier anything else, and never turn a
+    // queued email into "paid": only the Stripe webhook settles payment. If
+    // the re-read fails, the action still succeeded, so do not report it as a
+    // failed send.
+    await load({ silent: true }).catch(() => {});
+    onPaymentLinkUpdated?.();
+    return response.data?.data || {};
+  }, [bookingId, load, onPaymentLinkUpdated]);
 
   const pickup = booking?.pickup || null;
   // A storefront pickup snapshot stores `address` as an object. Never render
@@ -479,12 +545,13 @@ export default function BookingDetailDrawer({
               {booking?.bookingNumber || bookingId}
             </h2>
             {booking && (
-              <div className="mt-1">
+              <div className="mt-1 flex flex-wrap items-center gap-1.5">
                 <StatusBadge
                   status={booking.status}
                   label={BOOKING_STATUSES[booking.status]?.label || booking.status}
                   size="sm"
                 />
+                <AttentionBadge attention={booking.attention} />
               </div>
             )}
           </div>
@@ -526,6 +593,18 @@ export default function BookingDetailDrawer({
 
           {!loading && !error && booking && (
             <>
+              <div className="pt-4">
+                <BookingAttentionPanel
+                  attention={booking.attention}
+                  onAction={handlePaymentLinkAction}
+                  onRefresh={() => {
+                    load({ silent: true });
+                    onRefresh?.();
+                  }}
+                  variant="drawer"
+                />
+              </div>
+
               <Section title="Activity" icon={CalendarDays}>
                 <div className="flex items-start gap-3">
                   <div className="w-16 h-16 rounded-lg overflow-hidden bg-slate-100 shrink-0">
@@ -615,17 +694,17 @@ export default function BookingDetailDrawer({
                 </div>
                 <p className="mt-2 text-xs text-slate-500">
                   {booking.paymentStatus === "SUCCEEDED"
-                    ? "Paid in full."
+                    ? "Payment confirmed by Stripe. Paid in full."
                     : booking.paymentStatus === "PROCESSING"
-                      ? "The payment is still processing — no money is confirmed yet."
+                      ? "Stripe is still processing this payment. No money is confirmed yet."
                       : booking.paymentTiming === "later"
-                        ? "Reserved now, pays later — no charge has been taken yet."
+                        ? "Payment is unconfirmed. The reservation is held, but no successful charge has been recorded."
                         : booking.paymentStatus === "FAILED"
                           ? "The payment attempt failed; no money was taken."
                           : booking.paymentStatus === "REFUNDED"
                             ? "The charge was returned to the customer."
                             : booking.paymentStatus === "PENDING"
-                              ? "No charge has been taken yet."
+                              ? "Payment is unconfirmed. No successful charge has been recorded."
                               : "Payment status unknown."}
                 </p>
               </Section>
@@ -736,7 +815,14 @@ export default function BookingDetailDrawer({
 
               {["PENDING", "CONFIRMED"].includes(booking.status) && (
                 <Section title="Change date" icon={CalendarDays}>
-                  <RescheduleForm booking={booking} onMoved={() => load()} />
+                  <RescheduleForm
+                    booking={booking}
+                    onMoved={() => load({ silent: true })}
+                    onRefresh={() => {
+                      load({ silent: true });
+                      onRefresh?.();
+                    }}
+                  />
                 </Section>
               )}
 
@@ -753,13 +839,46 @@ export default function BookingDetailDrawer({
         {/* Sticky action bar */}
         {!loading && !error && booking && (
           <div className="border-t border-slate-200 px-5 py-4 bg-white">
+            {mutationError && (
+              <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5" role="alert">
+                <p className="text-sm font-medium text-red-800">{mutationError.message}</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {mutationError.retry && mutationError.status && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await onStatusUpdate?.(booking.id, mutationError.status);
+                        load({ silent: true });
+                        onRefresh?.();
+                      }}
+                      disabled={isUpdating}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-red-200 text-red-800 hover:bg-red-100 disabled:opacity-50"
+                    >
+                      {isUpdating ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                      Try again
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      load({ silent: true });
+                      onRefresh?.();
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-800 hover:bg-red-100"
+                  >
+                    <RefreshCw size={12} /> Refresh booking
+                  </button>
+                </div>
+              </div>
+            )}
             <StatusActions
               booking={booking}
-              onStatusUpdate={(id, status) => {
-                onStatusUpdate?.(id, status);
-                // The caller owns the mutation; re-read after it settles so the
-                // panel never claims a status the server did not apply.
-                setTimeout(() => load(), 400);
+              onStatusUpdate={onStatusUpdate}
+              onChanged={() => {
+                // Re-read only after the caller's mutation settles. On failure
+                // this still shows the last server-confirmed booking.
+                load({ silent: true });
+                onRefresh?.();
               }}
               isUpdating={isUpdating}
             />

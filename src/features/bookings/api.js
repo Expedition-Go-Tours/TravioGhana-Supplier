@@ -43,6 +43,11 @@ export function mapBookingRow(booking) {
     paymentStatus: booking.paymentStatus,
     paymentTiming: booking.paymentTiming || "now",
     currency: booking.currency || "USD",
+    // Server-authoritative attention projection. The UI renders this exactly;
+    // it never derives "action needed" from paymentStatus alone.
+    attention: booking.attention || null,
+    paymentFailureCode: booking.paymentFailureCode || null,
+    recoveryEmailCount: booking.recoveryEmailCount ?? null,
     supplierNotes: booking.supplierNotes || "",
     specialRequests: booking.specialRequests || "",
     selectedTime: booking.selectedTime || "",
@@ -162,6 +167,36 @@ export async function exportSupplierBookingsCsv(params = {}) {
     blob: response.data,
     filename: match?.[1] || `travio-bookings-${new Date().toISOString().slice(0, 10)}.csv`,
   };
+}
+
+/**
+ * Supplier-hosted payment link. `mode` is create | resend | regenerate. The
+ * server owns eligibility, amount, expiry and delivery; the response carries
+ * the refreshed attention projection. The Idempotency-Key is required so a
+ * network retry cannot send a second email or create a second session.
+ */
+export function sendBookingPaymentLink(id, { mode = "create", sendInChat = false, idempotencyKey }) {
+  const path =
+    mode === "resend"
+      ? `/bookings/supplier/bookings/${id}/payment-link/resend`
+      : mode === "regenerate"
+        ? `/bookings/supplier/bookings/${id}/payment-link/regenerate`
+        : `/bookings/supplier/bookings/${id}/payment-link`;
+  return api.post(
+    path,
+    { sendInChat: Boolean(sendInChat) },
+    {
+      headers: { "Idempotency-Key": idempotencyKey },
+      skipGlobalErrorHandler: true,
+    },
+  );
+}
+
+export function newPaymentLinkIdempotencyKey() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `pl-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
 }
 
 export function updateBookingStatus(id, { status, supplierNotes, reason }) {

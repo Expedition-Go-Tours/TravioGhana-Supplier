@@ -26,6 +26,7 @@ import {
   Sparkles,
   ShieldCheck,
   Package,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import DatePicker from "@/components/forms/DatePicker";
@@ -158,6 +159,8 @@ export default function CreateBookingDrawer({ open, onClose, tours = [], onCreat
   });
   const [quote, setQuote] = useState(null);
   const [quoting, setQuoting] = useState(false);
+  const [quoteNonce, setQuoteNonce] = useState(0);
+  const [errorCode, setErrorCode] = useState(null);
   const [tourQuery, setTourQuery] = useState("");
   const [touched, setTouched] = useState(false);
 
@@ -198,6 +201,8 @@ export default function CreateBookingDrawer({ open, onClose, tours = [], onCreat
       if (cancelled) return;
       setQuoting(true);
       setError(null);
+      setErrorCode(null);
+      setQuote(null);
       try {
         const q = await quoteSupplierBooking({
           tourId: form.tourId,
@@ -209,6 +214,7 @@ export default function CreateBookingDrawer({ open, onClose, tours = [], onCreat
       } catch (err) {
         if (!cancelled) {
           setQuote(null);
+          setErrorCode(err?.response?.data?.code || null);
           setError(err?.response?.data?.message || "We could not price this booking.");
         }
       } finally {
@@ -219,7 +225,7 @@ export default function CreateBookingDrawer({ open, onClose, tours = [], onCreat
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, form.tourId, form.travelDate, form.selectedTime, form.adults, form.children, form.infants]);
+  }, [open, quoteNonce, form.tourId, form.travelDate, form.selectedTime, form.adults, form.children, form.infants]);
 
   const collected = Number(form.amount) || 0;
   const total = quote?.total ?? 0;
@@ -254,11 +260,13 @@ export default function CreateBookingDrawer({ open, onClose, tours = [], onCreat
     if (!stepTwoValid) {
       setDirection(-1);
       setStep(1);
+      setErrorCode("VALIDATION_ERROR");
       setError("A name is required so the tour guide knows who is coming.");
       return;
     }
     setSubmitting(true);
     setError(null);
+    setErrorCode(null);
     try {
       const booking = await createSupplierBooking(
         {
@@ -290,11 +298,22 @@ export default function CreateBookingDrawer({ open, onClose, tours = [], onCreat
       onCreated?.();
     } catch (err) {
       // Never claim a failure that may have been a success: the key above
-      // resolves it on retry.
-      setError(
-        err?.response?.data?.message ||
-          "We could not confirm this booking was created. Re-submitting is safe: it will not create a second booking.",
-      );
+      // resolves it on retry. Availability and price refusals keep every safe
+      // entered detail and send the supplier back to a fresh quote instead of
+      // fabricating a booking.
+      const code = err?.response?.data?.code || null;
+      const message = err?.response?.data?.message;
+      setErrorCode(code);
+      if (code === "RESERVATION_UNAVAILABLE" || code === "PRICE_UNAVAILABLE" || code === "QUOTE_REFRESH_REQUIRED") {
+        setError(
+          `${message || "That date or price is no longer available."} Your details are still here. Refresh the quote, then review the updated price and availability before choosing another date or time.`,
+        );
+      } else {
+        setError(
+          message ||
+            "We could not confirm this booking was created. Re-submitting is safe: it will not create a second booking.",
+        );
+      }
     } finally {
       setSubmitting(false);
     }
@@ -466,7 +485,20 @@ export default function CreateBookingDrawer({ open, onClose, tours = [], onCreat
                           className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700"
                         >
                           <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-                          <span>{error}</span>
+                          <div className="min-w-0">
+                            <span>{error}</span>
+                            {(errorCode === "RESERVATION_UNAVAILABLE" ||
+                              errorCode === "PRICE_UNAVAILABLE" ||
+                              errorCode === "QUOTE_REFRESH_REQUIRED") && (
+                              <button
+                                type="button"
+                                onClick={() => setQuoteNonce((n) => n + 1)}
+                                className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold underline underline-offset-2"
+                              >
+                                <RefreshCw size={11} /> Refresh quote
+                              </button>
+                            )}
+                          </div>
                         </motion.div>
                       )}
                     </AnimatePresence>

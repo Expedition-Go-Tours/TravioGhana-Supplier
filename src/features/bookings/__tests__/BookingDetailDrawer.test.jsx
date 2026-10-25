@@ -195,7 +195,7 @@ describe('what the panel shows', () => {
     renderDrawer();
 
     await waitFor(() => {
-      expect(screen.getByText('Paid in full.')).toBeInTheDocument();
+      expect(screen.getByText(/Payment confirmed by Stripe\. Paid in full\./)).toBeInTheDocument();
     });
   });
 
@@ -207,7 +207,7 @@ describe('what the panel shows', () => {
     renderDrawer();
 
     await waitFor(() => {
-      expect(screen.getByText(/pays later — no charge has been taken yet/i)).toBeInTheDocument();
+      expect(screen.getByText(/Payment is unconfirmed\. The reservation is held/i)).toBeInTheDocument();
     });
   });
 });
