@@ -28,6 +28,7 @@ const DOC_LABEL = (type) =>
 
 const DOC_STATUS = {
   APPROVED: { label: "Approved", icon: CheckCircle2, cls: "bg-emerald-50 text-emerald-700" },
+  VERIFIED: { label: "Verified", icon: CheckCircle2, cls: "bg-emerald-50 text-emerald-700" },
   REJECTED: { label: "Rejected", icon: XCircle, cls: "bg-rose-50 text-rose-600" },
   REPLACEMENT_REQUESTED: { label: "Replacement requested", icon: AlertTriangle, cls: "bg-amber-50 text-amber-700" },
   EXPIRED: { label: "Expired", icon: XCircle, cls: "bg-rose-50 text-rose-600" },

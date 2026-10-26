@@ -2,9 +2,9 @@
  * Stays verification API — the Stays twin of `features/supplier/api.js`'s
  * document endpoints, plus the status payload the Verification page reads.
  *
- * The live endpoints mirror the shared supplier contract exactly; in mock mode
- * the payload and the uploads live in the Stays mock so the page works without
- * a backend.
+ * Stays verification is its own domain (/stays/supplier/verification), not the
+ * tour supplier KYC. In mock mode the payload and uploads live in the Stays
+ * mock so the page works without a backend.
  */
 import api from "@/lib/axios";
 import { staysMock } from "../mock/store";
@@ -15,12 +15,8 @@ const requestConfig = { skipGlobalErrorHandler: true };
 /** Supplier profile (documents + properties) and the accommodation requirements. */
 export async function loadStaysVerification() {
   if (staysUsesMockData) return staysMock.getVerification();
-  const response = await api.get("/suppliers/application/status", requestConfig);
-  const data = response.data?.data || null;
-  return {
-    profile: data?.supplierProfile || null,
-    requirements: data?.verificationRequirements || null,
-  };
+  const response = await api.get("/stays/supplier/verification", requestConfig);
+  return response.data?.data || { profile: null, requirements: null };
 }
 
 /** Re-upload a replacement file for a rejected / replacement-requested / expired document. */
@@ -28,10 +24,7 @@ export function replaceStaysDocument(docId, file) {
   if (staysUsesMockData) return staysMock.replaceDocument(docId, file);
   const formData = new FormData();
   formData.append("document", file);
-  return api.post(`/suppliers/documents/${docId}/replace`, formData, {
-    ...requestConfig,
-    headers: { "Content-Type": "multipart/form-data" },
-  });
+  return api.post(`/stays/supplier/verification/documents/${docId}/replace`, formData, requestConfig);
 }
 
 /**
@@ -49,8 +42,5 @@ export function addStaysDocument({ type, file, expiryDate, ownerType, ownerId })
   if (expiryDate) formData.append("expiryDate", expiryDate);
   if (ownerType) formData.append("ownerType", ownerType);
   if (ownerId) formData.append("ownerId", ownerId);
-  return api.post("/suppliers/documents", formData, {
-    ...requestConfig,
-    headers: { "Content-Type": "multipart/form-data" },
-  });
+  return api.post("/stays/supplier/verification/documents", formData, requestConfig);
 }

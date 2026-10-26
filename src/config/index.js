@@ -122,11 +122,10 @@ const env = {
   VITE_ENABLE_REDUX_DEVTOOLS: envBool(import.meta.env.VITE_ENABLE_REDUX_DEVTOOLS, isDev),
   VITE_MOCK_API: envBool(import.meta.env.VITE_MOCK_API, false),
 
-  // Stays workspace — until the property endpoints ship, every Stays page
-  // reads from the in-feature dataset in `features/stays/mock` (same shapes
-  // as the documented endpoints). Set VITE_STAYS_DATA_SOURCE=api to call the
-  // real API instead; no page code changes.
-  VITE_STAYS_DATA_SOURCE: envString(import.meta.env.VITE_STAYS_DATA_SOURCE, 'mock'),
+  // Stays workspace — the supplier API is live, so deployments default to it.
+  // Local development can still set VITE_STAYS_DATA_SOURCE=mock to run against
+  // the offline preview dataset; no page code changes either way.
+  VITE_STAYS_DATA_SOURCE: envString(import.meta.env.VITE_STAYS_DATA_SOURCE, 'api'),
 };
 
 // Warn in development if any critical values are missing or using defaults
