@@ -100,6 +100,18 @@ export default function ChatPage() {
     };
   }, [currentUserId, loadConversations]);
 
+  // The open thread must carry the backend's customer stamp. A selection made
+  // from data fetched before the stamp existed (or through
+  // getOrCreateConversation) arrives without it, and the window then falls back
+  // to "the first participant who isn't me" — which is the colleague, not the
+  // customer. Adopt the list's copy as soon as a stamped version of the open
+  // thread arrives; nothing else about the selection changes.
+  useEffect(() => {
+    if (!selectedConv?.id || selectedConv.customerUserId) return;
+    const fresh = conversations.find((c) => c.id === selectedConv.id && c.customerUserId);
+    if (fresh) setSelectedConv(fresh);
+  }, [conversations, selectedConv, setSelectedConv]);
+
   /**
    * Load the first page of one conversation.
    *
