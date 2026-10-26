@@ -346,6 +346,10 @@ export default function StaysFinancePage() {
     return { available, pending, inReview, paidOut };
   }, [summary]);
 
+  // Stay bookings are denominated in the property currency (usually GHS); the
+  // summary carries it so the stat cards never print a USD sign over GHS.
+  const financeCurrency = summary?.currency || "GHS";
+
   const windowInfo = summary?.withdrawalWindow || null;
   const windowOpen = Boolean(windowInfo?.open);
   const canRequestPayout = windowOpen && stats.available > 0;
@@ -467,7 +471,7 @@ export default function StaysFinancePage() {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm text-gray-500">Available for payout</p>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{formatCurrency(stats.available)}</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{formatCurrency(stats.available, financeCurrency)}</p>
               {summary?.availableBalance?.bookingCount > 0 && (
                 <p className="text-xs text-gray-400 mt-0.5">{summary.availableBalance.bookingCount} booking(s)</p>
               )}
@@ -484,7 +488,7 @@ export default function StaysFinancePage() {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm text-gray-500">Pending clearance</p>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{formatCurrency(stats.pending)}</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{formatCurrency(stats.pending, financeCurrency)}</p>
               {summary?.pendingClearance?.clearanceBufferDays > 0 && (
                 <p className="text-xs text-gray-400 mt-0.5">+{summary.pendingClearance.clearanceBufferDays}d buffer</p>
               )}
@@ -501,7 +505,7 @@ export default function StaysFinancePage() {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm text-gray-500">In review</p>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{formatCurrency(stats.inReview)}</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{formatCurrency(stats.inReview, financeCurrency)}</p>
               {summary?.inReview?.requestCount > 0 && (
                 <p className="text-xs text-gray-400 mt-0.5">{summary.inReview.requestCount} request(s)</p>
               )}
@@ -518,7 +522,7 @@ export default function StaysFinancePage() {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm text-gray-500">Paid out</p>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{formatCurrency(stats.paidOut)}</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{formatCurrency(stats.paidOut, financeCurrency)}</p>
             </div>
             <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
               <CheckCircle2 size={20} className="text-emerald-500" />
@@ -576,7 +580,7 @@ export default function StaysFinancePage() {
             )}
           >
             {!windowOpen && <Lock size={15} />}
-            Request payout · {formatCurrency(stats.available)}
+            Request payout · {formatCurrency(stats.available, financeCurrency)}
           </button>
         </div>
         </>
@@ -594,7 +598,7 @@ export default function StaysFinancePage() {
             <p className="text-base font-semibold text-gray-900">Accumulating</p>
             <p className="text-sm text-gray-500 mt-0.5">
               <span>{summary?.pendingClearance?.bookingCount || 0} booking(s) clearing · </span>
-              <span className="font-semibold text-emerald-500">{formatCurrency(stats.pending)} pending</span>
+              <span className="font-semibold text-emerald-500">{formatCurrency(stats.pending, financeCurrency)} pending</span>
             </p>
           </div>
         </div>
@@ -635,7 +639,7 @@ export default function StaysFinancePage() {
               <div className="mt-4 space-y-2.5 bg-gray-50 rounded-xl p-4">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Amount</span>
-                  <span className="font-bold text-gray-900">{formatCurrency(stats.available)}</span>
+                  <span className="font-bold text-gray-900">{formatCurrency(stats.available, financeCurrency)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Bookings included</span>
