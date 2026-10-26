@@ -653,14 +653,14 @@ export default function BookingCard({
                       {booking.leadTravelerName}
                     </p>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
-                      {booking.leadTravelerEmail && (
+                      {booking.contactEmail && (
                         <span className="text-xs text-slate-500">
-                          {booking.leadTravelerEmail}
+                          {booking.contactEmail}
                         </span>
                       )}
-                      {booking.leadTravelerPhone && (
+                      {booking.contactPhone && (
                         <span className="text-xs text-slate-500">
-                          {booking.leadTravelerPhone}
+                          {booking.contactPhone}
                         </span>
                       )}
                     </div>

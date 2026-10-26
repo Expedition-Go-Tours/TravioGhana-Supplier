@@ -41,7 +41,7 @@ function manifestRow(booking) {
     tour: booking.tourName || "",
     bookingNumber: booking.bookingNumber || "",
     customer: booking.customerName || "",
-    phone: booking.customerPhone || "",
+    phone: booking.contactPhone || "",
     travelers: booking.travelers ?? "",
     address: display.primary || "",
     zone: display.zone && display.zone !== display.primary ? display.zone : "",

@@ -113,16 +113,16 @@ export default function CustomerDetailsPanel({ conversation, currentUserId, onCl
                 )}
               </div>
               <div className="mt-1 space-y-0.5">
-                {(cu.email || bookings[0]?.customerEmail) && (
+                {(cu.email || bookings[0]?.contactEmail) && (
                   <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
                     <Mail size={10} className="shrink-0 text-gray-400" />
-                    <span className="truncate">{cu.email || bookings[0]?.customerEmail}</span>
+                    <span className="truncate">{cu.email || bookings[0]?.contactEmail}</span>
                   </div>
                 )}
-                {(cu.phone || bookings[0]?.customerPhone) && (
+                {(cu.phone || bookings[0]?.contactPhone) && (
                   <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
                     <Phone size={10} className="shrink-0 text-gray-400" />
-                    <span>{cu.phone || bookings[0]?.customerPhone}</span>
+                    <span>{cu.phone || bookings[0]?.contactPhone}</span>
                   </div>
                 )}
               </div>

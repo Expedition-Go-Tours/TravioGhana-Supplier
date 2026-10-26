@@ -282,12 +282,12 @@ export default function PickupBookingCard({
                 <p className="flex items-center gap-1.5 text-xs text-slate-600">
                   <Phone size={12} className="text-slate-400" />
                   <span>{booking.customerName}</span>
-                  {booking.customerPhone ? (
+                  {booking.contactPhone ? (
                     <a
-                      href={`tel:${String(booking.customerPhone).replace(/[^\d+]/g, "")}`}
+                      href={`tel:${String(booking.contactPhone).replace(/[^\d+]/g, "")}`}
                       className="text-slate-500 underline decoration-slate-200 underline-offset-2 hover:text-emerald-700"
                     >
-                      {booking.customerPhone}
+                      {booking.contactPhone}
                     </a>
                   ) : null}
                 </p>

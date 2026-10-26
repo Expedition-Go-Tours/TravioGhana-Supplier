@@ -30,7 +30,7 @@ const baseBooking = (over = {}) => ({
   id: over.id,
   bookingNumber: over.id,
   customerName: over.customerName || "Ann Boateng",
-  customerPhone: "0244000000",
+  contactPhone: "0244000000",
   tourName: "Accra City Tour",
   travelDate: "2026-10-01",
   selectedTime: "08:00",

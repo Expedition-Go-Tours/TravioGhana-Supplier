@@ -7,7 +7,7 @@ const booking = {
   tourName: "City Tour",
   bookingNumber: "TRG-1",
   customerName: "Ann Boateng",
-  customerPhone: "+233240000000",
+  contactPhone: "+233240000000",
   travelers: 2,
   status: "CONFIRMED",
   specialRequests: "Wheelchair access",
