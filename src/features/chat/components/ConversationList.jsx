@@ -13,9 +13,14 @@ function timeAgo(dateStr) {
 }
 
 function getOtherParticipant(conv, currentUserId) {
-  const other = conv.participants?.find(
-    (p) => p.userId !== currentUserId
-  );
+  // The thread's customer, not merely "anyone who isn't me": a supplier
+  // colleague who replied by email is a third participant, so the naive rule
+  // renamed the row after her instead of after the customer.
+  const other = conv.customerUserId
+    ? conv.participants?.find((p) => p.userId === conv.customerUserId)
+    : conv.participants?.find(
+        (p) => p.userId !== currentUserId
+      );
   return other?.user || conv.participants?.[0]?.user;
 }
 

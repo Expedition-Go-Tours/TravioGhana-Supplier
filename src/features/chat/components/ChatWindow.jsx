@@ -222,8 +222,13 @@ export default function ChatWindow({ conversation, messages, messageStatuses, on
     };
   }, [conversation?.id]);
 
-  const otherParticipant = conversation?.participants?.find(
-    (p) => p.userId !== currentUserId
+  const customerUserId = conversation?.customerUserId || null;
+  // Header always shows the customer. With a colleague also in the thread, "the
+  // first participant who isn't me" can resolve to her instead of the customer.
+  const otherParticipant = (
+    customerUserId
+      ? conversation?.participants?.find((p) => p.userId === customerUserId)
+      : conversation?.participants?.find((p) => p.userId !== currentUserId)
   )?.user || conversation?.participants?.[0]?.user;
   const headerName = otherParticipant?.name || otherParticipant?.email || conversation?.title || "Chat";
 
@@ -304,7 +309,11 @@ export default function ChatWindow({ conversation, messages, messageStatuses, on
               )}
               <div className="space-y-1">
                 {messages.map((msg, idx) => {
-                  const isOwn = currentUserId ? msg.senderId === currentUserId : false;
+                  // The right-hand side is the supplier's side, not merely this
+                  // browser's user: a colleague's email reply belongs there too.
+                  const isOwn = customerUserId
+                    ? msg.senderId !== customerUserId
+                    : currentUserId ? msg.senderId === currentUserId : false;
                   const prevMsg = idx > 0 ? messages[idx - 1] : null;
                   const showDateSep = prevMsg && isNewDay(prevMsg.createdAt, msg.createdAt);
                   const showAvatar = !prevMsg || prevMsg.senderId !== msg.senderId || isNewDay(prevMsg.createdAt, msg.createdAt);
@@ -323,7 +332,14 @@ export default function ChatWindow({ conversation, messages, messageStatuses, on
                           isOwn={isOwn}
                           status={isOwn ? messageStatuses[msg.id] : undefined}
                           showAvatar={showAvatar}
-                          senderAvatar={isOwn ? optimizeImage(currentUser?.avatar, 32) : optimizeImage(msg.sender?.photoURL || otherParticipant?.photoURL, 32)}
+                          senderAvatar={
+                            isOwn
+                              ? optimizeImage(
+                                  msg.senderId === currentUserId ? currentUser?.avatar : msg.sender?.photoURL,
+                                  32
+                                )
+                              : optimizeImage(msg.sender?.photoURL || otherParticipant?.photoURL, 32)
+                          }
                           senderName={isOwn ? "You" : headerName}
                         />
                       </div>

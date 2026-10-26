@@ -127,9 +127,14 @@ export default function ChatPage() {
       setCursor(data.cursor || null);
       setHasMore(data.hasMore || false);
       const initialStatuses = {};
-      const otherParticipant = conv?.participants?.find(
-        (p) => currentUserId ? p.userId !== currentUserId : p.user.roles?.includes('admin')
-      );
+      // Read receipts come from the CUSTOMER's cursor: a colleague who joined
+      // the thread has lastReadAt=now, and picking her would mark everything
+      // read before the customer ever opened it.
+      const otherParticipant = conv?.customerUserId
+        ? conv.participants?.find((p) => p.userId === conv.customerUserId)
+        : conv?.participants?.find(
+            (p) => currentUserId ? p.userId !== currentUserId : p.user.roles?.includes('admin')
+          );
       const lastReadAt = otherParticipant?.lastReadAt ? new Date(otherParticipant.lastReadAt).getTime() : 0;
       msgs.forEach((m) => {
         initialStatuses[m.id] = new Date(m.createdAt).getTime() <= lastReadAt ? "read" : "sent";
@@ -226,9 +231,11 @@ export default function ChatPage() {
       appendMessages(msgs);
       setCursor(data.cursor || null);
       setHasMore(data.hasMore || false);
-      const otherParticipant = selectedConv?.participants?.find(
-        (p) => currentUserId ? p.userId !== currentUserId : p.user.roles?.includes('admin')
-      );
+      const otherParticipant = selectedConv?.customerUserId
+        ? selectedConv.participants?.find((p) => p.userId === selectedConv.customerUserId)
+        : selectedConv?.participants?.find(
+            (p) => currentUserId ? p.userId !== currentUserId : p.user.roles?.includes('admin')
+          );
       const lastReadAt = otherParticipant?.lastReadAt ? new Date(otherParticipant.lastReadAt).getTime() : 0;
       const statusUpdates = {};
       msgs.forEach((m) => {
@@ -327,8 +334,11 @@ export default function ChatPage() {
     ? customerConversations.filter((c) => (c.unreadCount ?? 0) > 0)
     : customerConversations;
 
-  const otherParticipant = selectedConv?.participants?.find(
-    (p) => currentUserId ? p.userId !== currentUserId : false
+  const otherParticipant = (selectedConv?.customerUserId
+    ? selectedConv.participants?.find((p) => p.userId === selectedConv.customerUserId)
+    : selectedConv?.participants?.find(
+        (p) => currentUserId ? p.userId !== currentUserId : false
+      )
   )?.user;
   const isCustomerConv = Boolean(otherParticipant?.roles?.includes("customer"));
 
