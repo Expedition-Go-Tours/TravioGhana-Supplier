@@ -35,6 +35,7 @@ import {
   formatTravelerDetails,
 } from "../lib/formatTravelers";
 import { pickupDisplay } from "../lib/pickupHelpers";
+import useBodyScrollLock from "@/hooks/useBodyScrollLock";
 
 /**
  * Booking detail panel — the GYG-style slide-over that opens from a booking
@@ -470,6 +471,9 @@ export default function BookingDetailDrawer({
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  // The panel covers the viewport on phones; freeze the list behind it.
+  useBodyScrollLock();
+
   const handlePaymentLinkAction = useCallback(async (payload) => {
     const mode =
       payload.action === "RESEND_PAYMENT_LINK"
@@ -535,7 +539,7 @@ export default function BookingDetailDrawer({
         role="dialog"
         aria-modal="true"
         aria-label={`Booking ${booking?.bookingNumber || bookingId}`}
-        className="relative w-full sm:max-w-xl h-full bg-white shadow-2xl flex flex-col"
+        className="relative w-full sm:max-w-xl h-full drawer-viewport bg-white shadow-2xl flex flex-col"
       >
         {/* Header */}
         <div className="flex items-start gap-3 px-5 py-4 border-b border-slate-200">
@@ -567,7 +571,7 @@ export default function BookingDetailDrawer({
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto px-5">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden px-5">
           {loading && (
             <div className="py-16 flex items-center justify-center">
               <Loader2 size={28} className="animate-spin text-[#044b3b]" />

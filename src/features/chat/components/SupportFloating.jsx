@@ -505,7 +505,7 @@ export default function SupportFloating() {
       <button
         onClick={() => openStore()}
         className={cn(
-          "group fixed bottom-6 right-6 z-50 flex h-14 items-center rounded-full bg-emerald-600 text-white shadow-lg transition-[width,box-shadow,transform] duration-300 ease-out hover:shadow-xl active:scale-95",
+          "group fixed bottom-6 right-6 z-30 flex h-14 items-center rounded-full bg-emerald-600 text-white shadow-lg transition-[width,box-shadow,transform] duration-300 ease-out hover:shadow-xl active:scale-95",
           "w-14 hover:w-[180px]",
           isOpen && "hidden"
         )}

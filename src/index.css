@@ -862,6 +862,14 @@
   box-shadow: inset 0 0 0 1px #cbd5e1;
 }
 
+/* Full-screen drawers follow the *visible* viewport, so the footer cannot sit
+   under Safari's collapsing toolbar. `h-full` remains the fallback. */
+@supports (height: 100dvh) {
+  .drawer-viewport {
+    height: 100dvh;
+  }
+}
+
 /* The amount field is a plain number input; the browser's spinner arrows sit
    on top of the currency prefix and read as an unfinished control. */
 .create-booking-drawer input[type="number"]::-webkit-outer-spin-button,

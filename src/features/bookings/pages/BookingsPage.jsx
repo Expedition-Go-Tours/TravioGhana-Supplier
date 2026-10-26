@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTeamRole } from "@/hooks/useTeamRole";
+import useMediaQuery from "@/hooks/useMediaQuery";
 import {
   DEFAULT_PAGE_SIZE,
   PAGE_SIZE_OPTIONS,
@@ -77,6 +78,9 @@ export default function BookingsPage() {
   // button can explain itself instead of failing on submit.
   const [commissionCover, setCommissionCover] = useState(null);
   const { hasPermission, supplierCreatedBookings } = useTeamRole();
+  // `sm` breakpoint. The primary action moves beside the title on phones but
+  // must exist only once in the DOM, so the placement is chosen, not CSS-hidden.
+  const isDesktop = useMediaQuery("(min-width: 640px)");
   const [highlightedBookingId, setHighlightedBookingId] = useState(
     searchParams.get("bookingId") || null
   );
@@ -511,17 +515,74 @@ export default function BookingsPage() {
   const totalPages =
     pagination?.totalPages ?? (Math.ceil(filteredData.length / pageSize) || 1);
 
+  // Supplier-created bookings: the server decides whether this supplier may
+  // create one, and the platform's own balance decides whether commission can
+  // be covered. The backend enforces both; the button only reflects them.
+  const canCreateBooking =
+    hasPermission("bookings.manage") && supplierCreatedBookings;
+  const coverUsd = commissionCover?.currencies?.find((c) => c.currency === "USD");
+  const coverReady = Boolean(commissionCover?.usable);
+  const coverTitle = commissionCover == null
+    ? "Checking your available earnings…"
+    : coverReady
+      ? "Create a booking and record the money you collect"
+      : `You have no available earnings to cover commission${coverUsd ? ` (${formatCurrency(coverUsd.available, "USD")} available)` : ""}. `
+        + "Commission on money you collect offline is deducted from earnings the platform already holds for you — "
+        + "it cannot be extended on credit. Settle your balance or wait for an eligible payout first.";
+
+  const openCreateBooking = async () => {
+    if (!coverReady) return;
+    setShowCreateBooking(true);
+    if (createTours.length === 0) {
+      try {
+        const res = await listMyProducts({ limit: 200 });
+        const tours = res.data?.data?.tours || [];
+        // Only tours a booking can actually be made on.
+        setCreateTours(
+          tours.filter(
+            (t) => !["DRAFT", "ARCHIVED", "REJECTED"].includes(t.status)
+          )
+        );
+      } catch {
+        setCreateTours([]);
+      }
+    }
+  };
+
+  // Rendered in two slots: beside the title on phones, in the toolbar from
+  // `sm` up. Exactly one is ever visible, so there is no duplicate focus stop.
+  const createBookingButton = canCreateBooking ? (
+    <button
+      type="button"
+      disabled={!coverReady}
+      title={coverTitle}
+      aria-disabled={!coverReady}
+      onClick={openCreateBooking}
+      className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-[#044b3b] px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#033629] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[#044b3b] sm:h-auto sm:py-2"
+    >
+      <Calendar size={14} /> Create booking
+    </button>
+  ) : null;
+
   return (
     <div className="space-y-5">
       {/* ====== HEADER ====== */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">Bookings</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Manage and track all customer reservations
-          </p>
+      {/* On phones the primary action sits beside the page title. A toggle, a
+          CTA and a refresh sharing one row needed 432px, which widened the
+          layout viewport on every phone and made the drawers overflow with it. */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="flex items-start justify-between gap-3 sm:block">
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold text-slate-900">Bookings</h1>
+            <p className="text-sm text-slate-500 mt-0.5">
+              Manage and track all customer reservations
+            </p>
+          </div>
+          {!isDesktop && view === "bookings" && createBookingButton && (
+            <div className="shrink-0">{createBookingButton}</div>
+          )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-2 sm:justify-end">
           <div className="flex items-center gap-1 p-1 bg-white border border-emerald-100/60 rounded-xl shadow-sm">
             <button
               type="button"
@@ -543,69 +604,30 @@ export default function BookingsPage() {
                   : "text-slate-500 hover:text-slate-700 hover:bg-emerald-50/40"
               }`}
             >
-              <ClipboardList size={13} /> Cancellation requests
+              <ClipboardList size={13} />
+              {/* The full label wraps the toggle onto two lines below 360px; the
+                  short one keeps the control a single line on the narrowest phones. */}
+              <span className="max-[359px]:hidden">Cancellation requests</span>
+              <span className="min-[360px]:hidden">Requests</span>
             </button>
           </div>
           {view === "bookings" && (
             <>
-              {/* Hidden unless the server says the brand has supplier-created
-                  bookings switched on. The backend refuses the create anyway,
-                  so showing the button only invites a 403. */}
-              {hasPermission("bookings.manage") && supplierCreatedBookings && (() => {
-                // Commission is never extended on credit. The gate is the
-                // platform's own balance for this supplier, so the button is
-                // disabled (and explains itself) before any request is sent —
-                // the server enforces exactly the same rule.
-                const coverUsd = commissionCover?.currencies?.find((c) => c.currency === "USD");
-                const coverReady = Boolean(commissionCover?.usable);
-                const coverTitle = commissionCover == null
-                  ? "Checking your available earnings…"
-                  : coverReady
-                    ? "Create a booking and record the money you collect"
-                    : `You have no available earnings to cover commission${coverUsd ? ` (${formatCurrency(coverUsd.available, "USD")} available)` : ""}. `
-                      + "Commission on money you collect offline is deducted from earnings the platform already holds for you — "
-                      + "it cannot be extended on credit. Settle your balance or wait for an eligible payout first.";
-                return (
-                  <button
-                    type="button"
-                    disabled={!coverReady}
-                    title={coverTitle}
-                    aria-disabled={!coverReady}
-                    onClick={async () => {
-                      if (!coverReady) return;
-                      setShowCreateBooking(true);
-                      if (createTours.length === 0) {
-                        try {
-                          const res = await listMyProducts({ limit: 200 });
-                          const tours = res.data?.data?.tours || [];
-                          // Only tours a booking can actually be made on.
-                          setCreateTours(
-                            tours.filter(
-                              (t) => !["DRAFT", "ARCHIVED", "REJECTED"].includes(t.status)
-                            )
-                          );
-                        } catch {
-                          setCreateTours([]);
-                        }
-                      }
-                    }}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-[#044b3b] text-white rounded-xl text-sm font-semibold hover:bg-[#033629] transition-colors shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#044b3b]"
-                  >
-                    <Calendar size={14} /> Create booking
-                  </button>
-                );
-              })()}
+              {isDesktop && createBookingButton}
+              {/* Icon-only on phones so the toggle keeps its natural width. */}
               <button
+                type="button"
                 onClick={loadBookings}
                 disabled={loading}
-                className="flex items-center gap-1.5 px-4 py-2 bg-white border border-emerald-100/60 rounded-xl text-sm font-medium text-slate-600 hover:bg-emerald-50/40 hover:text-slate-800 transition-all disabled:opacity-50 shadow-sm"
+                aria-label="Refresh bookings"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-emerald-100/60 bg-white text-sm font-medium text-slate-600 shadow-sm transition-all hover:bg-emerald-50/40 hover:text-slate-800 disabled:opacity-50 sm:h-auto sm:w-auto sm:gap-1.5 sm:px-4 sm:py-2"
               >
                 {loading ? (
                   <Loader2 size={14} className="animate-spin" />
                 ) : (
                   <RefreshCw size={14} />
                 )}
-                Refresh
+                <span className="hidden sm:inline">Refresh</span>
               </button>
             </>
           )}
@@ -725,7 +747,7 @@ export default function BookingsPage() {
               placeholder="Search name, reference or tour..."
               value={localSearch}
               onChange={(e) => setLocalSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-emerald-50/40 border border-emerald-100/60 rounded-lg text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#044b3b]/20 focus:border-[#044b3b] focus:bg-white transition-all"
+              className="w-full pl-9 pr-3 py-2 bg-emerald-50/40 border border-emerald-100/60 rounded-lg text-base sm:text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#044b3b]/20 focus:border-[#044b3b] focus:bg-white transition-all"
             />
           </div>
 
@@ -909,7 +931,7 @@ export default function BookingsPage() {
 
       {/* ====== PAGINATION ====== */}
       {totalPages > 1 && !loading && (
-        <div className="flex items-center justify-between pt-4 border-t border-emerald-100/60">
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-emerald-100/60">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-slate-500">
             <span>Show</span>
             <select
@@ -917,7 +939,7 @@ export default function BookingsPage() {
               onChange={(e) =>
                 updateFilters({ pageSize: Number(e.target.value), page: 0 })
               }
-              className="px-2 py-1 border border-emerald-100/60 rounded-lg text-xs text-slate-700 bg-white focus:outline-none"
+              className="px-2 py-1 border border-emerald-100/60 rounded-lg text-base sm:text-xs text-slate-700 bg-white focus:outline-none"
             >
               {PAGE_SIZE_OPTIONS.map((n) => (
                 <option key={n} value={n}>
@@ -935,24 +957,31 @@ export default function BookingsPage() {
             >
               Prev
             </button>
-            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-              const start = Math.max(0, Math.min(page - 2, totalPages - 5));
-              const p = start + i;
-              if (p >= totalPages) return null;
-              return (
-                <button
-                  key={p}
-                  onClick={() => updateFilters({ page: p })}
-                  className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors ${
-                    page === p
-                      ? "bg-[#044b3b] text-white shadow-sm"
-                      : "text-slate-600 hover:bg-emerald-50/40 border border-emerald-100/60"
-                  }`}
-                >
-                  {p + 1}
-                </button>
-              );
-            })}
+            {/* Numbered buttons need 280px on their own. Below `sm` the page
+                counter says the same thing in a third of the space. */}
+            <div className="hidden items-center gap-1 sm:flex">
+              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                const start = Math.max(0, Math.min(page - 2, totalPages - 5));
+                const p = start + i;
+                if (p >= totalPages) return null;
+                return (
+                  <button
+                    key={p}
+                    onClick={() => updateFilters({ page: p })}
+                    className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors ${
+                      page === p
+                        ? "bg-[#044b3b] text-white shadow-sm"
+                        : "text-slate-600 hover:bg-emerald-50/40 border border-emerald-100/60"
+                    }`}
+                  >
+                    {p + 1}
+                  </button>
+                );
+              })}
+            </div>
+            <span className="px-1 text-xs font-medium tabular-nums text-slate-500 sm:hidden">
+              {page + 1} / {totalPages}
+            </span>
             <button
               disabled={page >= totalPages - 1}
               onClick={() => updateFilters({ page: page + 1 })}
