@@ -12,13 +12,23 @@ import {
   BadgeCheck,
   AlertTriangle,
   TrendingUp,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from "@/lib/constants";
 import DatePicker from "@/components/forms/DatePicker";
 import StaysSurface from "../components/StaysSurface";
 import StaysBookingCard from "../components/StaysBookingCard";
-import { listStaysBookings, updateBookingStatus, STAYS_KEYS } from "../api";
+import StaysButton from "../components/StaysButton";
+import StaysModal from "../components/StaysModal";
+import { StaysField, StaysInput, StaysSelect, StaysTextarea } from "../components/StaysForm";
+import {
+  createStayBooking,
+  listProperties,
+  listStaysBookings,
+  updateBookingStatus,
+  STAYS_KEYS,
+} from "../api";
 import { BOOKING_STATUSES } from "../utils/status";
 import { formatMoney } from "../utils/money";
 
@@ -32,6 +42,18 @@ import { formatMoney } from "../utils/money";
  * transition writes through `updateBookingStatus` and refreshes the bookings
  * and dashboard queries.
  */
+const emptyBookingForm = () => ({
+  propertyId: "",
+  roomId: "",
+  guestName: "",
+  guestEmail: "",
+  guestPhone: "",
+  checkIn: "",
+  checkOut: "",
+  guests: "1",
+  specialRequests: "",
+});
+
 export default function StaysBookingsPage() {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState("All");
@@ -42,12 +64,28 @@ export default function StaysBookingsPage() {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [updatingId, setUpdatingId] = useState(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState("");
+  const [createForm, setCreateForm] = useState(() => emptyBookingForm());
 
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: STAYS_KEYS.bookings(),
     queryFn: () => listStaysBookings(),
     staleTime: 20_000,
   });
+
+  // Only fetched when the create dialog opens: the bookings page itself does
+  // not otherwise need the property catalogue.
+  const { data: properties = [] } = useQuery({
+    queryKey: ["stays", "properties"],
+    queryFn: () => listProperties(),
+    enabled: createOpen,
+    staleTime: 30_000,
+  });
+
+  const selectedProperty = properties.find((property) => property.id === createForm.propertyId);
+  const rooms = selectedProperty?.rooms || [];
 
   const updateMutation = useMutation({
     mutationFn: ({ id, status }) => updateBookingStatus(id, status),
@@ -65,6 +103,45 @@ export default function StaysBookingsPage() {
     updateMutation.mutate({ id, status });
   };
 
+  const updateCreateForm = (patch) => {
+    setCreateForm((current) => ({ ...current, ...patch }));
+  };
+
+  const handleCreate = async () => {
+    setCreateError("");
+    if (!createForm.propertyId || !createForm.roomId) {
+      setCreateError("Choose a property and a room.");
+      return;
+    }
+    if (!createForm.guestName.trim()) {
+      setCreateError("Add the guest's name.");
+      return;
+    }
+    if (!createForm.checkIn || !createForm.checkOut) {
+      setCreateError("Choose the check-in and check-out dates.");
+      return;
+    }
+
+    setCreating(true);
+    try {
+      await createStayBooking({
+        ...createForm,
+        guests: Number(createForm.guests) || 1,
+      });
+      queryClient.invalidateQueries({ queryKey: ["stays", "bookings"] });
+      queryClient.invalidateQueries({ queryKey: STAYS_KEYS.dashboard });
+      toast.success("Booking created");
+      setCreateOpen(false);
+      setCreateForm(emptyBookingForm());
+    } catch (error) {
+      setCreateError(
+        error?.response?.data?.message || "Could not create the booking.",
+      );
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const hasFilters = Boolean(localSearch || stayFrom || stayTo);
 
   const clearFilters = () => {
@@ -79,7 +156,7 @@ export default function StaysBookingsPage() {
     const query = localSearch.toLowerCase().trim();
     if (query) {
       data = data.filter((booking) =>
-        `${booking.guest} ${booking.id} ${booking.propertyName || ""} ${booking.room}`
+        `${booking.guest} ${booking.bookingNumber || booking.id} ${booking.propertyName || ""} ${booking.room}`
           .toLowerCase()
           .includes(query),
       );
@@ -120,16 +197,28 @@ export default function StaysBookingsPage() {
             Manage and track all guest reservations
           </p>
         </div>
-        <button
-          onClick={() =>
-            queryClient.invalidateQueries({ queryKey: ["stays", "bookings"] })
-          }
-          disabled={isLoading}
-          className="flex items-center gap-1.5 px-4 py-2 bg-white border border-emerald-100/60 rounded-xl text-sm font-medium text-slate-600 hover:bg-emerald-50/40 hover:text-slate-800 transition-all disabled:opacity-50 shadow-sm"
-        >
-          {isLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <StaysButton
+            variant="primary"
+            onClick={() => {
+              setCreateError("");
+              setCreateOpen(true);
+            }}
+          >
+            <Plus size={15} />
+            Create booking
+          </StaysButton>
+          <button
+            onClick={() =>
+              queryClient.invalidateQueries({ queryKey: ["stays", "bookings"] })
+            }
+            disabled={isLoading}
+            className="flex items-center gap-1.5 px-4 py-2 bg-white border border-emerald-100/60 rounded-xl text-sm font-medium text-slate-600 hover:bg-emerald-50/40 hover:text-slate-800 transition-all disabled:opacity-50 shadow-sm"
+          >
+            {isLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* ====== STATS ====== */}
@@ -406,6 +495,138 @@ export default function StaysBookingsPage() {
           </div>
         </div>
       )}
+
+      <StaysModal
+        open={createOpen}
+        onOpenChange={(next) => {
+          setCreateOpen(next);
+          if (!next) {
+            setCreateError("");
+            setCreateForm(emptyBookingForm());
+          }
+        }}
+        title="Create booking"
+        description="Record a walk-in or phone reservation against one of your properties."
+        footer={
+          <>
+            <StaysButton
+              onClick={() => {
+                setCreateOpen(false);
+                setCreateError("");
+                setCreateForm(emptyBookingForm());
+              }}
+              disabled={creating}
+            >
+              Cancel
+            </StaysButton>
+            <StaysButton
+              variant="primary"
+              onClick={handleCreate}
+              disabled={creating}
+            >
+              {creating ? "Creating…" : "Create booking"}
+            </StaysButton>
+          </>
+        }
+      >
+        <div className="grid gap-4">
+          <StaysField label="Property">
+            <StaysSelect
+              value={createForm.propertyId}
+              onChange={(event) =>
+                updateCreateForm({ propertyId: event.target.value, roomId: "" })
+              }
+              options={properties.map((property) => ({
+                value: property.id,
+                label: property.name,
+              }))}
+              placeholder={properties.length ? "Select a property" : "No properties yet"}
+              disabled={!properties.length}
+            />
+          </StaysField>
+
+          <StaysField
+            label="Room"
+            hint={selectedProperty ? undefined : "Choose a property first."}
+          >
+            <StaysSelect
+              value={createForm.roomId}
+              onChange={(event) => updateCreateForm({ roomId: event.target.value })}
+              options={rooms.map((room) => ({
+                value: room.id,
+                label: room.name || room.kind || "Room",
+              }))}
+              placeholder={selectedProperty ? "Select a room" : "Select a property first"}
+              disabled={!selectedProperty}
+            />
+          </StaysField>
+
+          <StaysField label="Guest name">
+            <StaysInput
+              value={createForm.guestName}
+              onChange={(event) => updateCreateForm({ guestName: event.target.value })}
+              placeholder="Full name"
+            />
+          </StaysField>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <StaysField label="Email">
+              <StaysInput
+                type="email"
+                value={createForm.guestEmail}
+                onChange={(event) => updateCreateForm({ guestEmail: event.target.value })}
+                placeholder="guest@example.com"
+              />
+            </StaysField>
+            <StaysField label="Phone">
+              <StaysInput
+                value={createForm.guestPhone}
+                onChange={(event) => updateCreateForm({ guestPhone: event.target.value })}
+                placeholder="+233…"
+              />
+            </StaysField>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <StaysField label="Check-in">
+              <StaysInput
+                type="date"
+                value={createForm.checkIn}
+                onChange={(event) => updateCreateForm({ checkIn: event.target.value })}
+              />
+            </StaysField>
+            <StaysField label="Check-out">
+              <StaysInput
+                type="date"
+                value={createForm.checkOut}
+                onChange={(event) => updateCreateForm({ checkOut: event.target.value })}
+              />
+            </StaysField>
+          </div>
+
+          <StaysField label="Guests">
+            <StaysInput
+              type="number"
+              min="1"
+              value={createForm.guests}
+              onChange={(event) => updateCreateForm({ guests: event.target.value })}
+            />
+          </StaysField>
+
+          <StaysField label="Special requests">
+            <StaysTextarea
+              rows={3}
+              value={createForm.specialRequests}
+              onChange={(event) => updateCreateForm({ specialRequests: event.target.value })}
+              placeholder="Airport pickup, late arrival, dietary notes…"
+            />
+          </StaysField>
+
+          {createError && (
+            <p className="text-sm font-medium text-red-600">{createError}</p>
+          )}
+        </div>
+      </StaysModal>
     </StaysSurface>
   );
 }

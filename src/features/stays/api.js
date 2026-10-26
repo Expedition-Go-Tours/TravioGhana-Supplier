@@ -182,6 +182,12 @@ export async function updateBookingStatus(id, status) {
   return res.data?.data?.booking;
 }
 
+export async function createStayBooking(payload) {
+  if (staysUsesMockData) return staysMock.createBooking(payload);
+  const res = await api.post(`${BASE}/bookings`, payload, requestConfig);
+  return res.data?.data?.booking;
+}
+
 /* ── Offers ──────────────────────────────────────────────────────────────── */
 export async function listOffers(params = {}) {
   if (staysUsesMockData) return staysMock.listOffers(params);

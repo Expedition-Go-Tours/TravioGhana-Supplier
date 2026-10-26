@@ -69,7 +69,7 @@ export default function StaysBookingCard({ booking, onStatusUpdate, isUpdating }
 
   return (
     <div
-      id={`stays-booking-${booking.id}`}
+      id={`stays-booking-${booking.bookingNumber || booking.id}`}
       className="bg-white rounded-xl border border-slate-200 hover:border-slate-300 hover:shadow-md transition-all duration-200 overflow-hidden"
     >
       {/* ── Collapsed header — mobile (stacked) ─────────────────────────── */}
@@ -108,7 +108,7 @@ export default function StaysBookingCard({ booking, onStatusUpdate, isUpdating }
           </span>
           <span className="text-slate-300">·</span>
           <span className="font-mono text-[11px] text-slate-500 whitespace-nowrap">
-            {booking.id}
+            {booking.bookingNumber || booking.id}
           </span>
         </div>
 
@@ -154,7 +154,7 @@ export default function StaysBookingCard({ booking, onStatusUpdate, isUpdating }
               {booking.guests} guest{booking.guests !== 1 ? "s" : ""}
             </span>
             <span className="text-slate-300">·</span>
-            <span className="font-mono text-[11px] text-slate-500">{booking.id}</span>
+            <span className="font-mono text-[11px] text-slate-500">{booking.bookingNumber || booking.id}</span>
           </p>
         </div>
 
@@ -201,7 +201,7 @@ export default function StaysBookingCard({ booking, onStatusUpdate, isUpdating }
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <div>
                     <p className="text-xs text-slate-500 mb-0.5">Reference</p>
-                    <p className="text-sm font-medium text-slate-800 font-mono">{booking.id}</p>
+                    <p className="text-sm font-medium text-slate-800 font-mono">{booking.bookingNumber || booking.id}</p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-500 mb-0.5">Property</p>

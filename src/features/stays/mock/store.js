@@ -442,6 +442,48 @@ export const staysMock = {
     return clone(booking);
   },
 
+  /** Supplier-created walk-in / phone reservation (mock parity with POST /bookings). */
+  async createBooking({
+    propertyId,
+    roomId,
+    guestName,
+    guestEmail,
+    guestPhone,
+    checkIn,
+    checkOut,
+    guests = 1,
+    amount,
+    specialRequests,
+  } = {}) {
+    await delay();
+    const p = property(propertyId);
+    const room = (p.rooms || []).find((row) => row.id === roomId) || {};
+    const from = checkIn || new Date().toISOString().slice(0, 10);
+    const to = checkOut || from;
+    const nights = Math.max(1, Math.round((new Date(to) - new Date(from)) / 86400000));
+    const total = Number(amount) > 0 ? Number(amount) : Number(room.price || 0) * nights;
+    const booking = {
+      id: `TG-S-${Date.now().toString().slice(-5)}`,
+      guest: String(guestName || "Guest").trim() || "Guest",
+      guestEmail: guestEmail || "",
+      guestPhone: guestPhone || "",
+      propertyId,
+      room: room.name || "Room",
+      from,
+      to,
+      amount: total,
+      status: "New",
+      guests: Number(guests) || 1,
+      reason: "",
+      note: specialRequests || "",
+      refundAmount: null,
+      countsTowardRate: false,
+    };
+    db.bookings.push(booking);
+    persist();
+    return clone(booking);
+  },
+
   // ── Offers ────────────────────────────────────────────────────────────
   async listOffers({ filter = "All" } = {}) {
     await delay();
