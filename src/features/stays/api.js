@@ -83,10 +83,38 @@ export async function deleteProperty(id) {
   return res.data?.data;
 }
 
+function dataUrlToBlob(dataUrl) {
+  const [meta, base64] = String(dataUrl).split(',');
+  const mime = /data:([^;]+)/.exec(meta)?.[1] || 'image/jpeg';
+  const binary = atob(base64 || '');
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return new Blob([bytes], { type: mime });
+}
+
 export async function addPropertyPhotos(id, dataUrls) {
   if (staysUsesMockData) return staysMock.addPhotos(id, dataUrls);
-  // Live: multipart upload, one request per file batch.
-  const res = await api.post(`${BASE}/properties/${id}/photos`, { photos: dataUrls }, requestConfig);
+
+  // Live: the builder already holds data URLs (it reads files in the browser).
+  // Convert them back to Blobs and send multipart — a 5-photo batch can exceed
+  // the backend's JSON body limit, and multipart streams straight to Cloudinary.
+  const allDataUrls = Array.isArray(dataUrls)
+    && dataUrls.every((value) => typeof value === 'string' && value.startsWith('data:image/'));
+
+  if (!allDataUrls) {
+    const res = await api.post(`${BASE}/properties/${id}/photos`, { photos: dataUrls }, requestConfig);
+    return res.data?.data?.photos || [];
+  }
+
+  const form = new FormData();
+  dataUrls.forEach((dataUrl, index) => {
+    const blob = dataUrlToBlob(dataUrl);
+    const ext = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+    form.append('photos', blob, `property-${index}.${ext}`);
+  });
+
+  // Let the browser set the multipart boundary; do not set Content-Type here.
+  const res = await api.post(`${BASE}/properties/${id}/photos`, form, requestConfig);
   return res.data?.data?.photos || [];
 }
 

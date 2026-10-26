@@ -517,7 +517,7 @@ export default function PropertyBuilderPage() {
       <StaysModal
         open={showSuccess}
         onOpenChange={(next) => !next && setShowSuccess(false)}
-        title="Property submitted!"
+        title="Property published!"
         footer={
           <StaysButton
             variant="primary"
@@ -532,7 +532,7 @@ export default function PropertyBuilderPage() {
       >
         <p className="m-0 text-3xl leading-none">✦</p>
         <p className="mt-2 text-sm leading-relaxed text-slate-500">
-          Your property listing is now marked Under review. You can return to it any time from Properties.
+          Your property is now live and open for bookings. You can manage it any time from Properties.
         </p>
       </StaysModal>
     </motion.div>

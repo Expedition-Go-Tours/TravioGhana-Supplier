@@ -7,6 +7,7 @@ import { refreshAccessToken, isStaleSessionRequest } from "./tokenRefresh";
 const AUTH_REQUIRED_PREFIXES = [
   "/suppliers",
   "/tours/supplier",
+  "/travioghana/supplier",
   "/bookings",
   "/notifications",
   "/admin",
