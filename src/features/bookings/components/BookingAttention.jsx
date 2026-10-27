@@ -49,7 +49,7 @@ const LEVEL_META = {
 };
 
 const EMAIL_STATE_META = {
-  SENT: { label: "Email accepted", tone: "text-emerald-700" },
+  SENT: { label: "Emailed", tone: "text-emerald-700" },
   QUEUED: { label: "Email queued", tone: "text-amber-700" },
   FAILED: { label: "Email failed", tone: "text-red-700" },
   NOT_SENT: { label: "Not emailed", tone: "text-slate-500" },
@@ -301,14 +301,9 @@ export default function BookingAttentionPanel({
               {formatDateTime(attention.link.lastEmailedAt)}
             </span>
           )}
-          {attention.link?.active && attention.link?.expiresAt && (
-            <span className="block text-[11px] text-slate-500">
-              Expires {formatDateTime(attention.link.expiresAt)}
-            </span>
-          )}
         </MetaRow>
         {attention.deadlineAt && (
-          <MetaRow label="Link deadline">
+          <MetaRow label="Send until">
             {formatDateTime(attention.deadlineAt)}
           </MetaRow>
         )}
@@ -320,27 +315,21 @@ export default function BookingAttentionPanel({
       </div>
 
       {linkState === "PAID" && (
-        <div className="mt-2.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-2" role="status">
-          <p className="text-xs font-semibold text-emerald-800">
-            Paid{attention.payment?.lastAttemptAt ? ` ${formatDateTime(attention.payment.lastAttemptAt)}` : ""} · receipt emailed to the customer
-          </p>
-        </div>
+        <p className="mt-2.5 text-xs font-semibold text-emerald-700" role="status">
+          Paid{attention.payment?.lastAttemptAt ? ` ${formatDateTime(attention.payment.lastAttemptAt)}` : ""} · receipt emailed to the customer
+        </p>
       )}
 
       {linkState === "SENT" && (
-        <div className="mt-2.5 rounded-lg border border-emerald-200 bg-emerald-50/70 px-2.5 py-2" role="status">
-          <p className="text-xs font-semibold text-emerald-800">
+        <div className="mt-2.5 text-[11px]" role="status">
+          <p className="font-semibold text-emerald-700">
             Payment link emailed
             {linkExpiresIn != null ? ` · expires in ${formatRemaining(linkExpiresIn)}` : ""}
+            {attention.link?.expiresAt ? ` (${formatDateTime(attention.link.expiresAt)})` : ""}
+            {attention.link?.channels?.chat ? " · also posted in chat" : ""}
           </p>
-          {attention.link?.expiresAt && (
-            <p className="mt-0.5 text-[11px] text-emerald-700">
-              Payable until {formatDateTime(attention.link.expiresAt)}
-              {attention.link?.channels?.chat ? " · also posted in chat" : ""}
-            </p>
-          )}
           {attention.link?.supersededAt && (
-            <p className="mt-0.5 text-[11px] text-amber-700">
+            <p className="mt-0.5 text-amber-700">
               Replaces the link from {formatDateTime(attention.link.supersededAt)} — the older link no longer works.
             </p>
           )}

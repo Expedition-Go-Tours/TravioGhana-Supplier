@@ -186,9 +186,8 @@ describe("payment link state", () => {
       />
     );
 
-    expect(screen.getByText(/Payment link emailed/)).toBeInTheDocument();
-    expect(screen.getByText(/expires in 1h 30m/)).toBeInTheDocument();
-    expect(screen.getByText(/Payable until/)).toBeInTheDocument();
+    // One line carries the whole fact: sent, countdown and absolute cutoff.
+    expect(screen.getByText(/^Payment link emailed · expires in 1h 30m \(.*\)$/)).toBeInTheDocument();
     expect(screen.getByText(/Next resend available in 1h 30m/)).toBeInTheDocument();
 
     // The resend button exists but is held until the cooldown passes.
