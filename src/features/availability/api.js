@@ -42,6 +42,12 @@ export function mapCalendarDay(day) {
     })),
     hasOverride: day.hasOverride,
     overrideStatus: day.overrideStatus ? day.overrideStatus.toLowerCase() : null,
+    // Party-size floor for this date. `minParticipants` is the effective value
+    // (always present), the rest let the supplier see where it came from.
+    minParticipants: day.minParticipants ?? null,
+    minParticipantsSource: day.minParticipantsSource || "TOUR",
+    defaultMinParticipants: day.defaultMinParticipants ?? null,
+    overrideMinParticipants: day.overrideMinParticipants ?? null,
   };
 }
 

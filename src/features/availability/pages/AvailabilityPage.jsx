@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   XCircle,
   CalendarX2,
+  UserCheck,
 } from "lucide-react";
 import {
   format,
@@ -92,6 +93,7 @@ export default function AvailabilityPage() {
   const panelTimer = useRef(null);
   const [confirmingBlock, setConfirmingBlock] = useState(false);
   const [capacityDraft, setCapacityDraft] = useState("");
+  const [minDraft, setMinDraft] = useState("");
   const [slotCutoffDrafts, setSlotCutoffDrafts] = useState({});
   const [defaultCutoffDraft, setDefaultCutoffDraft] = useState(20);
   const [statusFilter, setStatusFilter] = useState({ available: true, limited: true, full: true, blocked: true, past: true });
@@ -176,7 +178,7 @@ export default function AvailabilityPage() {
 
   const getDay = useCallback((date) => {
     const key = format(date, "yyyy-MM-dd");
-    return calendar.find((d) => d.date === key) || { status: "available", capacity: 0, booked: 0, remaining: 0, slots: [], hasOverride: false, overrideStatus: null, capacityUnit: "people", groupsPerSlot: null, maxGroupSize: null };
+    return calendar.find((d) => d.date === key) || { status: "available", capacity: 0, booked: 0, remaining: 0, slots: [], hasOverride: false, overrideStatus: null, capacityUnit: "people", groupsPerSlot: null, maxGroupSize: null, minParticipants: null, minParticipantsSource: "TOUR", defaultMinParticipants: null, overrideMinParticipants: null };
   }, [calendar]);
 
   const rangeDays = useMemo(() => {
@@ -260,6 +262,20 @@ export default function AvailabilityPage() {
     onError: (e) => { toast.error(e.response?.data?.message || "Failed to update day limit"); },
   });
 
+  const minMut = useMutation({
+    mutationFn: ({ tourId, date, minParticipants }) => updateDateAvailability(tourId, date, { minParticipants }),
+    onSuccess: (_, vars) => {
+      toast.success(
+        vars.minParticipants === null
+          ? "Minimum removed — this date uses the tour minimum"
+          : `Minimum set to ${vars.minParticipants} traveler${vars.minParticipants === 1 ? "" : "s"}`
+      );
+      setMinDraft(vars.minParticipants === null ? "" : String(vars.minParticipants));
+      queryClient.invalidateQueries({ queryKey: ["tour-availability", tourId] });
+    },
+    onError: (e) => { toast.error(e.response?.data?.message || "Failed to update minimum travelers"); },
+  });
+
   const slotCutoffMut = useMutation({
     mutationFn: ({ tourId, date, slotCutoffs, cutoffMinutes }) =>
       updateDateAvailability(tourId, date, { slotCutoffs, cutoffMinutes }),
@@ -275,6 +291,8 @@ export default function AvailabilityPage() {
     setConfirmingBlock(false);
     const day = getDay(date);
     setCapacityDraft(String(day.overrideCapacity ?? day.capacity ?? ""));
+    // Blank = inherit the tour default; only an explicit override is prefilled.
+    setMinDraft(day.overrideMinParticipants != null ? String(day.overrideMinParticipants) : "");
     const base = day.cutoffMinutes ?? 20;
     const drafts = {};
     (day.slots || []).forEach((s) => { drafts[s.time] = s.cutoffMinutes ?? base; });
@@ -353,12 +371,51 @@ export default function AvailabilityPage() {
     capacityMut.mutate({ tourId, date: format(selectedDate, "yyyy-MM-dd"), capacity: null });
   };
 
+  const handleMinApply = () => {
+    if (!selectedDate || !tourId || !selectedDay) return;
+    const raw = String(minDraft).trim();
+    if (!raw) {
+      toast.error("Enter the minimum number of travelers");
+      return;
+    }
+    const value = Number(raw);
+    if (!Number.isInteger(value) || value < 1 || value > 100000) {
+      toast.error("Enter a whole number between 1 and 100,000");
+      return;
+    }
+    if (selectedDay.capacity > 0 && value > selectedDay.capacity) {
+      toast.error(`This date can hold at most ${selectedDay.capacity} — raise the day limit first`);
+      return;
+    }
+    minMut.mutate({ tourId, date: format(selectedDate, "yyyy-MM-dd"), minParticipants: value });
+  };
+
+  const handleMinClear = () => {
+    if (!selectedDate || !tourId) return;
+    minMut.mutate({ tourId, date: format(selectedDate, "yyyy-MM-dd"), minParticipants: null });
+  };
+
   const selectedDay = selectedDate ? getDay(selectedDate) : null;
   const cfg = selectedDay ? STATUS_CONFIG[selectedDay.status] || STATUS_CONFIG.available : null;
   const pending = blockMut.isPending || revertMut.isPending;
 
   const effectiveCapacity = selectedDay ? (selectedDay.overrideCapacity ?? selectedDay.capacity) : 0;
   const capacityDirty = !!selectedDay && String(capacityDraft).trim() !== "" && Number(capacityDraft) !== effectiveCapacity;
+
+  const defaultMin = selectedDay?.defaultMinParticipants ?? selectedDay?.minParticipants ?? null;
+  const effectiveMin = selectedDay?.minParticipants ?? defaultMin;
+  const minDirty = !!selectedDay && String(minDraft).trim() !== "" && Number(minDraft) !== (selectedDay.overrideMinParticipants ?? null);
+  // A date whose remaining spots are below its minimum cannot be sold, even
+  // though the calendar still calls it Available. Surface that before the
+  // supplier wonders why bookings stopped.
+  const minUnsellable =
+    !!selectedDay &&
+    selectedDay.capacityUnit !== "groups" &&
+    selectedDay.status !== "blocked" &&
+    selectedDay.status !== "past" &&
+    effectiveMin != null &&
+    selectedDay.remaining > 0 &&
+    selectedDay.remaining < effectiveMin;
 
   const slotCutoffsDirty = useMemo(() => {
     if (!selectedDay || !selectedDay.slots?.length) return false;
@@ -853,6 +910,78 @@ export default function AvailabilityPage() {
                       >
                         Remove day limit (back to {selectedDay.baseCapacity})
                       </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* --- Minimum travelers (per-date party floor) --- */}
+              {selectedDay.status !== "blocked" &&
+                selectedDay.status !== "past" &&
+                selectedDay.capacityUnit !== "groups" && (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-1.5">
+                      <UserCheck size={12} className="text-slate-400" />
+                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Minimum travelers</p>
+                    </div>
+                    {selectedDay.overrideMinParticipants != null && (
+                      <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">Override active</span>
+                    )}
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-3">
+                    <div>
+                      <label className="block text-xs text-slate-500 mb-1.5">
+                        Smallest party you'll accept on {format(selectedDate, "EEEE, MMM d")}
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={1}
+                          max={selectedDay.capacity || 100000}
+                          step={1}
+                          value={minDraft}
+                          placeholder={defaultMin != null ? `${defaultMin} (tour default)` : "Tour default"}
+                          onChange={(e) => setMinDraft(e.target.value)}
+                          disabled={minMut.isPending}
+                          className="w-full px-3 py-2 text-sm font-semibold text-slate-900 bg-white rounded-lg border border-slate-200 focus:outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:opacity-50"
+                        />
+                        <button
+                          onClick={handleMinApply}
+                          disabled={minMut.isPending || !minDirty}
+                          className="shrink-0 px-3.5 py-2 text-xs font-semibold text-white bg-[#044b3b] rounded-lg hover:bg-[#033629] disabled:opacity-40 transition-colors"
+                        >
+                          Apply
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
+                        The tour minimum is <span className="font-semibold text-slate-600">{defaultMin ?? "not set"}</span>.
+                        A date can require more travelers, but never fewer — leave this blank to inherit it.
+                      </p>
+                      {String(minDraft).trim() !== "" &&
+                        defaultMin != null &&
+                        Number(minDraft) < defaultMin && (
+                          <p className="text-[11px] text-amber-700 mt-1.5 leading-relaxed">
+                            This date will still require {defaultMin} — the tour minimum can't be lowered per date.
+                          </p>
+                        )}
+                    </div>
+                    {selectedDay.overrideMinParticipants != null && (
+                      <button
+                        onClick={handleMinClear}
+                        disabled={minMut.isPending}
+                        className="w-full text-xs font-medium text-slate-500 hover:text-red-600 transition-colors"
+                      >
+                        Remove minimum (back to {defaultMin ?? "tour default"})
+                      </button>
+                    )}
+                    {minUnsellable && (
+                      <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                        <AlertTriangle size={14} className="text-amber-600 shrink-0 mt-0.5" />
+                        <p className="text-[11px] text-amber-800 leading-relaxed">
+                          {selectedDay.remaining} of {selectedDay.capacity} spots left — below the {effectiveMin}-traveler minimum, so this date can't be booked.
+                        </p>
+                      </div>
                     )}
                   </div>
                 </div>

@@ -89,4 +89,41 @@ describe('mapCalendarDay status derivation', () => {
     expect(day.overrideCapacity).toBeNull()
     expect(day.capacityUnit).toBe('people')
   })
+
+  it('maps the effective and inherited per-date minimums', () => {
+    const inherited = mapCalendarDay({
+      ...base,
+      status: 'AVAILABLE',
+      capacity: 10,
+      baseCapacity: 10,
+      overrideCapacity: null,
+      minParticipants: 2,
+      minParticipantsSource: 'TOUR',
+      defaultMinParticipants: 2,
+      overrideMinParticipants: null,
+    })
+    expect(inherited).toMatchObject({
+      minParticipants: 2,
+      minParticipantsSource: 'TOUR',
+      defaultMinParticipants: 2,
+      overrideMinParticipants: null,
+    })
+
+    const overridden = mapCalendarDay({
+      ...base,
+      status: 'AVAILABLE',
+      capacity: 10,
+      baseCapacity: 10,
+      overrideCapacity: null,
+      minParticipants: 4,
+      minParticipantsSource: 'DATE',
+      defaultMinParticipants: 2,
+      overrideMinParticipants: 4,
+    })
+    expect(overridden).toMatchObject({
+      minParticipants: 4,
+      minParticipantsSource: 'DATE',
+      overrideMinParticipants: 4,
+    })
+  })
 })
