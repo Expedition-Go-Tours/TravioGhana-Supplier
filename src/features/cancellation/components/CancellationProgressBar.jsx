@@ -14,12 +14,10 @@ export default function CancellationProgressBar({ rate }) {
 
   return (
     <div className="space-y-1">
-      {/* Your rate label with pointer */}
-      <div className="relative inline-block">
-        <div className="text-xs font-semibold text-slate-600 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm">
-          Your rate
-        </div>
-        <div className="absolute left-4 -bottom-1.5 w-2.5 h-2.5 bg-white border-b border-r border-slate-200 transform rotate-45" />
+      {/* Scale label — the pin below marks the actual rate, so this bubble
+          must not sit at the left edge looking like a pointer. */}
+      <div className="inline-block text-xs font-semibold text-slate-600 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm">
+        Rate scale
       </div>
 
       {/* Progress bar container */}
