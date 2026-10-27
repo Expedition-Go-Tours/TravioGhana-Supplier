@@ -133,3 +133,188 @@ describe("booking attention", () => {
     expect(screen.queryByRole("button", { name: /payment link/i })).toBeNull();
   });
 });
+
+/**
+ * The link block now answers the three questions a supplier actually has:
+ * did it go out, how long is it good for, and may I send another one?
+ */
+describe("payment link state", () => {
+  const MINUTE = 60 * 1000;
+  const HOUR = 60 * MINUTE;
+  const iso = (msFromNow) => new Date(Date.now() + msFromNow).toISOString();
+
+  const withLink = (link) =>
+    attention({
+      link: {
+        state: "NONE",
+        active: false,
+        expiresAt: null,
+        emailState: "NOT_SENT",
+        lastEmailedAt: null,
+        canSend: false,
+        canResend: false,
+        canRegenerate: false,
+        canSendInChat: false,
+        customerEmailOnFile: true,
+        sentCount: 0,
+        channels: { email: false, chat: false },
+        nextResendAt: null,
+        supersededAt: null,
+        atTouchLimit: false,
+        ...link,
+      },
+    });
+
+  it("shows a sent link, counts it down, and holds the next resend", () => {
+    render(
+      <BookingAttentionPanel
+        attention={{
+          ...withLink({
+            state: "SENT",
+            active: true,
+            emailState: "SENT",
+            expiresAt: iso(90 * MINUTE),
+            lastEmailedAt: iso(-3 * HOUR),
+            sentCount: 1,
+            channels: { email: true, chat: false },
+            nextResendAt: iso(90 * MINUTE),
+            canResend: true,
+          }),
+          actions: [{ code: "RESEND_PAYMENT_LINK", label: "Resend link" }],
+        }}
+        onAction={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText(/Payment link emailed/)).toBeInTheDocument();
+    expect(screen.getByText(/expires in 1h 30m/)).toBeInTheDocument();
+    expect(screen.getByText(/Payable until/)).toBeInTheDocument();
+    expect(screen.getByText(/Next resend available in 1h 30m/)).toBeInTheDocument();
+
+    // The resend button exists but is held until the cooldown passes.
+    const resend = screen.getByRole("button", { name: /Resend link/i });
+    expect(resend).toBeDisabled();
+  });
+
+  it("names the chat channel when the link went out on both", () => {
+    render(
+      <BookingAttentionPanel
+        attention={withLink({
+          state: "SENT",
+          active: true,
+          emailState: "SENT",
+          expiresAt: iso(20 * HOUR),
+          lastEmailedAt: iso(-MINUTE),
+          sentCount: 2,
+          channels: { email: true, chat: true },
+        })}
+        onAction={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText(/also posted in chat/)).toBeInTheDocument();
+  });
+
+  it("warns that a newer link replaced an older one", () => {
+    render(
+      <BookingAttentionPanel
+        attention={withLink({
+          state: "SENT",
+          active: true,
+          emailState: "SENT",
+          expiresAt: iso(12 * HOUR),
+          supersededAt: iso(-2 * HOUR),
+        })}
+        onAction={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText(/older link no longer works/)).toBeInTheDocument();
+  });
+
+  it("says an expired link can no longer be paid", () => {
+    render(
+      <BookingAttentionPanel
+        attention={withLink({
+          state: "EXPIRED",
+          expiresAt: iso(-2 * HOUR),
+          emailState: "SENT",
+          lastEmailedAt: iso(-26 * HOUR),
+        })}
+        onAction={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText(/can no longer be paid/)).toBeInTheDocument();
+  });
+
+  it("announces a paid booking instead of a live link", () => {
+    render(
+      <BookingAttentionPanel
+        attention={attention({
+          payment: {
+            confirmed: true,
+            confirmationState: "CONFIRMED",
+            amountDue: null,
+            failureReason: null,
+            failureCode: null,
+            retrying: false,
+            lastAttemptAt: iso(-20 * MINUTE),
+          },
+          link: withLink({ state: "PAID", active: false }).link,
+        })}
+        onAction={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText(/Paid/)).toBeInTheDocument();
+    expect(screen.getByText(/receipt emailed/)).toBeInTheDocument();
+  });
+
+  it("blocks the buttons once the booking has hit its message ceiling", () => {
+    render(
+      <BookingAttentionPanel
+        attention={{
+          ...withLink({
+            state: "SENT",
+            active: true,
+            emailState: "SENT",
+            expiresAt: iso(6 * HOUR),
+            sentCount: 5,
+            atTouchLimit: true,
+            canResend: true,
+          }),
+          actions: [{ code: "RESEND_PAYMENT_LINK", label: "Resend link" }],
+        }}
+        onAction={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText(/reached its payment-message limit/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Resend link/i })).toBeDisabled();
+  });
+
+  it("still renders the countdown from an older API that sends no state", () => {
+    render(
+      <BookingAttentionPanel
+        attention={attention({
+          link: {
+            active: true,
+            expiresAt: iso(3 * HOUR),
+            emailState: "SENT",
+            lastEmailedAt: iso(-HOUR),
+            canSend: false,
+            canResend: true,
+            canRegenerate: false,
+            canSendInChat: false,
+            customerEmailOnFile: true,
+          },
+        })}
+        onAction={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText(/Payment link emailed/)).toBeInTheDocument();
+    expect(screen.getByText(/expires in 3h 0m/)).toBeInTheDocument();
+  });
+});

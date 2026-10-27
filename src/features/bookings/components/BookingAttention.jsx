@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Loader2,
   Mail,
@@ -54,6 +54,52 @@ const EMAIL_STATE_META = {
   FAILED: { label: "Email failed", tone: "text-red-700" },
   NOT_SENT: { label: "Not emailed", tone: "text-slate-500" },
 };
+
+/**
+ * Live time left until `isoTime`, in milliseconds, ticking every 30s so a
+ * supplier watching the block sees a link approach its deadline without
+ * reloading the page. Null when there is nothing to count down to.
+ *
+ * The clock is stored, not the remaining time: a new deadline (a regenerated
+ * link) then recomposes on render instead of waiting for the next tick.
+ */
+function useCountdown(isoTime) {
+  const target = isoTime ? new Date(isoTime).getTime() : NaN;
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30 * 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (!Number.isFinite(target)) return null;
+  return Math.max(0, target - now);
+}
+
+function formatRemaining(ms) {
+  if (ms == null) return null;
+  const minutes = Math.max(1, Math.ceil(ms / 60000));
+  const days = Math.floor(minutes / (24 * 60));
+  const hours = Math.floor((minutes % (24 * 60)) / 60);
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes % 60}m`;
+  return `${minutes}m`;
+}
+
+/**
+ * The one state the panel renders from. The server now sends it directly; the
+ * fallback keeps the panel usable against an older API during a deploy.
+ */
+function linkStateFor(attention) {
+  const link = attention?.link;
+  if (!link) return "NONE";
+  if (link.state) return link.state;
+  if (attention?.payment?.confirmed) return "PAID";
+  if (link.active && link.emailState && link.emailState !== "NOT_SENT") return "SENT";
+  if (link.active) return "READY";
+  if (link.expiresAt && new Date(link.expiresAt).getTime() <= Date.now()) return "EXPIRED";
+  return "NONE";
+}
 
 function badgeLabel(attention) {
   if (!attention) return null;
@@ -154,6 +200,13 @@ export default function BookingAttentionPanel({
   const [notice, setNotice] = useState(null);
   const [sendInChat, setSendInChat] = useState(false);
   const [confirmRegenerate, setConfirmRegenerate] = useState(false);
+
+  // Hooks run before the early returns below: the panel renders for clean
+  // bookings too, and a countdown must not be mounted conditionally.
+  const linkExpiresIn = useCountdown(attention?.link?.expiresAt);
+  const resendIn = useCountdown(attention?.link?.nextResendAt);
+  const linkState = linkStateFor(attention);
+  const touchBlocked = resendIn > 0 || Boolean(attention?.link?.atTouchLimit);
 
   if (!attention || attention.level === "NONE" || !attention.title) return null;
   if (!attention.code && !attention.reasonCode) return null;
@@ -266,6 +319,57 @@ export default function BookingAttentionPanel({
         )}
       </div>
 
+      {linkState === "PAID" && (
+        <div className="mt-2.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-2" role="status">
+          <p className="text-xs font-semibold text-emerald-800">
+            Paid{attention.payment?.lastAttemptAt ? ` ${formatDateTime(attention.payment.lastAttemptAt)}` : ""} · receipt emailed to the customer
+          </p>
+        </div>
+      )}
+
+      {linkState === "SENT" && (
+        <div className="mt-2.5 rounded-lg border border-emerald-200 bg-emerald-50/70 px-2.5 py-2" role="status">
+          <p className="text-xs font-semibold text-emerald-800">
+            Payment link emailed
+            {linkExpiresIn != null ? ` · expires in ${formatRemaining(linkExpiresIn)}` : ""}
+          </p>
+          {attention.link?.expiresAt && (
+            <p className="mt-0.5 text-[11px] text-emerald-700">
+              Payable until {formatDateTime(attention.link.expiresAt)}
+              {attention.link?.channels?.chat ? " · also posted in chat" : ""}
+            </p>
+          )}
+          {attention.link?.supersededAt && (
+            <p className="mt-0.5 text-[11px] text-amber-700">
+              Replaces the link from {formatDateTime(attention.link.supersededAt)} — the older link no longer works.
+            </p>
+          )}
+        </div>
+      )}
+
+      {linkState === "EXPIRED" && (
+        <div className="mt-2.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2" role="status">
+          <p className="text-xs font-semibold text-amber-800">
+            The link expired{attention.link?.expiresAt ? ` ${formatDateTime(attention.link.expiresAt)}` : ""} and can no longer be paid.
+          </p>
+          <p className="mt-0.5 text-[11px] text-amber-700">Send a new link to give the customer another way to pay.</p>
+        </div>
+      )}
+
+      {linkState === "READY" && (
+        <p className="mt-2.5 text-[11px] text-slate-600" role="status">
+          A secure link exists but has not been emailed yet.
+        </p>
+      )}
+
+      {touchBlocked && (
+        <p className="mt-2.5 text-[11px] text-slate-600" role="status">
+          {attention.link?.atTouchLimit
+            ? "This booking has reached its payment-message limit. The customer can still pay with the link they already have."
+            : `Next resend available in ${formatRemaining(resendIn)}.`}
+        </p>
+      )}
+
       {attention.payment?.failureReason && (
         <p className="mt-2.5 text-[11px] text-slate-600">
           {attention.payment.failureReason}
@@ -320,7 +424,7 @@ export default function BookingAttentionPanel({
                   key={a.code}
                   action={a.code}
                   busy={busyAction === a.code}
-                  disabled={Boolean(busyAction)}
+                  disabled={Boolean(busyAction) || touchBlocked}
                   onClick={() => {
                     if (a.code === "REGENERATE_PAYMENT_LINK") {
                       setConfirmRegenerate(true);
