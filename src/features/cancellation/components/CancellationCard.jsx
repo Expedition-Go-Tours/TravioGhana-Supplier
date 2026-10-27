@@ -141,7 +141,10 @@ export default function CancellationCard({ summary, days = 90, onDaysChange, onV
         {/* Right: Stat Boxes */}
         <div className="border border-slate-200 rounded-2xl p-4">
           <div className="grid grid-cols-3 divide-x divide-slate-200">
-            <div className="text-center px-2 sm:px-4 py-3">
+            <div
+              className="text-center px-2 sm:px-4 py-3"
+              title="Confirmed bookings with a future travel date — they join the rate when they travel or are cancelled."
+            >
               <div className="text-2xl sm:text-3xl font-bold text-slate-800">{upcoming}</div>
               <div className="text-xs text-slate-500 mt-1">Upcoming</div>
             </div>
