@@ -267,8 +267,8 @@ export default function AvailabilityPage() {
     onSuccess: (_, vars) => {
       toast.success(
         vars.minParticipants === null
-          ? "Minimum removed — this date uses the tour minimum"
-          : `Minimum set to ${vars.minParticipants} traveler${vars.minParticipants === 1 ? "" : "s"}`
+          ? "Date minimum removed — this date now uses the tour minimum"
+          : `Minimum set to ${vars.minParticipants} traveler${vars.minParticipants === 1 ? "" : "s"} per booking`
       );
       setMinDraft(vars.minParticipants === null ? "" : String(vars.minParticipants));
       queryClient.invalidateQueries({ queryKey: ["tour-availability", tourId] });
@@ -375,7 +375,7 @@ export default function AvailabilityPage() {
     if (!selectedDate || !tourId || !selectedDay) return;
     const raw = String(minDraft).trim();
     if (!raw) {
-      toast.error("Enter the minimum number of travelers");
+      toast.error("Enter the minimum number of travelers per booking");
       return;
     }
     const value = Number(raw);
@@ -384,7 +384,7 @@ export default function AvailabilityPage() {
       return;
     }
     if (selectedDay.capacity > 0 && value > selectedDay.capacity) {
-      toast.error(`This date can hold at most ${selectedDay.capacity} — raise the day limit first`);
+      toast.error(`This date can hold at most ${selectedDay.capacity} travelers — raise the day limit first`);
       return;
     }
     minMut.mutate({ tourId, date: format(selectedDate, "yyyy-MM-dd"), minParticipants: value });
@@ -915,24 +915,24 @@ export default function AvailabilityPage() {
                 </div>
               )}
 
-              {/* --- Minimum travelers (per-date party floor) --- */}
+              {/* --- Minimum participants per booking (per-date floor) --- */}
               {selectedDay.status !== "blocked" &&
                 selectedDay.status !== "past" &&
                 selectedDay.capacityUnit !== "groups" && (
                 <div>
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                     <div className="flex items-center gap-1.5">
                       <UserCheck size={12} className="text-slate-400" />
                       <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Minimum travelers</p>
                     </div>
                     {selectedDay.overrideMinParticipants != null && (
-                      <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">Override active</span>
+                      <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">Date override active</span>
                     )}
                   </div>
                   <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-3">
                     <div>
                       <label className="block text-xs text-slate-500 mb-1.5">
-                        Smallest party you'll accept on {format(selectedDate, "EEEE, MMM d")}
+                        Minimum travelers per booking on {format(selectedDate, "EEEE, MMM d")}
                       </label>
                       <div className="flex items-center gap-2">
                         <input
@@ -951,18 +951,23 @@ export default function AvailabilityPage() {
                           disabled={minMut.isPending || !minDirty}
                           className="shrink-0 px-3.5 py-2 text-xs font-semibold text-white bg-[#044b3b] rounded-lg hover:bg-[#033629] disabled:opacity-40 transition-colors"
                         >
-                          Apply
+                          Apply minimum
                         </button>
                       </div>
                       <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
-                        The tour minimum is <span className="font-semibold text-slate-600">{defaultMin ?? "not set"}</span>.
-                        A date can require more travelers, but never fewer — leave this blank to inherit it.
+                        The tour minimum is{" "}
+                        <span className="font-semibold text-slate-600">
+                          {defaultMin != null
+                            ? `${defaultMin} traveler${defaultMin === 1 ? "" : "s"} per booking`
+                            : "not set"}
+                        </span>
+                        . This date can require more, but not fewer. Leave this blank to use the tour minimum.
                       </p>
                       {String(minDraft).trim() !== "" &&
                         defaultMin != null &&
                         Number(minDraft) < defaultMin && (
                           <p className="text-[11px] text-amber-700 mt-1.5 leading-relaxed">
-                            This date will still require {defaultMin} — the tour minimum can't be lowered per date.
+                            This date will still require {defaultMin} travelers per booking — the tour minimum can't be lowered for a single date.
                           </p>
                         )}
                     </div>
@@ -972,14 +977,14 @@ export default function AvailabilityPage() {
                         disabled={minMut.isPending}
                         className="w-full text-xs font-medium text-slate-500 hover:text-red-600 transition-colors"
                       >
-                        Remove minimum (back to {defaultMin ?? "tour default"})
+                        Remove date minimum (use {defaultMin != null ? `${defaultMin} traveler${defaultMin === 1 ? "" : "s"} per booking` : "the tour minimum"})
                       </button>
                     )}
                     {minUnsellable && (
                       <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
                         <AlertTriangle size={14} className="text-amber-600 shrink-0 mt-0.5" />
                         <p className="text-[11px] text-amber-800 leading-relaxed">
-                          {selectedDay.remaining} of {selectedDay.capacity} spots left — below the {effectiveMin}-traveler minimum, so this date can't be booked.
+                          Only {selectedDay.remaining} of {selectedDay.capacity} spots are left — fewer than the {effectiveMin}-traveler minimum per booking, so this date can't be booked.
                         </p>
                       </div>
                     )}
