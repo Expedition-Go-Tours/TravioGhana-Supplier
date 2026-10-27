@@ -1,6 +1,6 @@
 // Arc gauge for the cancellation-rate card. Scale matches the GetYourGuide
 // Performance Quality Standards vocabulary used everywhere else:
-//   0–1% Excellent · 1–2% Good · 2–5% Needs attention · >5% High
+//   0–1% Excellent · 1–2% Above standard · 2–5% At risk · >5% High
 // (rating is waived below 10 eligible bookings — see CancellationCard).
 export default function CancellationGauge({ value, label, className = "" }) {
   // Configurable gauge geometry
@@ -32,11 +32,11 @@ export default function CancellationGauge({ value, label, className = "" }) {
   // Compute precise track junctions dynamically
   const x180 = getX(180); // Left base (0%)
   const y180 = getY(180);
-  const x150 = getX(150); // 1% junction — Excellent → Good
+  const x150 = getX(150); // 1% junction — Excellent → Above standard
   const y150 = getY(150);
-  const x120 = getX(120); // 2% junction — Good → Needs attention
+  const x120 = getX(120); // 2% junction — Above standard → At risk
   const y120 = getY(120);
-  const x30  = getX(30);  // 5% junction — Needs attention → High
+  const x30  = getX(30);  // 5% junction — At risk → High
   const y30  = getY(30);
   const x0   = getX(0);   // Right base (5+%)
   const y0   = getY(0);
@@ -45,7 +45,7 @@ export default function CancellationGauge({ value, label, className = "" }) {
   const nx = getX(finalAngle);
   const ny = getY(finalAngle);
   const dotColor =
-    clamped <= 1 ? "#15803D" : clamped <= 2 ? "#86EFAC" : clamped <= 5 ? "#FBBF24" : "#EF4444";
+    clamped <= 1 ? "#15803D" : clamped <= 2 ? "#EAB308" : clamped <= 5 ? "#F97316" : "#EF4444";
 
   return (
     <svg viewBox="0 0 260 200" className={"w-full " + className} role="img" aria-label={`Cancellation rate: ${pct}%, status: ${label}`}>
@@ -65,11 +65,11 @@ export default function CancellationGauge({ value, label, className = "" }) {
       />
       <path 
         d={`M ${x150} ${y150} A ${R} ${R} 0 0 1 ${x120} ${y120}`} 
-        fill="none" stroke="#86EFAC" strokeWidth="10" strokeLinecap="round" 
+        fill="none" stroke="#EAB308" strokeWidth="10" strokeLinecap="round" 
       />
       <path 
         d={`M ${x120} ${y120} A ${R} ${R} 0 0 1 ${x30} ${y30}`} 
-        fill="none" stroke="#FBBF24" strokeWidth="10" strokeLinecap="round" 
+        fill="none" stroke="#F97316" strokeWidth="10" strokeLinecap="round" 
       />
       <path 
         d={`M ${x30} ${y30} A ${R} ${R} 0 0 1 ${x0} ${y0}`} 

@@ -3,6 +3,7 @@ import { X, CalendarX2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRig
 import { formatCurrency } from "@/lib/utils";
 
 const SORT_FIELDS = {
+  cancelledOn: "Cancelled On",
   travelDate: "Travel Date",
   reason: "Cancellation Reason",
   bookingReference: "Booking Reference",
@@ -24,8 +25,9 @@ export default function CancellationDetailsModal({
   onClose,
 }) {
   const rate = summary?.cancellationRate ?? 0;
-  const confirmed = summary?.confirmed ?? 0;
+  const upcoming = summary?.upcomingConfirmed ?? 0;
   const cancelled = summary?.cancelled ?? 0;
+  const supplierCaused = summary?.supplierCausedCount ?? 0;
   const completed = summary?.completed ?? 0;
   const completionRate = summary?.completionRate ?? 0;
   const totalLost = summary?.bookingValueLost ?? 0;
@@ -80,18 +82,22 @@ export default function CancellationDetailsModal({
 
         {/* Summary Stats */}
         <div className="px-4 sm:px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-x-4 gap-y-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-x-4 gap-y-3">
             <div className="text-center">
               <div className="text-2xl font-bold text-slate-800">{rate}%</div>
               <div className="text-xs text-slate-500">Cancellation Rate</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-slate-800">{confirmed}</div>
-              <div className="text-xs text-slate-500">Confirmed</div>
+              <div className={`text-2xl font-bold ${supplierCaused > 0 ? "text-red-600" : "text-slate-800"}`}>{supplierCaused}</div>
+              <div className="text-xs text-slate-500">Supplier-caused</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-red-600">{cancelled}</div>
-              <div className="text-xs text-slate-500">Cancelled</div>
+              <div className="text-2xl font-bold text-slate-800">{upcoming}</div>
+              <div className="text-xs text-slate-500">Upcoming</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-slate-800">{cancelled}</div>
+              <div className="text-xs text-slate-500">Cancellations</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-slate-800">{completed}</div>
@@ -111,9 +117,9 @@ export default function CancellationDetailsModal({
               <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
                 <CalendarX2 size={22} className="text-slate-400" />
               </div>
-              <p className="text-sm font-semibold text-slate-700">No cancelled bookings</p>
+              <p className="text-sm font-semibold text-slate-700">No cancellations</p>
               <p className="text-xs text-slate-400 mt-1.5 max-w-[320px] leading-relaxed">
-                No supplier-caused cancellations in the last {days} days.
+                No cancellations were recorded in the last {days} days.
               </p>
             </div>
           ) : (
@@ -140,6 +146,7 @@ export default function CancellationDetailsModal({
                     key={r.id}
                     className="border-b border-slate-50 last:border-0 hover:bg-slate-50/40 transition-colors"
                   >
+                    <td className="px-4 py-3.5 text-slate-700 whitespace-nowrap">{r.cancelledOn || r.travelDate}</td>
                     <td className="px-4 py-3.5 text-slate-700 whitespace-nowrap">{r.travelDate}</td>
                     <td className="px-4 py-3.5 text-slate-600 max-w-60 truncate" title={r.reason}>
                       {r.reason}
@@ -165,7 +172,7 @@ export default function CancellationDetailsModal({
         {records.length > 0 && (
           <div className="border-t border-slate-100">
         <div className="px-4 sm:px-6 py-3 bg-slate-50/50 flex items-center justify-between">
-          <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Total Lost</span>
+          <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Value lost to supplier-caused cancellations</span>
           <span className="text-sm font-bold text-slate-800">{formatCurrency(totalLost)}</span>
         </div>
 

@@ -1,15 +1,15 @@
 // Cancellation-rate gauge with GetYourGuide thresholds on a 0–6% scale:
-// Excellent ≤1% · Good ≤2% · Needs attention ≤5% · High >5%
+// Excellent ≤1% · Above standard ≤2% · At risk ≤5% · High >5%
 export default function CancellationProgressBar({ rate }) {
   const clampedRate = Math.min(Math.max(rate, 0), 6);
   const position = (clampedRate / 6) * 100;
   const pinColor =
-    clampedRate < 1
+    clampedRate <= 1
       ? "#166534"
-      : clampedRate < 2
-        ? "#22c55e"
+      : clampedRate <= 2
+        ? "#eab308"
         : clampedRate <= 5
-          ? "#f59e0b"
+          ? "#f97316"
           : "#ef4444";
 
   return (
@@ -29,7 +29,7 @@ export default function CancellationProgressBar({ rate }) {
           className="h-3 w-full rounded-full"
           style={{
             background:
-              "linear-gradient(to right, #166534 0%, #166534 16.67%, #86efac 16.67%, #86efac 33.33%, #f59e0b 33.33%, #f59e0b 83.33%, #ef4444 83.33%, #ef4444 100%)",
+              "linear-gradient(to right, #166534 0%, #166534 16.67%, #eab308 16.67%, #eab308 33.33%, #f97316 33.33%, #f97316 83.33%, #ef4444 83.33%, #ef4444 100%)",
           }}
         />
 
@@ -55,12 +55,14 @@ export default function CancellationProgressBar({ rate }) {
         </div>
       </div>
 
-      {/* Scale labels */}
-      <div className="flex justify-between text-xs text-slate-500 pt-1">
-        <span>0%</span>
-        <span>1%</span>
-        <span>2%</span>
-        <span>5%+</span>
+      {/* Scale labels — positioned on the same 0–6% scale as the bar, so
+          "1%" sits under the 1% junction rather than a third of the way in. */}
+      <div className="relative h-4 text-xs text-slate-500">
+        <span className="absolute left-0">0%</span>
+        <span className="absolute -translate-x-1/2" style={{ left: "16.67%" }}>1%</span>
+        <span className="absolute -translate-x-1/2" style={{ left: "33.33%" }}>2%</span>
+        <span className="absolute -translate-x-1/2" style={{ left: "83.33%" }}>5%</span>
+        <span className="absolute right-0">6%+</span>
       </div>
     </div>
   );

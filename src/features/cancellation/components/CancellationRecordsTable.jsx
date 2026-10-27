@@ -2,6 +2,7 @@ import { CalendarX2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight,
 import { formatCurrency } from "@/lib/utils";
 
 const SORT_FIELDS = {
+  cancelledOn: "Cancelled On",
   travelDate: "Travel Date",
   reason: "Cancellation Reason",
   bookingReference: "Booking Reference",
@@ -34,9 +35,14 @@ export default function CancellationRecordsTable({
   return (
     <div className="bg-white border border-slate-200 rounded-[20px] shadow-none overflow-hidden">
       <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-slate-800">
-          Cancellation records
-        </h2>
+        <div>
+          <h2 className="text-sm font-semibold text-slate-800">
+            Cancellation records
+          </h2>
+          <span className="text-xs text-slate-400">
+            Counted by cancellation date
+          </span>
+        </div>
         {records.length > 0 && (
           <button
             onClick={onExportCSV}
@@ -53,9 +59,9 @@ export default function CancellationRecordsTable({
           <div className="w-14 h-14 rounded-2xl bg-teal-50 flex items-center justify-center mb-4">
             <CalendarX2 size={22} className="text-teal-400" />
           </div>
-          <p className="text-sm font-semibold text-slate-700">No cancelled bookings in the last {days} days</p>
+          <p className="text-sm font-semibold text-slate-700">No cancellations in the last {days} days</p>
           <p className="text-xs text-slate-400 mt-1.5 max-w-[320px] leading-relaxed">
-            All cancellations for your tours — whether initiated by you, the customer, or external events — will appear here.
+            All cancellations made in this period — whether initiated by you, the customer, or external events — will appear here.
           </p>
         </div>
       ) : (
@@ -84,6 +90,7 @@ export default function CancellationRecordsTable({
                     key={r.id}
                     className="border-b border-slate-50 last:border-0 hover:bg-slate-50/40 transition-colors"
                   >
+                    <td className="px-4 py-3.5 text-slate-700 whitespace-nowrap">{r.cancelledOn || r.travelDate}</td>
                     <td className="px-4 py-3.5 text-slate-700 whitespace-nowrap">{r.travelDate}</td>
                     <td className="px-4 py-3.5 text-slate-600 max-w-60" title={r.note ? `${r.reason}\n${r.note}` : r.reason}>
                       <div className="truncate">{r.reason}</div>
@@ -126,7 +133,7 @@ export default function CancellationRecordsTable({
 
           {/* Footer */}
           <div className="px-5 sm:px-6 py-3.5 border-t border-slate-100 bg-teal-50/30 flex items-center justify-between">
-            <span className="text-xs font-semibold text-teal-700 uppercase tracking-wider">Total value lost</span>
+            <span className="text-xs font-semibold text-teal-700 uppercase tracking-wider">Value lost to supplier-caused cancellations</span>
             <span className="text-sm font-bold text-teal-800">{formatCurrency(totalLost)}</span>
           </div>
 

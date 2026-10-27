@@ -33,6 +33,7 @@ const NOTE = 'Forecast said "the whole week" would be washed out.';
 const RECORD = {
   id: "rec-1",
   travelDate: "2026-10-02",
+  cancelledOn: "2026-09-28",
   reason: "Bad weather",
   note: NOTE,
   bookingReference: "TRG-90123456-2026-01",
@@ -135,6 +136,19 @@ describe("cancellation rate — CSV export", () => {
     const [header] = (await exportCSV()).split("\n");
 
     expect(splitCsvLine(header)).toContain("Note");
+  });
+
+  it("exports the cancellation date, not just the travel date", async () => {
+    // The summary windows by cancellation date, so the file must carry it —
+    // a supplier reconciling a 30-day total cannot do it from travel dates.
+    const [header, row] = (await exportCSV()).split("\n");
+    const headerFields = splitCsvLine(header);
+    const rowFields = splitCsvLine(row);
+
+    const cancelledIndex = headerFields.indexOf("Cancelled On");
+    expect(cancelledIndex).toBeGreaterThanOrEqual(0);
+    expect(rowFields[cancelledIndex]).toBe(RECORD.cancelledOn);
+    expect(headerFields).toContain("Travel Date");
   });
 
   it("includes the customer's note in the data row", async () => {

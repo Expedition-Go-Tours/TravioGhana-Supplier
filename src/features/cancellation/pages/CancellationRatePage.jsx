@@ -100,6 +100,7 @@ export default function CancellationRatePage() {
     const pid = selectedProduct === "all" ? undefined : selectedProduct;
     const { records: allRecords } = await fetchCancellationRecords({ productId: pid, page: 1, limit: 10000, days });
     const headers = [
+      "Cancelled On",
       "Travel Date",
       "Reason",
       // The records table shows the customer's note under the reason, so an
@@ -111,6 +112,7 @@ export default function CancellationRatePage() {
       "Refund Amount",
     ];
     const rows = allRecords.map((r) => [
+      r.cancelledOn || r.travelDate,
       r.travelDate,
       `"${(r.reason || "").replace(/"/g, '""')}"`,
       `"${(r.note || "").replace(/"/g, '""')}"`,

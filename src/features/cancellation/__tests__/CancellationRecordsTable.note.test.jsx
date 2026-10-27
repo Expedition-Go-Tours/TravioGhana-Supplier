@@ -21,6 +21,7 @@ const baseRecord = {
   // backend's resolved label, not the raw cancellationCode.
   id: "rec-1",
   travelDate: "2026-10-02",
+  cancelledOn: "2026-09-30",
   reason: "Bad weather",
   note: null,
   bookingReference: "TRG-90123456-2026-01",
@@ -34,7 +35,7 @@ const baseRecord = {
 function reasonCellFor(reference) {
   const refCell = screen.getByText(reference);
   const row = refCell.closest("tr");
-  return within(row).getAllByRole("cell")[1];
+  return within(row).getAllByRole("cell")[2];
 }
 
 function renderTable(records) {
@@ -110,8 +111,20 @@ describe("CancellationRecordsTable — customer note", () => {
     ).toBeTruthy();
     const firstRowNoteCells = within(
       screen.getByText("TRG-00000001-2026-01").closest("tr")
-    ).getAllByRole("cell")[1];
+    ).getAllByRole("cell")[2];
     expect(firstRowNoteCells.children).toHaveLength(1);
+  });
+
+  it("shows the cancellation date separately from the travel date", () => {
+    // GetYourGuide measures the rate by cancellation date, so the table must
+    // lead with that date — otherwise a cancellation made inside the window
+    // for a future trip looks out of place.
+    renderTable([baseRecord]);
+
+    const row = screen.getByText("TRG-90123456-2026-01").closest("tr");
+    const cells = within(row).getAllByRole("cell");
+    expect(cells[0].textContent).toBe("2026-09-30");
+    expect(cells[1].textContent).toBe("2026-10-02");
   });
 
   it("keeps the reason readable when the note is long", () => {

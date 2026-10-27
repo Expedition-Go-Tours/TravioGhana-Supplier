@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 
-import { Loader2, RefreshCw, ArrowUpRight, ShoppingBag, CheckCircle2, Star, DollarSign, MessageCircle, AlertTriangle, ClipboardList, MapPin, TrendingUp, Bell, Check, CalendarX2 } from "lucide-react";
+import { Loader2, RefreshCw, ArrowUpRight, ShoppingBag, CheckCircle2, Star, DollarSign, MessageCircle, AlertTriangle, ClipboardList, MapPin, TrendingUp, Bell, Check, CalendarX2, X } from "lucide-react";
 import StatusBadge from "@/components/shared/StatusBadge";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -79,6 +79,21 @@ function getGreeting() {
   if (hour < 17) return "Good afternoon";
   return "Good evening";
 }
+
+const CANCELLATION_STATUS_BADGES = {
+  Excellent: { className: "bg-green-100 text-green-800 border-green-200", icon: Star },
+  "Above standard": { className: "bg-yellow-100 text-yellow-800 border-yellow-200", icon: AlertTriangle },
+  "At risk": { className: "bg-orange-100 text-orange-800 border-orange-200", icon: AlertTriangle },
+  High: { className: "bg-red-100 text-red-800 border-red-200", icon: X },
+  "Building performance record": { className: "bg-blue-100 text-blue-800 border-blue-200", icon: ClipboardList },
+};
+
+// Alias the pre-deploy vocabulary so a cached summary cannot render an
+// unstyled badge.
+const LEGACY_CANCELLATION_STATUS = {
+  Good: "Above standard",
+  "Needs attention": "At risk",
+};
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -220,6 +235,13 @@ export default function DashboardPage() {
     }
     return 'No pending bookings to review.';
   })();
+
+  const cancellationStatus = (() => {
+    const raw = cancellationSummary?.status || "Building performance record";
+    return CANCELLATION_STATUS_BADGES[raw] ? raw : LEGACY_CANCELLATION_STATUS[raw] || "Building performance record";
+  })();
+  const cancellationBadge = CANCELLATION_STATUS_BADGES[cancellationStatus];
+  const CancellationBadgeIcon = cancellationBadge.icon;
 
   return (
     <div className="space-y-5">
@@ -469,25 +491,16 @@ export default function DashboardPage() {
               <div className="text-4xl font-bold text-slate-800 tracking-tight">
                 {cancellationSummary?.cancellationRate ?? 0}%
               </div>
-              <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${
-                (cancellationSummary?.status) === "Excellent" ? "bg-green-100 text-green-800 border-green-200" :
-                (cancellationSummary?.status) === "Good" ? "bg-green-50 text-green-700 border-green-100" :
-                (cancellationSummary?.status) === "Needs attention" ? "bg-amber-100 text-amber-800 border-amber-200" :
-                (cancellationSummary?.status) === "High" ? "bg-red-100 text-red-800 border-red-200" :
-                "bg-blue-100 text-blue-800 border-blue-200"
-              }`}>
-                {(cancellationSummary?.status) === "Excellent" && "★"}
-                {(cancellationSummary?.status) === "Good" && "✓"}
-                {(cancellationSummary?.status) === "Needs attention" && "⚠"}
-                {(cancellationSummary?.status) === "High" && "✗"}
-                {(cancellationSummary?.status) === "Building performance record" && "📊"}
-                {" "}{cancellationSummary?.status || "Building performance record"}
+              <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${cancellationBadge.className}`}>
+                <CancellationBadgeIcon size={11} aria-hidden="true" />
+                {cancellationStatus}
               </div>
             </div>
 
-            <div className="flex gap-4 text-xs text-slate-500">
-              <span><span className="font-semibold text-slate-700">{cancellationSummary?.confirmed ?? 0}</span> confirmed</span>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+              <span><span className="font-semibold text-slate-700">{cancellationSummary?.upcomingConfirmed ?? 0}</span> upcoming</span>
               <span><span className="font-semibold text-slate-700">{cancellationSummary?.cancelled ?? 0}</span> cancelled</span>
+              <span><span className="font-semibold text-slate-700">{cancellationSummary?.supplierCausedCount ?? 0}</span> supplier-caused</span>
               <span><span className="font-semibold text-slate-700">{cancellationSummary?.completed ?? 0}</span> completed</span>
             </div>
           </div>
