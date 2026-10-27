@@ -1009,6 +1009,9 @@ export const staysMock = {
     const methods = db.finance?.payoutMethods || [];
 
     return {
+      // Every earnings row is USD; the summary carries the currency so the
+      // finance page never falls back to GHS for these amounts.
+      currency: "USD",
       availableBalance: { amount: sum(eligible), bookingCount: eligible.length },
       pendingClearance: { amount: sum(pending), bookingCount: pending.length },
       inReview: {

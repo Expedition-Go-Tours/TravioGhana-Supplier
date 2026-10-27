@@ -228,3 +228,23 @@ export function getStaysStepIndex(sectionId, stepId) {
   );
   return index >= 0 ? index : 0;
 }
+
+/**
+ * Deep link into one builder step. The builder already understands these
+ * slugs (`?section=&step=`), so preview/notification links only need this.
+ */
+export function staysBuilderStepPath(propertyId, sectionId, stepId) {
+  const id = encodeURIComponent(propertyId);
+  const section = encodeURIComponent(sectionId);
+  const step = encodeURIComponent(stepId);
+  return `/stays/properties/build/${id}?section=${section}&step=${step}`;
+}
+
+/**
+ * Step 1 (category & property type) is answered before the draft builder
+ * exists, so it lives in the chooser chain rather than a `?section=&step=`
+ * deep link. `draft` makes the chooser update the existing property.
+ */
+export function staysCategoryPath(propertyId) {
+  return `/stays/properties/build?draft=${encodeURIComponent(propertyId)}`;
+}

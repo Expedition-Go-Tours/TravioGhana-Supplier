@@ -46,7 +46,12 @@ export function useStaysDraft(property) {
       dirty.current = { ...dirty.current, ...changes };
       clearTimeout(timer.current);
       timer.current = setTimeout(() => {
-        flush().catch(() => toast.error("Could not save changes — check your connection"));
+        flush().catch((error) => {
+          const message =
+            error?.response?.data?.message
+            || "Could not save changes — check your connection";
+          toast.error(message);
+        });
       }, 700);
     },
     [flush],

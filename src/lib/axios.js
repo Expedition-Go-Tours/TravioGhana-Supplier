@@ -223,7 +223,7 @@ api.interceptors.response.use(
     }
 
     // Retry logic for retryable errors
-    if (isRetryableError(error) && !originalRequest._retry) {
+    if (isRetryableError(error) && originalRequest && !originalRequest._retry && !originalRequest.skipRetry) {
       originalRequest._retry = true;
       originalRequest._retryCount = (originalRequest._retryCount || 0) + 1;
 

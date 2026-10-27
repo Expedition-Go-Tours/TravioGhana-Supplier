@@ -1,4 +1,17 @@
 {
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "travio-ghana-supplier.vercel.app"
+        }
+      ],
+      "destination": "https://supplier.travioghana.com/:path*",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/confirm/:token",

@@ -42,13 +42,16 @@ const isDev = appEnv === 'development';
 // Safe env parsing with sensible defaults
 const env = {
   // API
-  VITE_API_BASE_URL: envString(import.meta.env.VITE_API_BASE_URL, ''),
+  // Default to the canonical Ghana API host so a missing/empty env var can
+  // never make the app call its own origin (which answers with index.html and
+  // surfaces to users as a misleading "Network Error").
+  VITE_API_BASE_URL: envString(import.meta.env.VITE_API_BASE_URL, 'https://api.travioghana.com/api'),
   VITE_API_TIMEOUT: envNum(import.meta.env.VITE_API_TIMEOUT, 30000),
   VITE_API_RETRY_ATTEMPTS: envNum(import.meta.env.VITE_API_RETRY_ATTEMPTS, 3),
 
   // Auth
   VITE_AUTH_PROVIDER: envString(import.meta.env.VITE_AUTH_PROVIDER, 'firebase'),
-  VITE_AUTH_API_BASE_URL: envString(import.meta.env.VITE_AUTH_API_BASE_URL, ''),
+  VITE_AUTH_API_BASE_URL: envString(import.meta.env.VITE_AUTH_API_BASE_URL, 'https://api.travioghana.com/api'),
   VITE_TOKEN_REFRESH_INTERVAL: envNum(import.meta.env.VITE_TOKEN_REFRESH_INTERVAL, 300000),
   VITE_SESSION_TIMEOUT: envNum(import.meta.env.VITE_SESSION_TIMEOUT, 3600000),
 

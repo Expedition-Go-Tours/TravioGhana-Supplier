@@ -1,6 +1,7 @@
 import { Check, ChevronLeft, Minus, Plus, PlusCircle } from "lucide-react";
 import StaysButton from "../components/StaysButton";
-import { StaysField, StaysInput, StaysSelect } from "../components/StaysForm";
+import RoomTypesSection from "../components/RoomTypesSection";
+import { StaysField, StaysInput, StaysSelect, StaysTextarea } from "../components/StaysForm";
 
 /**
  * STEP 8 — Property details, Booking's "Property details" page: sleeping
@@ -27,23 +28,39 @@ function bedSummary(bedroom) {
   return parts.length ? parts.join(", ") : "0 beds";
 }
 
-function SleepingRow({ name, subtitle, onRemove }) {
+function SleepingRow({ name, subtitle, onRemove, children }) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="min-w-0 flex-1 rounded-lg border border-slate-200 px-4 py-3">
-        <p className="truncate text-sm font-medium text-slate-800 md:text-base">{name}</p>
-        <p className="mt-0.5 text-sm text-slate-400">{subtitle}</p>
+    <div className="rounded-lg border border-slate-200 px-4 py-3">
+      <div className="flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-slate-800 md:text-base">{name}</p>
+          <p className="mt-0.5 text-sm text-slate-400">{subtitle}</p>
+        </div>
+        {onRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            aria-label={`Remove ${name}`}
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-slate-300 text-slate-500 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+          >
+            <Minus size={16} />
+          </button>
+        )}
       </div>
-      {onRemove && (
-        <button
-          type="button"
-          onClick={onRemove}
-          aria-label={`Remove ${name}`}
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-slate-300 text-slate-500 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600"
-        >
-          <Minus size={16} />
-        </button>
+      {children && (
+        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-3 border-t border-slate-100 pt-3">
+          {children}
+        </div>
       )}
+    </div>
+  );
+}
+
+function BedCounter({ label, ariaLabel = label, value, onChange }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs font-medium text-slate-500">{label}</span>
+      <Counter label={ariaLabel} value={value} min={0} max={20} onChange={onChange} />
     </div>
   );
 }
@@ -128,6 +145,14 @@ export default function Step08PropertyDetails({
   const allowsChildren = property.children !== "Adults only";
   const offersCots = property.cots === "Available";
   const propertyType = property.type || "Property";
+  // Entire-place listings still need one bookable unit; name it after the
+  // property so the suggestion reads naturally instead of "Standard Room".
+  const suggestedRoomName =
+    property.bookingType === "Entire property"
+    && property.name
+    && property.name !== "Untitled property"
+      ? property.name
+      : "Standard Room";
 
   const setSleeping = (changes) =>
     patch({
@@ -141,10 +166,17 @@ export default function Step08PropertyDetails({
         {
           id: `bed-${Date.now().toString(36)}`,
           name: `Bedroom ${bedrooms.length + 1}`,
-          doubleBeds: 0,
+          doubleBeds: 1,
           singleBeds: 0,
         },
       ],
+    });
+
+  const updateBedroom = (id, changes) =>
+    setSleeping({
+      bedrooms: bedrooms.map((bedroom) =>
+        bedroom.id === id ? { ...bedroom, ...changes } : bedroom,
+      ),
     });
 
   const removeBedroom = (id) =>
@@ -172,6 +204,9 @@ export default function Step08PropertyDetails({
           <h2 className="text-base font-medium text-slate-800 md:text-lg">
             Where can people sleep?
           </h2>
+          <p className="mt-1 text-sm leading-relaxed text-slate-500">
+            Add each bedroom and set how many double and single beds it has.
+          </p>
           <div className="mt-4 space-y-3">
             {bedrooms.map((bedroom) => (
               <SleepingRow
@@ -179,10 +214,43 @@ export default function Step08PropertyDetails({
                 name={bedroom.name}
                 subtitle={bedSummary(bedroom)}
                 onRemove={() => removeBedroom(bedroom.id)}
-              />
+              >
+                <BedCounter
+                  label="Double beds"
+                  ariaLabel={`double beds in ${bedroom.name}`}
+                  value={Number(bedroom.doubleBeds) || 0}
+                  onChange={(value) => updateBedroom(bedroom.id, { doubleBeds: value })}
+                />
+                <BedCounter
+                  label="Single beds"
+                  ariaLabel={`single beds in ${bedroom.name}`}
+                  value={Number(bedroom.singleBeds) || 0}
+                  onChange={(value) => updateBedroom(bedroom.id, { singleBeds: value })}
+                />
+              </SleepingRow>
             ))}
-            <SleepingRow name="Living room" subtitle={`${livingRoomBeds} beds`} />
-            <SleepingRow name="Other spaces" subtitle={`${otherSpacesBeds} beds`} />
+            <SleepingRow
+              name="Living room"
+              subtitle={`${livingRoomBeds} ${livingRoomBeds === 1 ? "bed" : "beds"}`}
+            >
+              <BedCounter
+                label="Beds"
+                ariaLabel="living room beds"
+                value={livingRoomBeds}
+                onChange={(value) => setSleeping({ livingRoomBeds: value })}
+              />
+            </SleepingRow>
+            <SleepingRow
+              name="Other spaces"
+              subtitle={`${otherSpacesBeds} ${otherSpacesBeds === 1 ? "bed" : "beds"}`}
+            >
+              <BedCounter
+                label="Beds"
+                ariaLabel="other space beds"
+                value={otherSpacesBeds}
+                onChange={(value) => setSleeping({ otherSpacesBeds: value })}
+              />
+            </SleepingRow>
           </div>
           <button
             type="button"
@@ -294,6 +362,52 @@ export default function Step08PropertyDetails({
             />
           </div>
         </section>
+
+        {/* Description */}
+        <section className="rounded-xl border border-slate-200 bg-white p-5 md:p-7">
+          <h2 className="text-base font-medium text-slate-800 md:text-lg">
+            Description
+          </h2>
+          <p className="mt-1 text-sm leading-relaxed text-slate-500 md:text-base">
+            Tell guests what makes this place special. The short description appears at the top of
+            the listing; the full description sits below the photos.
+          </p>
+          <div className="mt-4 space-y-5">
+            <StaysField
+              label="Short description"
+              hint={`${(property.shortDescription || "").length} / 160 characters`}
+            >
+              <StaysInput
+                maxLength={160}
+                value={property.shortDescription || ""}
+                onChange={(event) => patch({ shortDescription: event.target.value })}
+                placeholder="A quiet garden villa close to the beach"
+              />
+            </StaysField>
+            <StaysField
+              label="Full description"
+              hint={`${(property.description || "").length} / 2000 characters`}
+            >
+              <StaysTextarea
+                rows={6}
+                maxLength={2000}
+                value={property.description || ""}
+                onChange={(event) => patch({ description: event.target.value })}
+                placeholder="Describe the space, the setting, and what guests can expect during their stay."
+              />
+            </StaysField>
+          </div>
+        </section>
+
+        <RoomTypesSection
+          rooms={property.rooms || []}
+          ratePlans={property.ratePlans || []}
+          currency={property.currency || "GHS"}
+          suggestedName={suggestedRoomName}
+          defaultGuests={property.maxGuests || 2}
+          defaultPrice={Number(property.pricePerNight) || 29}
+          onChange={(next) => patch(next)}
+        />
       </div>
 
       <div className="mt-10 flex items-center gap-3">

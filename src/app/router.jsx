@@ -26,6 +26,7 @@ import SpecialOfferBuilderPage from "@/features/special-offers/pages/SpecialOffe
 // Stays workspace (property suppliers) — see config/staysNav.js for the nav.
 import StaysDashboardPage from "@/features/stays/pages/StaysDashboardPage";
 import PropertiesListPage from "@/features/stays/pages/PropertiesListPage";
+import PropertyPreviewPage from "@/features/stays/pages/PropertyPreviewPage";
 import PropertyBuilderPage from "@/features/stays/pages/PropertyBuilderPage";
 import PropertyTypeChooserPage from "@/features/stays/pages/PropertyTypeChooserPage";
 import PropertyScopePage from "@/features/stays/pages/PropertyScopePage";
@@ -122,6 +123,10 @@ export const router = createBrowserRouter([
                 // the shared PageContainer: its chrome is the stays gutter.
                 { path: "stays", element: <StaysDashboardPage /> },
                 { path: "stays/properties", element: <PropertiesListPage /> },
+                // Full-page property preview (the card's eye action). It keeps
+                // the AppShell and inherits the list's `stays.view` rule via
+                // the PAGE_ACCESS prefix match.
+                { path: "stays/properties/:id", element: <PropertyPreviewPage /> },
                 // Bare /build is the category chooser (Booking's landing page);
                 // the builder itself always has a draft id, or the `new` alias.
                 { path: "stays/properties/build", element: <PropertyTypeChooserPage /> },

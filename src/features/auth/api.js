@@ -4,6 +4,9 @@ import { canAccessSupplierDashboard, getAuthToken } from "@/stores/authStore";
 
 const AUTH_REQUEST_OPTIONS = {
   skipGlobalErrorHandler: true,
+  // Sign-in already shows its own inline error; don't sit through the
+  // interceptor's backoff retries when the API is unreachable.
+  skipRetry: true,
 };
 
 async function fetchSupplierStatusPayload(authToken) {
@@ -133,13 +136,21 @@ export function showSupplierLoginToast(supplierProfile, user) {
 }
 
 export async function loginWithGoogleOneTap(credential) {
-  const response = await api.post("/auth/google/onetap", { credential }, {
-    skipGlobalErrorHandler: true,
-  });
+  const response = await api.post("/auth/google/onetap", { credential }, AUTH_REQUEST_OPTIONS);
   return response.data?.data || response.data;
 }
 
 export function getLoginErrorMessage(error) {
+  // A request that never got a response is a connection/CORS/DNS failure, not
+  // a credential problem. Axios's raw "Network Error" tells the user nothing,
+  // so say what actually happened and what to check.
+  if (error?.isAxiosError && !error.response) {
+    if (error.code === "ECONNABORTED") {
+      return "The sign-in server took too long to respond. Please try again.";
+    }
+    return "Cannot reach the sign-in server. Check your connection and try again.";
+  }
+
   return (
     error?.response?.data?.message ||
     error?.response?.data?.error ||

@@ -3,7 +3,7 @@
  * bathroom counters, the children/cots questions and the optional size.
  */
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import Step08PropertyDetails from "../Step08PropertyDetails";
 
@@ -36,6 +36,8 @@ describe("Step08PropertyDetails — the reference page", () => {
     expect(screen.getByText("Living room")).toBeTruthy();
     expect(screen.getByText("Other spaces")).toBeTruthy();
     expect(screen.getAllByText("0 beds")).toHaveLength(2);
+    expect(screen.getByText("Double beds")).toBeTruthy();
+    expect(screen.getByText("Single beds")).toBeTruthy();
 
     expect(screen.getByText("How many guests can stay?")).toBeTruthy();
     expect(screen.getByText("How many bathrooms are there?")).toBeTruthy();
@@ -43,6 +45,23 @@ describe("Step08PropertyDetails — the reference page", () => {
     expect(screen.getByText("Do you offer cots?")).toBeTruthy();
     expect(screen.getByText("How big is this apartment?")).toBeTruthy();
     expect(screen.getByText("Apartment size – optional")).toBeTruthy();
+    expect(screen.getByText("Description")).toBeTruthy();
+    expect(screen.getByLabelText("Short description")).toBeTruthy();
+    expect(screen.getByLabelText("Full description")).toBeTruthy();
+  });
+
+  it("records the short and full property descriptions", async () => {
+    const { patch } = renderStep();
+
+    fireEvent.change(screen.getByLabelText("Short description"), {
+      target: { value: "Garden villa" },
+    });
+    expect(patch.mock.calls.at(-1)[0]).toEqual({ shortDescription: "Garden villa" });
+
+    fireEvent.change(screen.getByLabelText("Full description"), {
+      target: { value: "A quiet stay near the coast." },
+    });
+    expect(patch.mock.calls.at(-1)[0]).toEqual({ description: "A quiet stay near the coast." });
   });
 
   it("adds and removes bedrooms through patch", async () => {
@@ -53,10 +72,28 @@ describe("Step08PropertyDetails — the reference page", () => {
     const added = patch.mock.calls.at(-1)[0].sleeping.bedrooms;
     expect(added).toHaveLength(2);
     expect(added[1].name).toBe("Bedroom 2");
+    expect(added[1].doubleBeds).toBe(1);
 
     patch.mockClear();
     await user.click(screen.getByRole("button", { name: "Remove Bedroom 1" }));
     expect(patch.mock.calls[0][0].sleeping.bedrooms).toHaveLength(0);
+  });
+
+  it("adds double and single beds to a bedroom and the shared spaces", async () => {
+    const user = userEvent.setup();
+    const { patch } = renderStep();
+
+    await user.click(screen.getByRole("button", { name: "Increase double beds in Bedroom 1" }));
+    expect(patch.mock.calls.at(-1)[0].sleeping.bedrooms[0].doubleBeds).toBe(2);
+
+    await user.click(screen.getByRole("button", { name: "Increase single beds in Bedroom 1" }));
+    expect(patch.mock.calls.at(-1)[0].sleeping.bedrooms[0].singleBeds).toBe(1);
+
+    await user.click(screen.getByRole("button", { name: "Increase living room beds" }));
+    expect(patch.mock.calls.at(-1)[0].sleeping.livingRoomBeds).toBe(1);
+
+    await user.click(screen.getByRole("button", { name: "Increase other space beds" }));
+    expect(patch.mock.calls.at(-1)[0].sleeping.otherSpacesBeds).toBe(1);
   });
 
   it("adjusts the guest and bathroom counters", async () => {

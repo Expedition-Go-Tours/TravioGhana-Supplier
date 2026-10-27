@@ -17,6 +17,10 @@ export default defineConfig({
     hookTimeout: 30000,
     env: {
       VITE_API_BASE_URL: 'https://apiv1.travioafrica.com/api',
+      // Component tests assert against the in-feature dataset. Without this,
+      // a developer's `.env` (VITE_STAYS_DATA_SOURCE=api) leaks into Vitest
+      // and every Stays page test fails trying to reach the network.
+      VITE_STAYS_DATA_SOURCE: 'mock',
     },
     exclude: [
       '**/node_modules/**',

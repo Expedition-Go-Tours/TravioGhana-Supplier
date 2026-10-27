@@ -173,6 +173,15 @@ export default function PropertyBuilderPage() {
       !value.name || value.name === "Untitled property"
         ? "Add a property name to continue"
         : "",
+    "property-details": (value) => {
+      const rooms = Array.isArray(value.rooms) ? value.rooms : [];
+      if (rooms.length === 0) return "Add at least one room type to continue";
+      const plans = Array.isArray(value.ratePlans) ? value.ratePlans : [];
+      if (rooms.some((room) => !plans.some((plan) => plan.roomId === room.id))) {
+        return "Add at least one rate plan to every room type";
+      }
+      return "";
+    },
     availability: (value) => {
       if ((value.startMode || "asap") === "date" && !value.start) {
         return "Choose the first bookable date";
@@ -254,7 +263,13 @@ export default function PropertyBuilderPage() {
       queryClient.invalidateQueries({ queryKey: ["stays", "properties"] });
       setShowSuccess(true);
     },
-    onError: () => toast.error("Could not submit the property"),
+    onError: (error) => {
+      // The publish endpoint explains exactly which requirement is missing
+      // (rooms, plans, photos, price, certifications). Show that instead of a
+      // generic failure so the supplier knows where to go next.
+      const message = error?.response?.data?.message || "Could not submit the property";
+      toast.error(message);
+    },
   });
 
   const savePlanMutation = useMutation({

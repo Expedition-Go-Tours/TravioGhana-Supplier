@@ -22,6 +22,7 @@ vi.mock("@/features/stays/components/PropertyLocationMap", () => ({
 
 import PropertyBuilderPage from "../PropertyBuilderPage";
 import { staysMock } from "@/features/stays/mock/store";
+import { defaultPlanForRoom } from "@/features/stays/utils/ratePlans";
 
 // jsdom does not implement smooth scrolling; the builder resets the step
 // scroll position on mount.
@@ -177,5 +178,73 @@ describe("PropertyBuilderPage — Channel manager step", () => {
     expect(screen.getByRole("button", { name: "Back" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Continue" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /save & continue/i })).toBeNull();
+  });
+});
+
+describe("PropertyBuilderPage — publish validation", () => {
+  it("sends the supplier to Room types when the property has none", async () => {
+    const user = userEvent.setup();
+    const submitSpy = vi.spyOn(staysMock, "submitProperty");
+    const created = await staysMock.createProperty({
+      name: "No Rooms Villa",
+      type: "Villa",
+      city: "Accra",
+      address: "1 Test Street",
+      lat: 5.6,
+      lng: -0.18,
+      longStays: "No",
+      step: 16,
+      agreement: { certifyBusiness: true, certifyTerms: true },
+    });
+
+    renderBuilder(`/stays/properties/build/${created.id}?section=review-submit&step=review`);
+    await user.click(await screen.findByRole("button", { name: "Open for bookings" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("location").textContent).toMatch(
+        /section=property-setup&step=property-details/,
+      );
+    });
+    expect(await screen.findByText("Room types")).toBeTruthy();
+    expect(submitSpy).not.toHaveBeenCalled();
+    submitSpy.mockRestore();
+  });
+
+  it("submits when the property has a room and its rate plan", async () => {
+    const user = userEvent.setup();
+    const submitSpy = vi.spyOn(staysMock, "submitProperty");
+    const room = {
+      id: "r-publish",
+      kind: "Standard Room",
+      name: "Garden Room",
+      count: 1,
+      adults: 2,
+      children: 0,
+      beds: "1 queen bed",
+      size: 20,
+      price: 400,
+      weekend: 450,
+      bathroom: "Private",
+      meal: "Room only",
+    };
+    const created = await staysMock.createProperty({
+      name: "Publishable Villa",
+      type: "Villa",
+      city: "Accra",
+      address: "1 Test Street",
+      lat: 5.6,
+      lng: -0.18,
+      longStays: "No",
+      step: 16,
+      agreement: { certifyBusiness: true, certifyTerms: true },
+      rooms: [room],
+      ratePlans: [defaultPlanForRoom(room)],
+    });
+
+    renderBuilder(`/stays/properties/build/${created.id}?section=review-submit&step=review`);
+    await user.click(await screen.findByRole("button", { name: "Open for bookings" }));
+
+    await waitFor(() => expect(submitSpy).toHaveBeenCalledTimes(1));
+    submitSpy.mockRestore();
   });
 });

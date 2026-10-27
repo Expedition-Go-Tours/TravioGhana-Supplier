@@ -12,7 +12,6 @@ import StaysStatCard from "../components/StaysStatCard";
 import StaysSeg from "../components/StaysSeg";
 import StaysEmptyState from "../components/StaysEmptyState";
 import PropertyCard from "../components/PropertyCard";
-import PropertyPreviewModal from "../components/PropertyPreviewModal";
 import { StaysSelect } from "../components/StaysForm";
 import { deleteProperty, listProperties, STAYS_KEYS } from "../api";
 import { PROPERTY_STATUSES } from "../utils/status";
@@ -32,7 +31,6 @@ export default function PropertiesListPage() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("All");
   const [layout, setLayout] = useState("Grid");
-  const [preview, setPreview] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
   const { data: properties = [], isLoading } = useQuery({
@@ -154,19 +152,13 @@ export default function PropertiesListPage() {
               property={property}
               layout={layout}
               onEdit={() => navigate(`/stays/properties/build/${property.id}`)}
-              onPreview={() => setPreview(property)}
+              onPreview={() => navigate(`/stays/properties/${property.id}`)}
               onCreateOffer={() => navigate(`/stays/special-offers/build/new?property=${property.id}`)}
               onDelete={() => setDeleteTarget(property)}
             />
           ))}
         </div>
       )}
-
-      <PropertyPreviewModal
-        open={Boolean(preview)}
-        property={preview}
-        onClose={() => setPreview(null)}
-      />
 
       <DeleteModal
         isOpen={Boolean(deleteTarget)}
