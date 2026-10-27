@@ -387,6 +387,13 @@ export default function AvailabilityPage() {
       toast.error(`This date can hold at most ${selectedDay.capacity} travelers — raise the day limit first`);
       return;
     }
+    const tourMin = selectedDay?.defaultMinParticipants ?? selectedDay?.minParticipants ?? null;
+    if (tourMin != null && value < tourMin) {
+      toast.error(
+        `This date can't require fewer than the tour minimum of ${tourMin} traveler${tourMin === 1 ? "" : "s"} per booking`
+      );
+      return;
+    }
     minMut.mutate({ tourId, date: format(selectedDate, "yyyy-MM-dd"), minParticipants: value });
   };
 
@@ -967,7 +974,8 @@ export default function AvailabilityPage() {
                         defaultMin != null &&
                         Number(minDraft) < defaultMin && (
                           <p className="text-[11px] text-amber-700 mt-1.5 leading-relaxed">
-                            This date will still require {defaultMin} travelers per booking — the tour minimum can't be lowered for a single date.
+                            Enter at least {defaultMin} traveler{defaultMin === 1 ? "" : "s"} — a date can
+                            require more than the tour minimum, but never fewer.
                           </p>
                         )}
                     </div>
