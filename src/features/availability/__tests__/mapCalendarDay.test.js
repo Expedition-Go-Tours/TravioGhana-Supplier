@@ -88,5 +88,86 @@ describe('mapCalendarDay status derivation', () => {
     expect(day.baseCapacity).toBeUndefined()
     expect(day.overrideCapacity).toBeNull()
     expect(day.capacityUnit).toBe('people')
+    expect(day.closedCutoff).toBe(false)
+    expect(day.closesAt).toBeNull()
+  })
+
+  it('marks a whole-day cut-off closure as closed instead of available', () => {
+    const day = mapCalendarDay({
+      ...base,
+      status: 'AVAILABLE',
+      capacity: 10,
+      baseCapacity: 10,
+      overrideCapacity: null,
+      closedCutoff: true,
+      closesAt: '2026-10-29T16:00:00.000Z',
+    })
+    expect(day.status).toBe('closed')
+    expect(day.closedCutoff).toBe(true)
+    expect(day.closesAt).toBe('2026-10-29T16:00:00.000Z')
+  })
+
+  it('marks a day closed when every time slot has closed', () => {
+    const day = mapCalendarDay({
+      ...base,
+      status: 'AVAILABLE',
+      capacity: 10,
+      baseCapacity: 10,
+      overrideCapacity: null,
+      timeSlots: [
+        { time: '09:00', capacity: 5, booked: 0, closed: true, closesAt: '2026-08-10T07:00:00.000Z' },
+        { time: '14:00', capacity: 5, booked: 0, closed: true, closesAt: '2026-08-10T12:00:00.000Z' },
+      ],
+    })
+    expect(day.status).toBe('closed')
+    expect(day.slots.every((slot) => slot.closed)).toBe(true)
+  })
+
+  it('keeps a day available when at least one slot is still open', () => {
+    const day = mapCalendarDay({
+      ...base,
+      status: 'AVAILABLE',
+      capacity: 10,
+      baseCapacity: 10,
+      overrideCapacity: null,
+      timeSlots: [
+        { time: '09:00', capacity: 5, booked: 0, closed: true, closesAt: '2026-08-10T07:00:00.000Z' },
+        { time: '14:00', capacity: 5, booked: 0, closed: false, closesAt: '2026-08-10T12:00:00.000Z' },
+      ],
+    })
+    expect(day.status).toBe('available')
+    expect(day.slots.map((slot) => slot.closed)).toEqual([true, false])
+  })
+
+  it('lets blocked, full, past and closed windows keep their own precedence', () => {
+    const blocked = mapCalendarDay({
+      ...base,
+      status: 'BLOCKED',
+      capacity: 10,
+      baseCapacity: 10,
+      overrideCapacity: null,
+      closedCutoff: true,
+    })
+    expect(blocked.status).toBe('blocked')
+
+    const full = mapCalendarDay({
+      ...base,
+      status: 'FULL',
+      capacity: 10,
+      baseCapacity: 10,
+      overrideCapacity: null,
+      closedCutoff: true,
+    })
+    expect(full.status).toBe('full')
+
+    const past = mapCalendarDay({
+      ...base,
+      status: 'PAST',
+      capacity: 10,
+      baseCapacity: 10,
+      overrideCapacity: null,
+      closedCutoff: true,
+    })
+    expect(past.status).toBe('past')
   })
 })
