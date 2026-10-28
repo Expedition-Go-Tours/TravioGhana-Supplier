@@ -18,6 +18,26 @@ export function mapCalendarDay(day) {
     status = "limited";
   }
 
+  const slots = (day.timeSlots || []).map((s) => ({
+    time: s.time,
+    capacity: s.capacity,
+    booked: s.booked || 0,
+    groupsBooked: s.groupsBooked ?? 0,
+    groupsRemaining: s.groupsRemaining ?? null,
+    cutoffMinutes: s.cutoffMinutes ?? null,
+    closed: s.closed === true,
+    closesAt: s.closesAt ?? null,
+  }));
+
+  // The backend's raw status only reflects capacity/manual overrides. A date
+  // whose booking window has closed (or whose every slot is closed) is still
+  // "available" there, so derive the online-booking state explicitly. Past,
+  // blocked and full days keep their own status precedence.
+  const allSlotsClosed = slots.length > 0 && slots.every((slot) => slot.closed);
+  const bookingsClosed = (day.closedCutoff === true || allSlotsClosed) &&
+    (status === "available" || status === "limited");
+  if (bookingsClosed) status = "closed";
+
   return {
     date: day.date,
     dayOfWeek: day.dayOfWeek,
@@ -32,14 +52,9 @@ export function mapCalendarDay(day) {
     groupsPerSlot: day.groupsPerSlot ?? null,
     maxGroupSize: day.maxGroupSize ?? null,
     cutoffMinutes: day.cutoffMinutes ?? null,
-    slots: (day.timeSlots || []).map((s) => ({
-      time: s.time,
-      capacity: s.capacity,
-      booked: s.booked || 0,
-      groupsBooked: s.groupsBooked ?? 0,
-      groupsRemaining: s.groupsRemaining ?? null,
-      cutoffMinutes: s.cutoffMinutes ?? null,
-    })),
+    closedCutoff: day.closedCutoff === true,
+    closesAt: day.closesAt ?? null,
+    slots,
     hasOverride: day.hasOverride,
     overrideStatus: day.overrideStatus ? day.overrideStatus.toLowerCase() : null,
     // Party-size floor for this date. `minParticipants` is the effective value

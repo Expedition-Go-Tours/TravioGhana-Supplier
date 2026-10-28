@@ -54,11 +54,12 @@ const STATUS_CONFIG = {
   available: { label: "Available", dot: "bg-emerald-500", badge: "text-emerald-700 bg-emerald-50 border-emerald-200", bar: "bg-emerald-400", icon: CheckCircle2 },
   limited: { label: "Limited", dot: "bg-amber-500", badge: "text-amber-700 bg-amber-50 border-amber-200", bar: "bg-amber-400", icon: AlertTriangle },
   full: { label: "Full", dot: "bg-red-500", badge: "text-red-700 bg-red-50 border-red-200", bar: "bg-red-400", icon: XCircle },
+  closed: { label: "Bookings closed", dot: "bg-sky-400", badge: "text-sky-700 bg-sky-50 border-sky-200", bar: "bg-sky-400", icon: Clock },
   blocked: { label: "Blocked", dot: "bg-slate-300", badge: "text-slate-600 bg-slate-50 border-slate-200", bar: "bg-slate-300", icon: Ban },
   past: { label: "Past", dot: "bg-slate-200", badge: "text-slate-500 bg-slate-50 border-slate-200", bar: "bg-slate-200", icon: CalendarX2 },
 };
 
-const STATUS_ORDER = ["available", "limited", "full", "blocked", "past"];
+const STATUS_ORDER = ["available", "limited", "full", "closed", "blocked", "past"];
 
 const TOUR_STATUS_CONFIG = {
   ACTIVE: { label: "Active", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
@@ -96,7 +97,7 @@ export default function AvailabilityPage() {
   const [minDraft, setMinDraft] = useState("");
   const [slotCutoffDrafts, setSlotCutoffDrafts] = useState({});
   const [defaultCutoffDraft, setDefaultCutoffDraft] = useState(20);
-  const [statusFilter, setStatusFilter] = useState({ available: true, limited: true, full: true, blocked: true, past: true });
+  const [statusFilter, setStatusFilter] = useState({ available: true, limited: true, full: true, closed: true, blocked: true, past: true });
   // Bulk block: one confirmation for a whole range instead of clicking days.
   const [rangeBlockOpen, setRangeBlockOpen] = useState(false);
   const [rangeFrom, setRangeFrom] = useState("");
@@ -178,7 +179,7 @@ export default function AvailabilityPage() {
 
   const getDay = useCallback((date) => {
     const key = format(date, "yyyy-MM-dd");
-    return calendar.find((d) => d.date === key) || { status: "available", capacity: 0, booked: 0, remaining: 0, slots: [], hasOverride: false, overrideStatus: null, capacityUnit: "people", groupsPerSlot: null, maxGroupSize: null, minParticipants: null, minParticipantsSource: "TOUR", defaultMinParticipants: null, overrideMinParticipants: null };
+    return calendar.find((d) => d.date === key) || { status: "available", capacity: 0, booked: 0, remaining: 0, slots: [], hasOverride: false, overrideStatus: null, capacityUnit: "people", groupsPerSlot: null, maxGroupSize: null, minParticipants: null, minParticipantsSource: "TOUR", defaultMinParticipants: null, overrideMinParticipants: null, closedCutoff: false, closesAt: null };
   }, [calendar]);
 
   const rangeDays = useMemo(() => {
@@ -199,7 +200,7 @@ export default function AvailabilityPage() {
   const visibleDays = rangeDays;
 
   const stats = useMemo(() => {
-    const s = { available: 0, limited: 0, full: 0, blocked: 0, past: 0 };
+    const s = { available: 0, limited: 0, full: 0, closed: 0, blocked: 0, past: 0 };
     rangeDays.forEach((d) => { s[getDay(d).status]++; });
     return s;
   }, [rangeDays, getDay]);
@@ -561,11 +562,12 @@ export default function AvailabilityPage() {
       </div>
 
       {/* ====== STATS ====== */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
         {[
           { label: "Available", value: stats.available, icon: CheckCircle2, bg: "bg-emerald-50", border: "border-emerald-200/60", color: "text-emerald-600", bar: "from-emerald-400 to-emerald-300", },
           { label: "Limited", value: stats.limited, icon: AlertTriangle, bg: "bg-amber-50", border: "border-amber-200/60", color: "text-amber-600", bar: "from-amber-400 to-amber-300", },
           { label: "Full", value: stats.full, icon: XCircle, bg: "bg-red-50", border: "border-red-200/60", color: "text-red-600", bar: "from-red-400 to-red-300", },
+          { label: "Bookings closed", value: stats.closed, icon: Clock, bg: "bg-sky-50", border: "border-sky-200/60", color: "text-sky-700", bar: "from-sky-400 to-sky-300", },
           { label: "Blocked", value: stats.blocked, icon: Ban, bg: "bg-slate-50", border: "border-slate-200/60", color: "text-slate-500", bar: "from-slate-400 to-slate-300", },
           { label: "Past", value: stats.past, icon: CalendarX2, bg: "bg-slate-50", border: "border-slate-200/60", color: "text-slate-400", bar: "from-slate-300 to-slate-200", },
         ].map((s) => (
@@ -603,9 +605,11 @@ export default function AvailabilityPage() {
                       ? "border-amber-200 bg-amber-50 text-amber-700"
                       : s === "full"
                         ? "border-red-200 bg-red-50 text-red-700"
-                        : s === "past"
-                          ? "border-slate-200 bg-slate-50 text-slate-500"
-                          : "border-slate-200 bg-slate-50 text-slate-600"
+                        : s === "closed"
+                          ? "border-sky-200 bg-sky-50 text-sky-700"
+                          : s === "past"
+                            ? "border-slate-200 bg-slate-50 text-slate-500"
+                            : "border-slate-200 bg-slate-50 text-slate-600"
                   : "border-transparent text-slate-300 hover:text-slate-400"
               }`}
             >
@@ -728,7 +732,7 @@ export default function AvailabilityPage() {
           <div className="py-16 flex flex-col items-center justify-center text-center">
             <CalendarIcon size={32} className="text-slate-300 mb-2" strokeWidth={1.5} />
             <p className="text-sm text-slate-400">No dates in this range</p>
-            <button onClick={() => setStatusFilter({ available: true, limited: true, full: true, blocked: true, past: true })} className="mt-2 text-xs text-[#044b3b] hover:text-[#033629] underline">
+            <button onClick={() => setStatusFilter({ available: true, limited: true, full: true, closed: true, blocked: true, past: true })} className="mt-2 text-xs text-[#044b3b] hover:text-[#033629] underline">
               Reset filters
             </button>
           </div>
@@ -743,6 +747,7 @@ export default function AvailabilityPage() {
               const usage = day.capacity > 0 ? (day.booked / day.capacity) * 100 : 0;
               const filteredOut = !statusFilter[day.status];
               const isBlocked = day.status === "blocked";
+              const isClosed = day.status === "closed";
               const isPast = day.status === "past";
 
               return (
@@ -757,14 +762,16 @@ export default function AvailabilityPage() {
                         ? "bg-slate-50 cursor-default"
                         : isBlocked
                           ? "bg-slate-50 hover:bg-slate-100 cursor-pointer"
-                          : day.status === "full"
-                            ? "bg-red-50 hover:bg-red-100 cursor-pointer"
-                            : day.status === "limited"
-                              ? "bg-amber-50 hover:bg-amber-100 cursor-pointer"
-                              : "hover:bg-slate-50 active:bg-slate-100 cursor-pointer bg-white"
-                  } ${today && !isBlocked && !isPast && day.status !== "full" && day.status !== "limited" ? "bg-emerald-50/40" : ""}`}
+                          : isClosed
+                            ? "bg-sky-50/60 hover:bg-sky-50 cursor-pointer"
+                            : day.status === "full"
+                              ? "bg-red-50 hover:bg-red-100 cursor-pointer"
+                              : day.status === "limited"
+                                ? "bg-amber-50 hover:bg-amber-100 cursor-pointer"
+                                : "hover:bg-slate-50 active:bg-slate-100 cursor-pointer bg-white"
+                  } ${today && !isBlocked && !isClosed && !isPast && day.status !== "full" && day.status !== "limited" ? "bg-emerald-50/40" : ""}`}
                 >
-                  <span className={`text-xs sm:text-sm font-semibold leading-none mb-1 sm:mb-1.5 ${today && !isBlocked && !isPast && day.status !== "full" && day.status !== "limited" ? "text-[#044b3b]" : isPast ? "text-slate-300" : isBlocked || day.status === "full" ? "text-slate-400" : day.status === "limited" ? "text-amber-600" : "text-slate-700"}`}>
+                  <span className={`text-xs sm:text-sm font-semibold leading-none mb-1 sm:mb-1.5 ${today && !isBlocked && !isClosed && !isPast && day.status !== "full" && day.status !== "limited" ? "text-[#044b3b]" : isPast ? "text-slate-300" : isBlocked || isClosed || day.status === "full" ? "text-slate-400" : day.status === "limited" ? "text-amber-600" : "text-slate-700"}`}>
                     {format(date, "d")}
                   </span>
 
@@ -778,6 +785,7 @@ export default function AvailabilityPage() {
                         </>
                       )}
                       {day.status === "full" && <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-red-400" />}
+                      {day.status === "closed" && <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-sky-400" />}
                     </span>
                   )}
 
@@ -785,6 +793,8 @@ export default function AvailabilityPage() {
                     <span className="text-[8px] sm:text-[9px] font-medium text-slate-400 uppercase tracking-wider leading-none mt-0.5">Blocked</span>
                   ) : isPast ? (
                     <span className="text-[8px] sm:text-[9px] font-medium text-slate-300 uppercase tracking-wider leading-none mt-0.5">Past</span>
+                  ) : isClosed ? (
+                    <span className="text-[8px] sm:text-[9px] font-medium text-sky-600 uppercase tracking-wider leading-none mt-0.5">Closed</span>
                   ) : day.status === "limited" ? (
                     <>
                       <span className="text-[8px] sm:text-[9px] font-medium text-amber-600 uppercase tracking-wider leading-none mt-0.5">Limited</span>
@@ -821,7 +831,7 @@ export default function AvailabilityPage() {
           <div className={`fixed inset-y-0 right-0 w-full max-w-sm bg-white shadow-2xl z-[71] flex flex-col transition-all duration-250 ease-out ${panelVisible ? "translate-x-0" : "translate-x-full"}`}>
 
             {/* === ACCENT BAR at top based on the day's actual status === */}
-            <div className={`h-1.5 shrink-0 transition-colors duration-300 ${selectedDay.status === "blocked" ? "bg-slate-400" : selectedDay.status === "limited" ? "bg-amber-400" : selectedDay.status === "full" ? "bg-red-400" : "bg-emerald-400"}`} />
+            <div className={`h-1.5 shrink-0 transition-colors duration-300 ${selectedDay.status === "blocked" ? "bg-slate-400" : selectedDay.status === "closed" ? "bg-sky-400" : selectedDay.status === "limited" ? "bg-amber-400" : selectedDay.status === "full" ? "bg-red-400" : "bg-emerald-400"}`} />
 
             {/* === PANEL HEADER — big date === */}
             <div className="px-5 pt-5 pb-4 border-b border-slate-100">
@@ -855,13 +865,38 @@ export default function AvailabilityPage() {
                   <cfg.icon size={18} className="shrink-0" />
                   <div>
                     <p className="text-sm font-semibold leading-tight">{cfg?.label}</p>
-                    <p className="text-[11px] text-slate-400 leading-tight mt-0.5">Automatic · based on bookings vs capacity</p>
+                    <p className="text-[11px] text-slate-400 leading-tight mt-0.5">
+                      {selectedDay.status === "closed"
+                        ? "Online booking window closed"
+                        : "Automatic · based on bookings vs capacity"}
+                    </p>
                   </div>
                 </div>
                 <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                  Available, Limited and Full are calculated automatically. Only Blocked can be set manually.
+                  {selectedDay.status === "closed"
+                    ? "The date is still operating, but travelers can no longer book it online."
+                    : "Available, Limited and Full are calculated automatically. Only Blocked can be set manually."}
                 </p>
               </div>
+
+              {/* --- Booking window (opening-hours tours) --- */}
+              {selectedDay.closesAt && selectedDay.slots?.length === 0 && selectedDay.status !== "past" && (
+                <div>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3">Booking window</p>
+                  <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border ${selectedDay.status === "closed" ? "bg-sky-50 border-sky-200 text-sky-800" : "bg-emerald-50 border-emerald-200 text-emerald-800"}`}>
+                    <Clock size={16} className="shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold leading-tight">
+                        {selectedDay.status === "closed" ? "Closed at" : "Closes at"}{" "}
+                        {format(new Date(selectedDay.closesAt), "h:mm a")}
+                      </p>
+                      <p className="text-[11px] leading-tight mt-0.5 opacity-80">
+                        Measured from the end of this day&apos;s operating hours.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* --- Day limit (per-date capacity override) --- */}
               {selectedDay.status !== "blocked" && selectedDay.status !== "past" && (
@@ -1011,10 +1046,20 @@ export default function AvailabilityPage() {
                     {selectedDay.slots.map((slot, i) => (
                       <div key={i} className="flex items-center justify-between bg-white rounded-lg px-3.5 py-2.5 border border-slate-200 shadow-sm">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-2 h-2 rounded-full bg-slate-300" />
+                          <div className={`w-2 h-2 rounded-full ${slot.closed ? "bg-sky-400" : "bg-slate-300"}`} />
                           <span className="text-sm font-medium text-slate-700">{slot.time}</span>
+                          {slot.closed && slot.closesAt && (
+                            <span className="hidden sm:inline text-[10px] text-slate-400">
+                              closed {format(new Date(slot.closesAt), "h:mm a")}
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-1.5">
+                          {slot.closed && (
+                            <span className="text-[10px] font-semibold text-sky-700 bg-sky-50 border border-sky-200 rounded-full px-1.5 py-0.5">
+                              Closed
+                            </span>
+                          )}
                           {selectedDay.capacityUnit === "groups" ? (
                             <>
                               <span className={`text-xs font-medium ${(slot.groupsBooked || 0) >= (selectedDay.groupsPerSlot || 0) ? "text-red-500" : "text-slate-500"}`}>
