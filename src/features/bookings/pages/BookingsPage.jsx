@@ -516,6 +516,7 @@ export default function BookingsPage() {
 
   const canSeeRevenue = hasPermission("bookings.revenue.view") || hasPermission("earnings.view");
   const canExport = hasPermission("bookings.export");
+  const canManageBookings = hasPermission("bookings.manage");
   const bookingKpis = [
     { key: "total", label: "Total Bookings", value: stats.total, icon: ShoppingCart, color: "text-slate-900", bar: "bg-slate-200" },
     { key: "pending", label: "Pending", value: stats.pending, icon: Clock, color: "text-amber-600", bar: "bg-amber-400" },
@@ -768,12 +769,14 @@ export default function BookingsPage() {
           </button>
           )}
 
-          <button
-            onClick={() => setShowBulkCancel(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-red-200/70 bg-white text-xs font-medium text-red-600 hover:bg-red-50 hover:border-red-300 transition-all"
-          >
-            <CalendarX2 size={13} /> Cancel multiple bookings
-          </button>
+          {canManageBookings && (
+            <button
+              onClick={() => setShowBulkCancel(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-red-200/70 bg-white text-xs font-medium text-red-600 hover:bg-red-50 hover:border-red-300 transition-all"
+            >
+              <CalendarX2 size={13} /> Cancel multiple bookings
+            </button>
+          )}
         </div>
 
         {/* Expandable date filters */}

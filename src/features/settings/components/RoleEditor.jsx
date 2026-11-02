@@ -62,6 +62,7 @@ export default function RoleEditor({ open, catalog, role, onClose, onSaved }) {
   const [selected, setSelected] = useState(() => new Set());
   const [landingPath, setLandingPath] = useState("");
   const [notificationCategories, setNotificationCategories] = useState([]);
+  const [uiPreferences, setUiPreferences] = useState({ dashboard: { cards: [], panels: [] }, bookings: { kpis: [] } });
   const [saving, setSaving] = useState(false);
   const [archiving, setArchiving] = useState(false);
 
@@ -81,10 +82,23 @@ export default function RoleEditor({ open, catalog, role, onClose, onSaved }) {
       setDescription(role?.description || "");
       setSelected(new Set(role?.permissions || []));
       setLandingPath(role?.landingPath || "");
-      setNotificationCategories(role?.notificationCategories || []);
+      setNotificationCategories(
+        role?.notificationCategories?.length
+          ? role.notificationCategories
+          : (catalog?.notificationCategories || []).map((category) => category.key),
+      );
+      setUiPreferences({
+        dashboard: {
+          cards: role?.uiPreferences?.dashboard?.cards || ["bookings", "earnings", "activeTours", "pendingBookings"],
+          panels: role?.uiPreferences?.dashboard?.panels || ["revenue", "notifications", "cancellation", "recentBookings"],
+        },
+        bookings: {
+          kpis: role?.uiPreferences?.bookings?.kpis || ["total", "pending", "confirmed", "completed", "cancellations", "revenue"],
+        },
+      });
     });
     return () => { cancelled = true; };
-  }, [open, role]);
+  }, [open, role, catalog]);
 
   const landingOptions = useMemo(() => {
     const hasSelectedPermission = (key) => selected.has(key) || selected.has("*");
@@ -113,6 +127,19 @@ export default function RoleEditor({ open, catalog, role, onClose, onSaved }) {
     ));
   };
 
+  const toggleUiPref = (section, group, key) => {
+    setUiPreferences((current) => {
+      const list = current[section]?.[group] || [];
+      return {
+        ...current,
+        [section]: {
+          ...(current[section] || {}),
+          [group]: list.includes(key) ? list.filter((value) => value !== key) : [...list, key],
+        },
+      };
+    });
+  };
+
   const handleSave = async () => {
     if (!name.trim()) {
       toast.error("Give the role a name");
@@ -130,6 +157,7 @@ export default function RoleEditor({ open, catalog, role, onClose, onSaved }) {
         permissions: [...selected],
         landingPath: landingPath || null,
         notificationCategories,
+        uiPreferences,
       };
       const saved = role
         ? await updateTeamRole(role.id, { ...payload, version: role.version })
@@ -242,6 +270,55 @@ export default function RoleEditor({ open, catalog, role, onClose, onSaved }) {
               );
             })}
           </div>
+
+          <section>
+            <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">Workspace</h3>
+            <p className="mb-2 text-[11px] text-slate-400">Choose the cards this role sees. Revenue cards also require the revenue permission above.</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-slate-200 p-3">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Dashboard cards</p>
+                {[
+                  ["bookings", "Total Bookings"],
+                  ["earnings", "Total Earnings"],
+                  ["activeTours", "Active Tours"],
+                  ["pendingBookings", "Pending Bookings"],
+                ].map(([key, label]) => (
+                  <label key={key} className="flex items-center gap-2 py-0.5 text-xs text-slate-600">
+                    <input type="checkbox" checked={(uiPreferences.dashboard?.cards || []).includes(key)} onChange={() => toggleUiPref("dashboard", "cards", key)} className="accent-emerald-600" />
+                    {label}
+                  </label>
+                ))}
+                <p className="mb-2 mt-3 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Dashboard panels</p>
+                {[
+                  ["revenue", "Revenue chart"],
+                  ["notifications", "Notifications"],
+                  ["cancellation", "Cancellation rate"],
+                  ["recentBookings", "Recent bookings"],
+                ].map(([key, label]) => (
+                  <label key={key} className="flex items-center gap-2 py-0.5 text-xs text-slate-600">
+                    <input type="checkbox" checked={(uiPreferences.dashboard?.panels || []).includes(key)} onChange={() => toggleUiPref("dashboard", "panels", key)} className="accent-emerald-600" />
+                    {label}
+                  </label>
+                ))}
+              </div>
+              <div className="rounded-xl border border-slate-200 p-3">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Bookings KPI cards</p>
+                {[
+                  ["total", "Total Bookings"],
+                  ["pending", "Pending"],
+                  ["confirmed", "Confirmed"],
+                  ["completed", "Completed"],
+                  ["cancellations", "Cancellations"],
+                  ["revenue", "Revenue (needs revenue permission)"],
+                ].map(([key, label]) => (
+                  <label key={key} className="flex items-center gap-2 py-0.5 text-xs text-slate-600">
+                    <input type="checkbox" checked={(uiPreferences.bookings?.kpis || []).includes(key)} onChange={() => toggleUiPref("bookings", "kpis", key)} className="accent-emerald-600" />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
+          </section>
 
           <section>
             <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">Notifications</h3>
