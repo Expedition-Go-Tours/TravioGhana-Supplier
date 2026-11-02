@@ -108,7 +108,8 @@ export default function RequestRefundModal({
   const canSubmit =
     !!quote?.eligible &&
     operated !== null &&
-    attended !== null &&
+    // The customer question only exists when the tour operated.
+    (operated === false || attended !== null) &&
     !!reasonCode &&
     Number(value) > 0 &&
     estimate.proposed > 0 &&
@@ -122,7 +123,7 @@ export default function RequestRefundModal({
     try {
       const response = await createRefundRequest(booking.id, {
         operated,
-        attended,
+        attended: operated === false ? false : attended,
         reasonCode,
         refundType,
         value: Number(value),
@@ -268,7 +269,13 @@ export default function RequestRefundModal({
                       type="radio"
                       name="operated"
                       checked={operated === v}
-                      onChange={() => setOperated(v)}
+                      onChange={() => {
+                        setOperated(v);
+                        // A tour that did not operate cannot have been
+                        // attended, so the second question disappears and its
+                        // answer collapses to "no".
+                        if (v === false) setAttended(false);
+                      }}
                       className="h-4 w-4 accent-[#044b3b]"
                     />
                     {label}
@@ -277,6 +284,7 @@ export default function RequestRefundModal({
               </div>
             </fieldset>
 
+            {operated !== false && (
             <fieldset>
               <legend className="text-sm font-medium text-slate-800">
                 Did the customer go on this tour?
@@ -296,6 +304,14 @@ export default function RequestRefundModal({
                 ))}
               </div>
             </fieldset>
+            )}
+
+            {operated === false && (
+              <p className="flex items-start gap-1.5 text-xs text-slate-500">
+                <Info size={13} className="mt-0.5 shrink-0" />
+                Not asked — a tour that did not operate cannot have been attended.
+              </p>
+            )}
 
             <div>
               <label htmlFor="refund-reason" className="text-sm font-medium text-slate-800">
@@ -336,6 +352,13 @@ export default function RequestRefundModal({
                 Traveller refund amount
               </label>
               <div className="mt-1.5 flex rounded-lg border border-slate-300 focus-within:border-[#044b3b]">
+                {/* Percentage reads as a suffix, a currency as a prefix — the
+                    same shape as the reference screenshots. */}
+                {refundType === "AMOUNT" && (
+                  <span className="flex items-center rounded-l-lg border-r border-slate-300 bg-slate-50 px-3 text-sm font-medium text-slate-600">
+                    {currency}
+                  </span>
+                )}
                 <input
                   id="refund-amount"
                   type="number"
@@ -345,11 +368,15 @@ export default function RequestRefundModal({
                   value={value}
                   onChange={(e) => setValue(e.target.value)}
                   placeholder="0.00"
-                  className="w-full rounded-l-lg px-3 py-2.5 text-sm text-slate-800 focus:outline-none"
+                  className={`w-full px-3 py-2.5 text-sm text-slate-800 focus:outline-none ${
+                    refundType === "AMOUNT" ? "rounded-r-lg" : "rounded-l-lg"
+                  }`}
                 />
-                <span className="flex items-center rounded-r-lg border-l border-slate-300 bg-slate-50 px-3 text-sm font-medium text-slate-600">
-                  {refundType === "PERCENT" ? "%" : currency}
-                </span>
+                {refundType === "PERCENT" && (
+                  <span className="flex items-center rounded-r-lg border-l border-slate-300 bg-slate-50 px-3 text-sm font-medium text-slate-600">
+                    %
+                  </span>
+                )}
               </div>
               <p className="mt-1.5 text-xs text-slate-500">
                 {refundType === "PERCENT"
