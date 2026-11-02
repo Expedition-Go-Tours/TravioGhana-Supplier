@@ -474,7 +474,7 @@ export default function RequestRefundModal({ isOpen, onClose, booking, onSubmitt
               )}
 
               <div>
-                <label htmlFor="refund-reason" className="text-sm font-semibold text-slate-800">
+                <label htmlFor="refund-reason" className="block text-sm font-semibold text-slate-800">
                   Reason for refund <span className="text-danger-500">*</span>
                 </label>
                 <select
@@ -492,7 +492,7 @@ export default function RequestRefundModal({ isOpen, onClose, booking, onSubmitt
 
               <div className="grid gap-4 sm:grid-cols-[minmax(0,220px)_minmax(0,220px)]">
                 <div>
-                  <label htmlFor="refund-type" className="text-sm font-semibold text-slate-800">
+                  <label htmlFor="refund-type" className="block text-sm font-semibold text-slate-800">
                     Refund type <span className="text-danger-500">*</span>
                   </label>
                   <select
@@ -508,7 +508,7 @@ export default function RequestRefundModal({ isOpen, onClose, booking, onSubmitt
 
                 {refundMode === "FULL" ? (
                   <div>
-                    <span className="text-sm font-semibold text-slate-800">Amount</span>
+                    <span className="block text-sm font-semibold text-slate-800">Amount</span>
                     <div className="mt-1.5 flex h-11 w-full items-center rounded-lg border border-primary-200 bg-primary-50 px-3">
                       <span className="text-sm font-semibold tabular-nums text-slate-900">
                         {money(refundable, currency)}
@@ -518,7 +518,7 @@ export default function RequestRefundModal({ isOpen, onClose, booking, onSubmitt
                   </div>
                 ) : (
                   <div>
-                    <label htmlFor="refund-amount" className="text-sm font-semibold text-slate-800">
+                    <label htmlFor="refund-amount" className="block text-sm font-semibold text-slate-800">
                       Refund amount <span className="text-danger-500">*</span>
                     </label>
                     <div
@@ -609,7 +609,7 @@ export default function RequestRefundModal({ isOpen, onClose, booking, onSubmitt
               )}
 
               <div>
-                <label htmlFor="refund-note" className="text-sm font-semibold text-slate-800">
+                <label htmlFor="refund-note" className="block text-sm font-semibold text-slate-800">
                   Note for the reviewer{" "}
                   <span className="font-normal text-slate-400">
                     {reasonCode === "OTHER" ? "(required for Other)" : "(optional)"}
