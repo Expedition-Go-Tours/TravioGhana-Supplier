@@ -16,6 +16,7 @@ import {
   Star,
   StickyNote,
   CheckCircle2,
+  Undo2,
 } from "lucide-react";
 import { toast } from "sonner";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -361,6 +362,16 @@ function StatusActions({ booking, onStatusUpdate, isUpdating, onChanged }) {
       disabledReason: "No-show can only be recorded after the activity date.",
     });
     actions.push({ value: "CANCELLED", label: "Cancel booking", variant: "danger" });
+  } else if (booking.status === "COMPLETED" || booking.status === "NO_SHOW") {
+    // Post-activity refund: the supplier asks, an admin approves, and the
+    // refund is charged to the supplier's balance. Kept in step with the
+    // card's actions — the drawer used to have no branch here at all, so a
+    // completed booking dead-ended on "no further actions".
+    actions.push({
+      value: "REFUND_REQUEST",
+      label: "Refund customer",
+      variant: "secondary",
+    });
   }
 
   if (actions.length === 0) {
@@ -396,6 +407,7 @@ function StatusActions({ booking, onStatusUpdate, isUpdating, onChanged }) {
             >
               {action.value === "COMPLETED" && <CheckCircle2 size={14} />}
               {action.value === "NO_SHOW" && <Ban size={14} />}
+              {action.value === "REFUND_REQUEST" && <Undo2 size={14} />}
               {action.label}
             </button>
           </div>

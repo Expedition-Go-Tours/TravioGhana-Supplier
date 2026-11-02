@@ -49,10 +49,10 @@ const STATUS_ACTIONS = {
   COMPLETED: [
     // Refunds on a delivered trip are a REQUEST (admin approves and the
     // supplier's balance pays). The label says "request" on purpose.
-    { value: "REFUND_REQUEST", label: "Request refund", variant: "secondary" },
+    { value: "REFUND_REQUEST", label: "Refund customer", variant: "secondary" },
   ],
   NO_SHOW: [
-    { value: "REFUND_REQUEST", label: "Request refund", variant: "secondary" },
+    { value: "REFUND_REQUEST", label: "Refund customer", variant: "secondary" },
   ],
   CANCELLED: [],
   REFUNDED: [],

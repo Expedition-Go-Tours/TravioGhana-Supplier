@@ -158,7 +158,7 @@ export default function RequestRefundModal({
       >
         <div className="flex items-start justify-between px-6 pt-6">
           <div>
-            <h2 className="text-xl font-semibold text-slate-900">Request a refund</h2>
+            <h2 className="text-xl font-semibold text-slate-900">Refund customer</h2>
             <p className="mt-1 text-sm text-slate-500">
               {booking?.bookingNumber ? `Booking ${booking.bookingNumber}` : "This booking"}
             </p>
@@ -432,7 +432,7 @@ export default function RequestRefundModal({
                 className="inline-flex items-center gap-2 rounded-lg bg-[#044b3b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#033629] disabled:opacity-50"
               >
                 {submitting && <Loader2 size={14} className="animate-spin" />}
-                {submitting ? "Submitting…" : "Request refund"}
+                {submitting ? "Submitting…" : "Refund customer"}
               </button>
             </div>
           </div>
