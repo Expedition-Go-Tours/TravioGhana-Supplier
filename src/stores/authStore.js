@@ -49,6 +49,7 @@ export const useAuthStore = create(
       },
 
       setUnauthenticated: () => {
+        import("@/lib/queryClient").then(({ queryClient }) => queryClient.clear()).catch(() => {});
         localStorage.removeItem("auth_token");
         localStorage.removeItem("auth_user");
         localStorage.removeItem("refresh_token");
@@ -63,6 +64,7 @@ export const useAuthStore = create(
           // Best-effort server logout — local session state is cleared regardless
         }
 
+        import("@/lib/queryClient").then(({ queryClient }) => queryClient.clear()).catch(() => {});
         localStorage.removeItem("auth_token");
         localStorage.removeItem("auth_user");
         localStorage.removeItem("refresh_token");

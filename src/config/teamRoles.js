@@ -47,20 +47,32 @@ export const ADMIN_ONLY_PERMISSIONS = ['settings.manage'];
 export const TEAM_ROLE_PERMISSIONS = {
   [TEAM_ROLES.ADMIN]: ['*'],
   [TEAM_ROLES.EDITOR]: [
-    'tours.view', 'tours.create', 'tours.update', 'tours.delete',
-    'bookings.view', 'bookings.manage',
+    'dashboard.view', 'dashboard.revenue.view',
+    'tours.view', 'tours.create', 'tours.update', 'tours.delete', 'tours.submit',
+    'bookings.view', 'bookings.manage', 'bookings.revenue.view', 'bookings.contact.view', 'bookings.export',
+    'pickup.view', 'pickup.manage', 'pickup.contact.view',
+    'availability.view', 'availability.manage',
     'products.view', 'products.create', 'products.update', 'products.delete',
-    'analytics.view', 'settings.business',
+    'analytics.view', 'settings.access', 'settings.profile', 'settings.business',
+    'settings.notifications', 'settings.bookings', 'notifications.view', 'cancellation.view',
   ],
   [TEAM_ROLES.FINANCE]: [
-    'earnings.view',
-    'payouts.view', 'payouts.request',
+    'dashboard.view', 'dashboard.revenue.view',
+    'bookings.view', 'bookings.revenue.view',
+    'finance.view', 'earnings.view', 'payouts.view', 'payouts.request',
     'payout-methods.view', 'payout-methods.manage',
-    'analytics.view', 'settings.tax',
+    'invoices.view', 'charges.view', 'disputes.view', 'refund-claims.view',
+    'analytics.view', 'analytics.revenue.view',
+    'settings.access', 'settings.profile', 'settings.notifications', 'settings.tax',
+    'notifications.view',
   ],
   [TEAM_ROLES.SUPPORT]: [
+    'dashboard.view', 'bookings.view', 'bookings.contact.view',
+    'pickup.view', 'pickup.contact.view',
     'chat.view', 'chat.respond',
     'reviews.view', 'reviews.respond',
+    'settings.access', 'settings.profile', 'settings.notifications',
+    'notifications.view', 'cancellation.view',
   ],
 };
 

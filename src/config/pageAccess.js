@@ -18,27 +18,27 @@
  */
 export const PAGE_ACCESS = {
   // Business overview — every role reads the same supplier numbers.
-  "/": null,
+  "/": "dashboard.view",
   // Catalogue and bookings.
   "/products": "tours.view",
   "/bookings": "bookings.view",
-  "/pickup-planner": "bookings.view",
-  "/availability": "tours.view",
+  "/pickup-planner": "pickup.view",
+  "/availability": "availability.view",
   // Special offers are a product edit, not a tour edit: products.update.
   "/special-offers": "products.update",
   // Cancellation gauge is a read-only rollup of the supplier's own rate.
-  "/cancellation-rate": null,
+  "/cancellation-rate": "cancellation.view",
   // Customer conversations (support) and public feedback.
   "/chat": "chat.view",
   "/reviews": "reviews.view",
   // Money.
-  "/finance": "payouts.view",
+  "/finance": "finance.view",
   // Business performance — the reporting page, not a per-booking tool.
   "/analytics": "analytics.view",
   // KYC documents and fleet/guides belong to the account owner.
-  "/verification": "settings.manage",
+  "/verification": "verification.view",
   // Notifications are per-account alerts: every member has their own inbox.
-  "/notifications": null,
+  "/notifications": "notifications.view",
   // Settings tabs are gated inside the page (each tab has its own key).
   "/settings": null,
 };
@@ -76,11 +76,11 @@ export function canOpenPath(hasPermission, pathname) {
  */
 export const SETTINGS_TAB_ACCESS = {
   profile: "settings.business",
-  notifications: "settings.manage",
-  payouts: "payouts.view",
+  notifications: "settings.notifications",
+  payouts: "payout-methods.view",
   security: null,
   tax: "settings.tax",
-  team: "settings.manage",
+  team: "team.view",
 };
 
 /** `canOpenSettingsTab(hasPermission, "team")` */
@@ -89,4 +89,35 @@ export function canOpenSettingsTab(hasPermission, tab) {
   if (permission === undefined) return true; // unknown tab: not our call to hide
   if (!permission) return true;
   return hasPermission(permission);
+}
+
+/**
+ * A safe default when a role has no explicit landing page. The order matches
+ * what a supplier is most likely to need first, and always ends at a page the
+ * role can actually open. `/no-access` is the only path that needs no rules.
+ */
+export const LANDING_PRIORITY = [
+  "/",
+  "/bookings",
+  "/products",
+  "/pickup-planner",
+  "/availability",
+  "/chat",
+  "/reviews",
+  "/finance",
+  "/analytics",
+  "/notifications",
+  "/settings",
+];
+
+export function firstAllowedPath(hasPermission) {
+  return LANDING_PRIORITY.find((path) => canOpenPath(hasPermission, path)) || "/no-access";
+}
+
+/** Validate a role/member landing path against the permission map. */
+export function isAllowedLandingPath(hasPermission, pathname) {
+  if (!pathname || typeof pathname !== "string") return false;
+  if (pathname === "/no-access") return true;
+  if (!pathname.startsWith("/") || pathname.startsWith("//")) return false;
+  return canOpenPath(hasPermission, pathname);
 }

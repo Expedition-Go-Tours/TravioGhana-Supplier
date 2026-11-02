@@ -5,6 +5,13 @@ import { mapBackendNotification } from "../utils/notificationPresentation";
 import { NOTIFICATION_TYPES } from "../constants";
 import NotificationsPage from "../pages/NotificationsPage";
 
+vi.mock("@/hooks/useTeamRole", () => ({
+  useTeamRole: () => ({
+    notificationCategories: ["bookings", "payments", "payouts", "reviews", "messages", "cancellations", "documents", "team", "system"],
+    hasPermission: () => true,
+  }),
+}));
+
 // Feed the page real mapped backend payloads; keep the rest of the hook
 // surface inert. Async factory so we can import the mapper after hoisting.
 vi.mock("../hooks/useNotifications", async () => {

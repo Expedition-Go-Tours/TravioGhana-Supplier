@@ -69,14 +69,14 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
   // Derived state: a collapsed sidebar can never show the confirm dialog.
   // Expressing the reset during render avoids a setState-from-effect cascade.
   const showLogoutConfirm = logoutConfirmOpen && !isCollapsed;
-  const { hasPermission, isOwner, teamRoles, storefronts } = useTeamRole();
+  const { hasPermission, isOwner, teamRoles, roleNames, customRoles, storefronts } = useTeamRole();
 
   // Who the viewer is acting as. A team member's own account is a plain
   // `customer` account, so testing `user.roles` alone hid the business card
   // from every member: they were all looking at their own name and avatar
   // instead of the business they work for.
   const actsForSupplier =
-    Boolean(user?.roles?.includes("supplier")) || Boolean(supplierProfile) || teamRoles.length > 0;
+    Boolean(user?.roles?.includes("supplier")) || Boolean(supplierProfile) || teamRoles.length > 0 || customRoles?.length > 0;
 
   // A member without business-profile rights still gets their own Security tab,
   // so the card falls back to the settings root instead of a hidden tab.
@@ -325,7 +325,7 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
                     owner keeps the single "Administrator" line. */}
                 {!isOwner && (
                   <span className="text-[11px] text-sidebar-muted block mt-1" title="Your team role">
-                    {describeRoles(teamRoles) || "Team member"}
+                    {roleNames?.length ? roleNames.join(" + ") : (describeRoles(teamRoles) || "Team member")}
                   </span>
                 )}
                 {memberSince && (

@@ -17,7 +17,14 @@ const { toastMock } = vi.hoisted(() => ({
 }));
 vi.mock('sonner', () => ({ toast: toastMock }));
 
-const teamRoleState = { loading: false, hasPermission: () => false };
+const teamRoleState = {
+  loading: false,
+  hasPermission: () => false,
+  landingPath: null,
+  error: null,
+  refetch: vi.fn(),
+  roleNames: [],
+};
 
 vi.mock('@/hooks/useTeamRole', () => ({
   useTeamRole: () => teamRoleState,
@@ -34,6 +41,8 @@ function renderAt(path) {
           <Route path="/finance" element={<p>finance page</p>} />
           <Route path="/products" element={<p>products page</p>} />
           <Route path="/products/:id" element={<p>product detail</p>} />
+          <Route path="/settings" element={<p>settings</p>} />
+          <Route path="/no-access" element={<p>no access</p>} />
         </Route>
         <Route path="*" element={<p>not found</p>} />
       </Routes>
@@ -54,7 +63,7 @@ beforeEach(() => {
 
 describe('RequirePageAccess', () => {
   it('renders a page the role may open', () => {
-    allow('payouts.view');
+    allow('finance.view');
     renderAt('/finance');
     expect(screen.getByText('finance page')).toBeInTheDocument();
   });
@@ -63,7 +72,7 @@ describe('RequirePageAccess', () => {
     allow('tours.view');
     renderAt('/finance');
     expect(screen.queryByText('finance page')).not.toBeInTheDocument();
-    expect(screen.getByText('dashboard')).toBeInTheDocument();
+    expect(screen.getByText('products page')).toBeInTheDocument();
   });
 
   it('explains the refusal instead of leaving a blank screen', () => {
@@ -114,6 +123,7 @@ describe('RequirePageAccess', () => {
   it('does not loop when the dashboard itself is denied', () => {
     allow();
     renderAt('/');
-    expect(screen.getByText('dashboard')).toBeInTheDocument();
+    expect(screen.queryByText('dashboard')).not.toBeInTheDocument();
+    expect(screen.getByText('settings')).toBeInTheDocument();
   });
 });

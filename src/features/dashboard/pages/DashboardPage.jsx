@@ -29,8 +29,9 @@ const NOTIFICATION_ICONS = {
 };
 
 const STATS_CONFIG = [
-  { label: "Total Bookings", icon: ShoppingBag, accent: "border-l-emerald-600", iconBg: "bg-emerald-50", iconBorder: "border-emerald-200/60", iconColor: "text-emerald-600", path: "/bookings" },
+  { widgetKey: "bookings", label: "Total Bookings", icon: ShoppingBag, accent: "border-l-emerald-600", iconBg: "bg-emerald-50", iconBorder: "border-emerald-200/60", iconColor: "text-emerald-600", path: "/bookings" },
   {
+    widgetKey: "earnings",
     label: "Total Earnings",
     // "Earnings" reads to many suppliers as "money in my bank". It is not: it
     // is the supplier's cut on every booking whose PAYMENT SUCCEEDED, over the
@@ -44,8 +45,8 @@ const STATS_CONFIG = [
     iconColor: "text-emerald-600",
     path: "/finance",
   },
-  { label: "Active Tours", icon: MapPin, accent: "border-l-emerald-400", iconBg: "bg-emerald-50", iconBorder: "border-emerald-200/60", iconColor: "text-emerald-600", path: "/products", state: { statusFilter: "ACTIVE" } },
-  { label: "Pending Bookings", icon: ClipboardList, accent: "border-l-amber-400", iconBg: "bg-amber-50", iconBorder: "border-amber-200/60", iconColor: "text-amber-600", path: "/bookings?tab=PENDING" },
+  { widgetKey: "activeTours", label: "Active Tours", icon: MapPin, accent: "border-l-emerald-400", iconBg: "bg-emerald-50", iconBorder: "border-emerald-200/60", iconColor: "text-emerald-600", path: "/products", state: { statusFilter: "ACTIVE" } },
+  { widgetKey: "pendingBookings", label: "Pending Bookings", icon: ClipboardList, accent: "border-l-amber-400", iconBg: "bg-amber-50", iconBorder: "border-amber-200/60", iconColor: "text-amber-600", path: "/bookings?tab=PENDING" },
 ];
 
 const CustomTooltip = ({ active, payload, label }) => {
@@ -104,7 +105,7 @@ export default function DashboardPage() {
   const [cancellationSummary, setCancellationSummary] = useState(null);
   const [revenueData, setRevenueData] = useState([]);
   const user = useAuthStore((s) => s.user);
-  const { hasPermission } = useTeamRole();
+  const { hasPermission, uiPreferences } = useTeamRole();
 
   // Dashboard cards point at the pages behind them, and those pages are
   // role-gated: a support member's "Total Earnings" card targets Finance, which
@@ -115,8 +116,17 @@ export default function DashboardPage() {
     if (canOpen(path)) navigate(path, options);
   };
 
+  const canSeeNotifications = hasPermission("notifications.view")
+    && (uiPreferences?.dashboard?.panels === undefined || uiPreferences.dashboard.panels.includes("notifications"));
+  const canSeeRevenue = (hasPermission("dashboard.revenue.view") || hasPermission("analytics.revenue.view"))
+    && (uiPreferences?.dashboard?.panels === undefined || uiPreferences.dashboard.panels.includes("revenue"));
+  const canSeeCancellation = hasPermission("cancellation.view")
+    && (uiPreferences?.dashboard?.panels === undefined || uiPreferences.dashboard.panels.includes("cancellation"));
+  const canSeeRecentBookings = canOpen("/bookings")
+    && (uiPreferences?.dashboard?.panels === undefined || uiPreferences.dashboard.panels.includes("recentBookings"));
+
   const { data: notificationsData, refetch: refetchNotifications } =
-    useNotifications({ limit: 5 });
+    useNotifications({ limit: 5 }, { enabled: canSeeNotifications });
   const markAllRead = useMarkAllNotificationsRead();
   const notifications = notificationsData?.notifications ?? [];
   const unreadCount = notificationsData?.unreadCount ?? 0;
@@ -131,11 +141,11 @@ export default function DashboardPage() {
     // exactly as the links on this page do.
     Promise.all([
       fetchSupplierDashboard(),
-      canOpen("/bookings")
+      canSeeRecentBookings
         ? fetchSupplierBookings({ page: 1, limit: 4 }).then(r => r.bookings).catch(() => [])
         : Promise.resolve([]),
-      fetchCancellationSummary(undefined, 30).catch(() => null),
-      fetchMonthlyRevenue(12).catch(() => []),
+      canSeeCancellation ? fetchCancellationSummary(undefined, 30).catch(() => null) : Promise.resolve(null),
+      canSeeRevenue ? fetchMonthlyRevenue(12).catch(() => []) : Promise.resolve([]),
     ])
       .then(([data, bookings, cancellationData, monthly]) => {
         setDashboardData(data);
@@ -157,7 +167,7 @@ export default function DashboardPage() {
       if (!cancelled) fetchDashboard();
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [canSeeRecentBookings, canSeeCancellation, canSeeRevenue]);
 
   const handleMarkAllRead = async () => {
     try {
@@ -207,12 +217,20 @@ export default function DashboardPage() {
     return formatCurrency(Number(earnings.totalEarnings) || 0);
   })();
 
-  const statsValues = [
-    { value: totalBookings },
-    { value: earningsValue },
-    { value: activeTours },
-    { value: pendingBookings },
-  ];
+  const cardValueByKey = {
+    bookings: totalBookings,
+    earnings: earningsValue,
+    activeTours,
+    pendingBookings,
+  };
+  const visibleStats = STATS_CONFIG.filter((stat) => {
+    if (stat.widgetKey === "earnings" && !(hasPermission("earnings.view") || hasPermission("finance.view"))) return false;
+    if ((stat.widgetKey === "bookings" || stat.widgetKey === "pendingBookings") && !hasPermission("bookings.view")) return false;
+    if (stat.widgetKey === "activeTours" && !hasPermission("tours.view")) return false;
+    const cards = uiPreferences?.dashboard?.cards;
+    if (Array.isArray(cards) && !cards.includes(stat.widgetKey)) return false;
+    return true;
+  });
 
   // The greeting must never claim there is nothing to do unless that is actually
   // known. `pendingBookings` is 0 both when the supplier really is caught up and
@@ -224,6 +242,7 @@ export default function DashboardPage() {
   // is in hand also keeps showing them, which is correct — the banner already
   // says the reload failed and offers Retry.
   const greetingStatus = (() => {
+    if (!hasPermission("bookings.view")) return null;
     if (!dashboardData) {
       if (error) return 'We could not load your pending bookings.';
       if (loading) return 'Checking your pending bookings…';
@@ -271,7 +290,7 @@ export default function DashboardPage() {
 
       {/* Stats Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {STATS_CONFIG.map((s, i) => {
+        {visibleStats.map((s) => {
           const Icon = s.icon;
           const openable = canOpen(s.path);
           return (
@@ -294,7 +313,7 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 <>
-                  <p className="text-lg font-bold text-slate-800">{statsValues[i].value}</p>
+                  <p className="text-lg font-bold text-slate-800">{cardValueByKey[s.widgetKey]}</p>
                   <p className="text-xs font-medium text-slate-500 mt-0.5">{s.label}</p>
                   {s.hint && (
                     <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">{s.hint}</p>
@@ -309,6 +328,7 @@ export default function DashboardPage() {
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Revenue Overview Chart */}
+        {canSeeRevenue && (
         <div className="lg:col-span-2 bg-white border border-emerald-100/60 rounded-xl p-5 flex flex-col hover:border-emerald-200 transition-all">
           <div className="flex items-center justify-between mb-4 shrink-0">
             {/* Plots grossAmount per month — money the customer paid, not the
@@ -342,10 +362,12 @@ export default function DashboardPage() {
           </div>
           <p className="text-[10px] font-medium text-slate-400 mt-3 shrink-0">Gross revenue by month · Last 12 months</p>
         </div>
+        )}
 
         {/* Right Column */}
         <div className="space-y-4">
           {/* Notifications */}
+          {canSeeNotifications && (
           <div className="bg-white border border-emerald-100/60 rounded-xl hover:border-emerald-200 transition-all overflow-hidden shadow-sm">
             <div className="flex items-center justify-between px-5 py-3.5 border-b border-emerald-50">
               <div className="flex items-center gap-2.5">
@@ -469,8 +491,10 @@ export default function DashboardPage() {
               )}
             </div>
           </div>
+          )}
 
           {/* Cancellation Rate Card */}
+          {canSeeCancellation && (
           <div onClick={() => navigate("/cancellation-rate")} className="bg-white border border-emerald-100/60 rounded-xl p-5 hover:border-emerald-200 transition-all cursor-pointer">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2.5">
@@ -504,13 +528,14 @@ export default function DashboardPage() {
               <span><span className="font-semibold text-slate-700">{cancellationSummary?.completed ?? 0}</span> completed</span>
             </div>
           </div>
+          )}
         </div>
       </div>
 
       {/* Bottom Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Recent Bookings — shown only to the roles the Bookings page is for */}
-        {canOpen("/bookings") && (
+        {canSeeRecentBookings && (
         <div className="lg:col-span-2 bg-white border border-emerald-100/60 rounded-xl p-5 hover:border-emerald-200 transition-all">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-slate-800">Recent Bookings</h3>

@@ -23,8 +23,9 @@ import {
   fetchTaxInfo, updateTaxInfo,
   fetchPayoutMethods, createPayoutMethod, deletePayoutMethod,
   fetchPayouts, fetchPayoutSettings, fetchFinanceSummary,
-  fetchTeamMembers, inviteTeamMember, removeTeamMember, updateTeamMemberRole,
-  directAddTeamMember, resendInvite, revokeTeamInvite
+  fetchTeamMembers, inviteTeamMember, removeTeamMember,
+  directAddTeamMember, resendInvite, revokeTeamInvite,
+  fetchTeamRoles, fetchTeamPermissionCatalog, updateTeamMemberRoles
 } from "../api";
 import { getAuthToken, useAuthStore } from "@/stores/authStore";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -34,7 +35,8 @@ import { canOpenSettingsTab } from "@/config/pageAccess";
 import PayoutMethodFormSheet from "@/features/finance/components/PayoutMethodFormSheet";
 import { maskTail } from "@/features/finance/config/payoutMethodForm";
 import { TEAM_ROLE_LABELS, TEAM_ROLE_COLORS, MAX_TEAM_ROLES, describeRoles, sortTeamRoles } from "@/config/teamRoles";
-import TeamRolePicker from "@/features/settings/components/TeamRolePicker";
+import TeamAccessPicker from "@/features/settings/components/TeamAccessPicker";
+import TeamRolesPanel from "@/features/settings/components/TeamRolesPanel";
 import SocialMediaManager from "../components/SocialMediaManager";
 import OperatingHoursEditor from "../components/OperatingHoursEditor";
 import { emptyWeeklyHours, normalizeWeeklyHours, validateOperatingHours } from "../utils/operatingHours";
@@ -80,7 +82,7 @@ function settingsMethodIdentifier(method) {
 export default function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab") || "profile";
-  const { hasPermission, isOwner, teamRoles } = useTeamRole();
+  const { hasPermission, isOwner, teamRoles, roleNames } = useTeamRole();
 
   // One rule per tab, shared with the search palette (config/pageAccess.js): a
   // tab is only offered to a role whose API calls on it will actually succeed.
@@ -101,9 +103,9 @@ export default function SettingsPage() {
           <h1 className="text-xl md:text-2xl font-bold text-slate-800">Settings</h1>
           <p className="text-sm text-slate-500 mt-0.5">Manage your account and business settings</p>
         </div>
-        {!isOwner && teamRoles.length > 0 && (
+        {!isOwner && (roleNames?.length > 0 || teamRoles.length > 0) && (
           <span className={cn("text-[10px] font-medium px-2 py-1 rounded-full bg-slate-100 text-slate-600")}>
-            {describeRoles(teamRoles)} Access
+            {roleNames?.length ? roleNames.join(" + ") : describeRoles(teamRoles)} Access
           </span>
         )}
       </div>
@@ -827,6 +829,8 @@ function ProfileTab() {
 }
 
 function NotificationsTab() {
+  const { hasPermission } = useTeamRole();
+  const canManageRecipients = hasPermission("settings.notifications.manage");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [initialPrefs, setInitialPrefs] = useState(null);
@@ -936,7 +940,7 @@ function NotificationsTab() {
         </div>
       </div>
 
-      <NotificationEmailsCard />
+      {canManageRecipients && <NotificationEmailsCard />}
 
       <div className="bg-emerald-50/50 border border-emerald-200/50 rounded-xl p-4">
         <div className="flex items-start gap-3">
@@ -1729,10 +1733,17 @@ const TEAM_LIST_COLS =
 const TEAM_LIST_ROW = "items-center gap-x-3 gap-y-1.5";
 
 function TeamTab() {
+  const { hasPermission, isOwner } = useTeamRole();
+  const canManageTeam = hasPermission("team.manage");
+  const canAssignRoles = hasPermission("team.roles.assign") || canManageTeam;
+  const canManageRoles = isOwner;
   const [members, setMembers] = useState([]);
+  const [customRoles, setCustomRoles] = useState([]);
+  const [roleCatalog, setRoleCatalog] = useState(null);
+  const [rolesLoading, setRolesLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [showInvite, setShowInvite] = useState(false);
-  const [form, setForm] = useState({ email: "", roles: ["editor"] });
+  const [form, setForm] = useState({ email: "", roles: ["editor"], customRoleIds: [] });
   const [sending, setSending] = useState(false);
   const [directAdd, setDirectAdd] = useState(false);
   const [editingRole, setEditingRole] = useState(null);
@@ -1749,18 +1760,29 @@ function TeamTab() {
       if (cancelled) return;
       setLoading(true);
       setLoadError(null);
-      fetchTeamMembers()
-        .then((rows) => {
-          if (cancelled) return;
-          setMembers(rows.map((row) => ({ ...row, roles: memberRoles(row) })));
-        })
-        .catch((err) => {
-          if (cancelled) return;
-          setLoadError(err?.response?.data?.message || "Failed to load team members");
-        })
-        .finally(() => {
-          if (!cancelled) setLoading(false);
-        });
+      Promise.allSettled([
+        fetchTeamMembers(),
+        typeof fetchTeamRoles === "function" ? fetchTeamRoles() : Promise.resolve([]),
+        typeof fetchTeamPermissionCatalog === "function" ? fetchTeamPermissionCatalog() : Promise.resolve(null),
+      ]).then(([membersResult, rolesResult, catalogResult]) => {
+        if (cancelled) return;
+        if (membersResult.status === "fulfilled") {
+          setMembers(membersResult.value.map((row) => ({
+            ...row,
+            roles: memberRoles(row),
+            customRoleIds: (row.customRoles || []).map((role) => role.id),
+          })));
+        } else {
+          setLoadError(membersResult.reason?.response?.data?.message || "Failed to load team members");
+        }
+        if (rolesResult.status === "fulfilled") setCustomRoles(rolesResult.value);
+        if (catalogResult.status === "fulfilled") setRoleCatalog(catalogResult.value);
+      }).finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+          setRolesLoading(false);
+        }
+      });
     });
     return () => {
       cancelled = true;
@@ -1771,12 +1793,17 @@ function TeamTab() {
     e.preventDefault();
     setSending(true);
     try {
-      if (form.roles.length === 0) {
+      if (form.roles.length + form.customRoleIds.length === 0) {
         toast.error("Select at least one role");
         return;
       }
       // `role` mirrors roles[0] so an older API deploy still understands the request.
-      const payload = { email: form.email, roles: form.roles, role: form.roles[0] };
+      const payload = {
+        email: form.email,
+        roles: form.roles,
+        role: form.roles[0] || null,
+        customRoleIds: form.customRoleIds,
+      };
       if (directAdd) {
         const member = await directAddTeamMember(payload);
         setMembers((prev) => [...prev, member]);
@@ -1790,7 +1817,7 @@ function TeamTab() {
           toast.warning("Invitation created for " + form.email + ", but the email could not be sent — use Resend to try again.");
         }
       }
-      setForm({ email: "", roles: ["editor"] });
+      setForm({ email: "", roles: ["editor"], customRoleIds: [] });
       setShowInvite(false);
     } catch (err) {
       toast.error(err?.response?.data?.message || "Failed to send invitation");
@@ -1799,15 +1826,24 @@ function TeamTab() {
     }
   };
 
-  const handleRoleChange = async (memberId, nextRoles) => {
-    const roles = sortTeamRoles(nextRoles);
-    if (roles.length === 0) {
+  const handleRoleChange = async (memberId, next) => {
+    const roles = sortTeamRoles(next?.roles || []);
+    const customRoleIds = next?.customRoleIds || [];
+    if (roles.length + customRoleIds.length === 0) {
       toast.error("A team member needs at least one role");
       return;
     }
     try {
-      await updateTeamMemberRole(memberId, roles);
-      setMembers((prev) => prev.map((m) => m.id === memberId ? { ...m, role: roles[0], roles } : m));
+      await updateTeamMemberRoles(memberId, { roles, customRoleIds });
+      setMembers((prev) => prev.map((m) => m.id === memberId
+        ? {
+          ...m,
+          role: roles[0] || customRoles.find((role) => role.id === customRoleIds[0])?.slug || null,
+          roles,
+          customRoleIds,
+          customRoles: customRoleIds.map((id) => customRoles.find((role) => role.id === id)).filter(Boolean),
+        }
+        : m));
       setEditingRole(null);
       toast.success("Roles updated successfully");
     } catch (err) {
@@ -1838,6 +1874,14 @@ function TeamTab() {
 
   return (
     <motion.div variants={FADE_UP} initial="initial" animate="animate" exit="exit" className="space-y-6">
+      <TeamRolesPanel
+        roles={customRoles}
+        catalog={roleCatalog}
+        loading={rolesLoading}
+        canManage={canManageRoles}
+        onChanged={() => setReloadKey((k) => k + 1)}
+      />
+
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
         <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -1849,10 +1893,12 @@ function TeamTab() {
               <p className="text-xs text-slate-500">Invite team members to manage your tours</p>
             </div>
           </div>
-          <button onClick={() => setShowInvite((v) => !v)}
-            className="flex items-center gap-1.5 shrink-0 px-3.5 py-2 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-700 transition-all shadow-sm">
-            <Plus size={14} /> Invite Member
-          </button>
+          {canManageTeam && (
+            <button onClick={() => setShowInvite((v) => !v)}
+              className="flex items-center gap-1.5 shrink-0 px-3.5 py-2 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-700 transition-all shadow-sm">
+              <Plus size={14} /> Invite Member
+            </button>
+          )}
         </div>
 
         <div className="px-4 sm:px-6 py-4">
@@ -1876,9 +1922,11 @@ function TeamTab() {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Roles <span className="font-normal text-slate-400">(up to 2)</span>
                   </label>
-                  <TeamRolePicker
-                    value={form.roles}
-                    onChange={(roles) => setForm((p) => ({ ...p, roles }))}
+                  <TeamAccessPicker
+                    systemRoles={form.roles}
+                    customRoleIds={form.customRoleIds}
+                    customRoles={customRoles}
+                    onChange={({ roles, customRoleIds }) => setForm((p) => ({ ...p, roles, customRoleIds }))}
                   />
                 </div>
                 <div className="flex flex-wrap items-center gap-2 pt-1">
@@ -1970,19 +2018,32 @@ function TeamTab() {
                       <div className="col-start-2 row-start-2 flex flex-wrap items-center gap-1.5 sm:contents">
                         <div className="min-w-0 sm:col-start-3 sm:row-start-1">
                           <button
-                            onClick={() => setEditingRole(m.id)}
-                            className="flex flex-wrap items-center gap-1 text-left min-w-0"
-                            title="Change roles"
+                            onClick={() => canAssignRoles && setEditingRole(m.id)}
+                            disabled={!canAssignRoles}
+                            className="flex flex-wrap items-center gap-1 text-left min-w-0 disabled:cursor-default"
+                            title={canAssignRoles ? "Change roles" : "Only a manager can change roles"}
                             aria-label={`Change roles for ${m.email}`}
                           >
-                            {roles.length > 0 ? roles.map((role) => (
-                              <span
-                                key={role}
-                                className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap transition-opacity hover:opacity-80", TEAM_ROLE_COLORS[role] || "bg-slate-100 text-slate-600")}
-                              >
-                                {TEAM_ROLE_LABELS[role] || role}
-                              </span>
-                            )) : (
+                            {roles.length > 0 || (m.customRoles || []).length > 0 ? (
+                              <>
+                                {roles.map((role) => (
+                                  <span
+                                    key={role}
+                                    className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap transition-opacity hover:opacity-80", TEAM_ROLE_COLORS[role] || "bg-slate-100 text-slate-600")}
+                                  >
+                                    {TEAM_ROLE_LABELS[role] || role}
+                                  </span>
+                                ))}
+                                {(m.customRoles || []).map((role) => (
+                                  <span
+                                    key={role.id || role.name}
+                                    className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap text-emerald-800 transition-opacity hover:opacity-80"
+                                  >
+                                    {role.name}
+                                  </span>
+                                ))}
+                              </>
+                            ) : (
                               <span className="inline-flex items-center rounded-full border border-dashed border-slate-300 px-2 py-0.5 text-[11px] font-medium text-slate-400">
                                 Set role
                               </span>
@@ -2007,14 +2068,16 @@ function TeamTab() {
                       {/* justify-end pins the remove button to the same spot whether
                           or not a pending member also shows the resend button. */}
                       <div className="col-start-3 row-start-1 sm:col-start-5 flex items-center justify-end gap-0.5 shrink-0">
-                        {isPending && <ResendButton email={m.email} />}
-                        <button
-                          onClick={() => setMemberToRemove(m)}
-                          aria-label={isPending ? `Cancel invitation to ${m.email}` : `Remove ${m.email}`}
-                          className="p-1.5 shrink-0 text-slate-300 hover:text-red-500 rounded-lg hover:bg-red-50 transition-all"
-                        >
-                          <X size={14} />
-                        </button>
+                        {isPending && canManageTeam && <ResendButton email={m.email} />}
+                        {canManageTeam && (
+                          <button
+                            onClick={() => setMemberToRemove(m)}
+                            aria-label={isPending ? `Cancel invitation to ${m.email}` : `Remove ${m.email}`}
+                            className="p-1.5 shrink-0 text-slate-300 hover:text-red-500 rounded-lg hover:bg-red-50 transition-all"
+                          >
+                            <X size={14} />
+                          </button>
+                        )}
                       </div>
                     </div>
                     {/* The editor gets its own full-width panel instead of living in
@@ -2023,9 +2086,11 @@ function TeamTab() {
                     {editingRole === m.id && (
                       <div className="px-3 pb-3 sm:pl-11">
                         <div className="rounded-xl border border-slate-200 bg-white p-3">
-                          <TeamRolePicker
+                          <TeamAccessPicker
                             compact
-                            value={roles}
+                            systemRoles={roles}
+                            customRoleIds={m.customRoleIds || []}
+                            customRoles={customRoles}
                             onChange={(next) => handleRoleChange(m.id, next)}
                           />
                           <div className="mt-2.5 flex items-center justify-between gap-3">

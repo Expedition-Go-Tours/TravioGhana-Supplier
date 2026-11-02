@@ -176,6 +176,10 @@ export default function BookingCard({
   // money-moving buttons that can only end in a 403.
   const teamRole = useContext(TeamRoleContext);
   const canManage = !teamRole || teamRole.hasPermission?.("bookings.manage") !== false;
+  const canRequestRefund = !teamRole || teamRole.hasPermission?.("bookings.refund.request") !== false;
+  const canSeeRevenue = !teamRole
+    || teamRole.hasPermission?.("bookings.revenue.view") !== false
+    || teamRole.hasPermission?.("earnings.view") !== false;
   const isPayLater = booking.paymentTiming === 'later';
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -192,7 +196,7 @@ export default function BookingCard({
   ).filter(
     // Post-activity states: only after the activity date has passed.
     (a) => !((a.value === 'COMPLETED' || a.value === 'NO_SHOW') && !travelDatePassed)
-  );
+  ).filter((a) => a.value !== 'REFUND_REQUEST' || canRequestRefund);
   const pickup = booking.pickup || {};
   // The card and the detail panel must read the same snapshot the same way:
   // exact street address first, then the short label, legacy place and zone.
@@ -299,9 +303,11 @@ export default function BookingCard({
 
         {/* Row 3: price + chips + chevron */}
         <div className="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-slate-100">
-          <p className="text-base font-bold text-slate-900 whitespace-nowrap shrink-0">
-            {formatCurrency(booking.total, booking.currency)}
-          </p>
+          {canSeeRevenue && (
+            <p className="text-base font-bold text-slate-900 whitespace-nowrap shrink-0">
+              {formatCurrency(booking.total, booking.currency)}
+            </p>
+          )}
           <div className="flex flex-1 min-w-0 flex-wrap items-center gap-1.5">
             {booking.attention ? null : booking.paymentStatus === 'FAILED' ? (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 border border-red-200/60 text-[10px] font-semibold text-red-700 whitespace-nowrap">
@@ -312,7 +318,7 @@ export default function BookingCard({
                 <Clock size={10} className="shrink-0" /> Payment unconfirmed
               </span>
             ) : null}
-            {booking.discount > 0 && (
+            {canSeeRevenue && booking.discount > 0 && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 border border-red-200/60 text-[10px] font-semibold text-red-700 whitespace-nowrap">
                 <Tag size={10} className="shrink-0" />
                 <span className="truncate max-w-[100px]">
@@ -406,10 +412,12 @@ export default function BookingCard({
             size="sm"
           />
           <AttentionBadge attention={booking.attention} />
-          <p className="text-base font-bold text-slate-900 whitespace-nowrap">
-            {formatCurrency(booking.total, booking.currency)}
-          </p>
-          {booking.discount > 0 && (
+          {canSeeRevenue && (
+            <p className="text-base font-bold text-slate-900 whitespace-nowrap">
+              {formatCurrency(booking.total, booking.currency)}
+            </p>
+          )}
+          {canSeeRevenue && booking.discount > 0 && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 border border-red-200/60 text-[11px] font-semibold text-red-700 whitespace-nowrap">
               <Tag size={10} />
               {booking.offerName || 'Discount'}

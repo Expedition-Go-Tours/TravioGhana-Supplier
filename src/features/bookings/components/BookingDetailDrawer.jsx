@@ -327,6 +327,7 @@ function RescheduleForm({ booking, onMoved, onRefresh }) {
 function StatusActions({ booking, onStatusUpdate, isUpdating, onChanged }) {
   const teamRole = useContext(TeamRoleContext);
   const canManage = !teamRole || teamRole.hasPermission?.("bookings.manage") !== false;
+  const canRequestRefund = !teamRole || teamRole.hasPermission?.("bookings.refund.request") !== false;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const travelDatePassed = new Date(booking.travelDate) < today;
@@ -372,7 +373,7 @@ function StatusActions({ booking, onStatusUpdate, isUpdating, onChanged }) {
       disabledReason: "No-show can only be recorded after the activity date.",
     });
     actions.push({ value: "CANCELLED", label: "Cancel booking", variant: "danger" });
-  } else if (booking.status === "COMPLETED" || booking.status === "NO_SHOW") {
+  } else if ((booking.status === "COMPLETED" || booking.status === "NO_SHOW") && canRequestRefund) {
     // Post-activity refund: the supplier asks, an admin approves, and the
     // refund is charged to the supplier's balance. Kept in step with the
     // card's actions — the drawer used to have no branch here at all, so a
@@ -447,6 +448,10 @@ export default function BookingDetailDrawer({
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const teamRole = useContext(TeamRoleContext);
+  const canSeeRevenue = !teamRole
+    || teamRole.hasPermission?.("bookings.revenue.view") !== false
+    || teamRole.hasPermission?.("earnings.view") !== false;
   const closeRef = useRef(null);
   const panelRef = useRef(null);
   // Only the newest fetch may land: the panel can be pointed at another
@@ -703,13 +708,13 @@ export default function BookingDetailDrawer({
 
               <Section title="Payment" icon={CreditCard}>
                 <div className="rounded-lg border border-slate-200 divide-y divide-slate-100 text-sm">
-                  {booking.subtotal > 0 && (
+                  {canSeeRevenue && booking.subtotal > 0 && (
                     <div className="flex justify-between px-3 py-2">
                       <span className="text-slate-600">Subtotal</span>
                       <span>{formatCurrency(booking.subtotal, booking.currency)}</span>
                     </div>
                   )}
-                  {booking.discount > 0 && (
+                  {canSeeRevenue && booking.discount > 0 && (
                     <div className="flex justify-between px-3 py-2">
                       <span className="text-slate-600">
                         Discount{booking.offerName ? ` · ${booking.offerName}` : ""}
@@ -719,12 +724,18 @@ export default function BookingDetailDrawer({
                       </span>
                     </div>
                   )}
-                  <div className="flex justify-between px-3 py-2 bg-slate-50">
-                    <span className="font-semibold text-slate-800">Total charged</span>
-                    <span className="font-bold text-slate-900">
-                      {formatCurrency(booking.total, booking.currency)}
-                    </span>
-                  </div>
+                  {canSeeRevenue ? (
+                    <div className="flex justify-between px-3 py-2 bg-slate-50">
+                      <span className="font-semibold text-slate-800">Total charged</span>
+                      <span className="font-bold text-slate-900">
+                        {formatCurrency(booking.total, booking.currency)}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="px-3 py-2 text-xs text-slate-500">
+                      Amount details are hidden for your role.
+                    </div>
+                  )}
                 </div>
                 <p className="mt-2 text-xs text-slate-500">
                   {booking.paymentStatus === "SUCCEEDED"

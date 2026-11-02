@@ -35,6 +35,16 @@ const allRoles = Object.values(TEAM_ROLES);
 const grantedKeys = new Set([
   ...allRoles.flatMap((role) => TEAM_ROLE_PERMISSIONS[role]).filter((key) => key !== '*'),
   ...ADMIN_ONLY_PERMISSIONS,
+  // Capabilities that only a custom role can grant today. They are still
+  // valid keys, so the page map must be allowed to reference them.
+  'verification.view', 'team.view', 'team.manage', 'team.roles.assign',
+  'settings.access', 'settings.profile', 'settings.notifications',
+  'settings.notifications.manage', 'settings.bookings',
+  'bookings.refund.request', 'availability.view', 'availability.manage',
+  'pickup.view', 'pickup.manage', 'pickup.contact.view',
+  'dashboard.view', 'dashboard.revenue.view', 'finance.view',
+  'invoices.view', 'charges.view', 'disputes.view', 'refund-claims.view',
+  'analytics.revenue.view',
 ]);
 
 describe('PAGE_ACCESS integrity', () => {
@@ -88,7 +98,7 @@ describe('role → page matrix', () => {
     const pages = visiblePages([TEAM_ROLES.FINANCE]);
     expect(pages).toEqual(expect.arrayContaining(['/', '/finance', '/analytics', '/settings']));
     expect(pages).not.toContain('/products');
-    expect(pages).not.toContain('/bookings');
+    expect(pages).toContain('/bookings');
     expect(pages).not.toContain('/chat');
   });
 
@@ -141,8 +151,9 @@ describe('pageAccessFor', () => {
   });
 
   it('treats the dashboard as open to every role', () => {
-    expect(pageAccessFor('/').permission).toBeNull();
-    expect(canOpenPath(() => false, '/')).toBe(true);
+    expect(pageAccessFor('/').permission).toBe('dashboard.view');
+    expect(canOpenPath((p) => p === 'dashboard.view', '/')).toBe(true);
+    expect(canOpenPath(() => false, '/')).toBe(false);
   });
 });
 
@@ -170,6 +181,6 @@ describe('canOpenSettingsTab', () => {
   it('gives a support member a settings page with at least one tab', () => {
     const tabs = Object.keys(SETTINGS_TAB_ACCESS)
       .filter((tab) => canOpenSettingsTab((p) => has([TEAM_ROLES.SUPPORT], p), tab));
-    expect(tabs).toEqual(['security']);
+    expect(tabs).toEqual(['notifications', 'security']);
   });
 });

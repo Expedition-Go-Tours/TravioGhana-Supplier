@@ -24,6 +24,18 @@ import { useTeamRole } from "@/hooks/useTeamRole";
 import { PAGE_ACCESS } from "@/config/pageAccess";
 import { useChatFloatingStore } from "@/stores/chatFloatingStore";
 
+const CATEGORY_LABELS = {
+  bookings: "Bookings",
+  payments: "Payments",
+  payouts: "Payouts",
+  reviews: "Reviews",
+  messages: "Messages",
+  cancellations: "Cancellations",
+  documents: "Documents",
+  team: "Team",
+  system: "System",
+};
+
 function groupByDate(notifications) {
   const groups = {};
   const today = new Date();
@@ -130,11 +142,17 @@ function ReplyBar({ notification }) {
 
 export default function NotificationsPage() {
   const [filter, setFilter] = useState("all");
+  const [category, setCategory] = useState("all");
   const [replyingId, setReplyingId] = useState(null);
+  const { notificationCategories } = useTeamRole();
+  const allowedCategories = notificationCategories?.length
+    ? notificationCategories
+    : Object.keys(CATEGORY_LABELS);
 
   const { data, isLoading, isError, refetch, isFetching } = useNotifications({
     limit: 50,
     unreadOnly: filter === "unread",
+    ...(category !== "all" ? { categories: category } : {}),
   });
 
   const markAsRead = useMarkNotificationRead();
@@ -236,6 +254,23 @@ export default function NotificationsPage() {
           </button>
         ))}
       </div>
+
+      {allowedCategories.length > 1 && (
+        <div className="mb-4 flex items-center gap-2">
+          <label htmlFor="notification-category" className="text-xs font-medium text-slate-500">Show</label>
+          <select
+            id="notification-category"
+            value={category}
+            onChange={(event) => setCategory(event.target.value)}
+            className="h-9 rounded-lg border border-emerald-100/60 bg-white px-3 text-xs font-medium text-slate-600 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+          >
+            <option value="all">All notification types</option>
+            {allowedCategories.map((key) => (
+              <option key={key} value={key}>{CATEGORY_LABELS[key] || key}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Content */}
       <div className="space-y-6">

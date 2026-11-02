@@ -1,120 +1,143 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/axios";
 import { useAuthStore } from "@/stores/authStore";
+import { getChatSocket } from "@/features/chat/chatSocket";
 import { TeamRoleContext } from "./teamRoleContext";
 
-export function TeamRoleProvider({ children }) {
-  const [teamRole, setTeamRole] = useState(null);
-  const [teamRoles, setTeamRoles] = useState([]);
-  const [permissions, setPermissions] = useState([]);
-  const [isOwner, setIsOwner] = useState(false);
-  // Storefronts the BUSINESS is on (['GHANA','EXPEDITION']), from /my-role.
-  // Never a member's own roles — those are ['customer'] and carry no brand.
-  const [storefronts, setStorefronts] = useState([]);
-  // Whether the SERVER says supplier-created bookings are switched on for this
-  // business's brand. The backend enforces this on every call, so offering the
-  // flow when it is off just earns a 403 — the create button is hidden unless
-  // the same answer the server would give says yes.
-  const [supplierCreatedBookings, setSupplierCreatedBookings] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+const EMPTY = {
+  teamRole: null,
+  teamRoles: [],
+  customRoles: [],
+  roleNames: [],
+  permissions: [],
+  isOwner: false,
+  storefronts: [],
+  supplierCreatedBookings: false,
+  landingPath: null,
+  notificationCategories: [],
+  uiPreferences: {},
+};
 
-  const fetchAndSet = useCallback(async () => {
+export function TeamRoleProvider({ children }) {
+  const [state, setState] = useState(EMPTY);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const userId = useAuthStore((s) => s.user?.id);
+  const lastFetchRef = useRef(0);
+  const permissionSignatureRef = useRef("");
+  const queryClient = useQueryClient();
+
+  const applyPayload = useCallback((data) => {
+    const signature = JSON.stringify(data?.permissions || []);
+    if (permissionSignatureRef.current && permissionSignatureRef.current !== signature) {
+      // A role edit changed this member's access. Drop cached pages so a
+      // revenue or customer view from the previous role cannot linger.
+      queryClient.clear();
+    }
+    permissionSignatureRef.current = signature;
+    setState({
+      teamRole: data?.role || null,
+      teamRoles: data?.roles || (data?.role ? [data.role] : []),
+      customRoles: data?.customRoles || [],
+      roleNames: data?.roleNames || [],
+      permissions: data?.permissions || [],
+      isOwner: data?.isOwner || false,
+      storefronts: data?.storefronts || [],
+      supplierCreatedBookings: data?.supplierCreatedBookings || false,
+      landingPath: data?.landingPath || null,
+      notificationCategories: data?.notificationCategories || [],
+      uiPreferences: data?.uiPreferences || {},
+    });
+    setError(null);
+  }, [queryClient]);
+
+  const fetchAndSet = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     try {
       const response = await api.get("/suppliers/settings/team/my-role", {
         skipGlobalErrorHandler: true,
       });
-      const data = response.data?.data;
-      setTeamRole(data?.role || null);
-      setTeamRoles(data?.roles || (data?.role ? [data.role] : []));
-      setPermissions(data?.permissions || []);
-      setIsOwner(data?.isOwner || false);
-      setStorefronts(data?.storefronts || []);
-      setSupplierCreatedBookings(data?.supplierCreatedBookings || false);
-    } catch {
-      setTeamRole(null);
-      setTeamRoles([]);
-      setPermissions([]);
-      setIsOwner(false);
-      setStorefronts([]);
-      setSupplierCreatedBookings(false);
+      applyPayload(response.data?.data);
+    } catch (err) {
+      // A network failure is not "no access". Keep the last known state and
+      // surface an error so the shell can offer a retry instead of looping.
+      if (!silent) setError(err?.response?.data?.message || "Could not load your access");
+    } finally {
+      if (!silent) setLoading(false);
+      lastFetchRef.current = Date.now();
     }
-  }, []);
+  }, [applyPayload]);
 
   const refetch = useCallback(async () => {
-    setLoading(true);
     await fetchAndSet();
-    setLoading(false);
   }, [fetchAndSet]);
 
   useEffect(() => {
     if (!isAuthenticated) {
       let cancelled = false;
-      // Deferred so the resets never run synchronously inside the effect
       Promise.resolve().then(() => {
         if (cancelled) return;
-        setTeamRole(null);
-        setTeamRoles([]);
-        setPermissions([]);
-        setIsOwner(false);
-        setStorefronts([]);
-        setSupplierCreatedBookings(false);
+        setState(EMPTY);
+        setError(null);
         setLoading(false);
       });
       return () => { cancelled = true; };
     }
 
     let cancelled = false;
-    // Deferred: keeps the synchronous effect body free of state updates
     Promise.resolve().then(() => {
-      if (cancelled) return;
-      setLoading(true);
-
-      const fetchTeamRole = async () => {
-        try {
-          const response = await api.get("/suppliers/settings/team/my-role", {
-            skipGlobalErrorHandler: true,
-          });
-          if (cancelled) return;
-          const data = response.data?.data;
-          setTeamRole(data?.role || null);
-          setTeamRoles(data?.roles || (data?.role ? [data.role] : []));
-          setPermissions(data?.permissions || []);
-          setIsOwner(data?.isOwner || false);
-          setStorefronts(data?.storefronts || []);
-          setSupplierCreatedBookings(data?.supplierCreatedBookings || false);
-        } catch {
-          if (cancelled) return;
-          setTeamRole(null);
-          setTeamRoles([]);
-          setPermissions([]);
-          setIsOwner(false);
-          setStorefronts([]);
-          setSupplierCreatedBookings(false);
-        } finally {
-          if (!cancelled) setLoading(false);
-        }
-      };
-
-      fetchTeamRole();
+      if (!cancelled) fetchAndSet();
     });
     return () => { cancelled = true; };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, fetchAndSet]);
+
+  // Role edits also reach the client over the shared socket. Refetch on the
+  // team event so a member loses/gains access without a manual reload.
+  useEffect(() => {
+    if (!isAuthenticated || !userId) return undefined;
+    let socket;
+    try {
+      socket = getChatSocket(userId);
+    } catch {
+      return undefined;
+    }
+    const refresh = () => fetchAndSet({ silent: true });
+    socket.on("team:access-changed", refresh);
+    socket.on("team:removed", refresh);
+    socket.on("connect", refresh);
+    return () => {
+      socket.off("team:access-changed", refresh);
+      socket.off("team:removed", refresh);
+      socket.off("connect", refresh);
+    };
+  }, [isAuthenticated, userId, fetchAndSet]);
+
+  // A tab that was backgrounded through a role change should re-check on
+  // focus, but not stampede: at most once every 20 seconds.
+  useEffect(() => {
+    if (!isAuthenticated) return undefined;
+    const onFocus = () => {
+      if (Date.now() - lastFetchRef.current < 20_000) return;
+      fetchAndSet({ silent: true });
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [isAuthenticated, fetchAndSet]);
 
   const hasPermission = (permission) => {
-    if (isOwner) return true;
-    if (permissions.includes("*")) return true;
-    if (permissions.includes(permission)) return true;
+    if (state.isOwner) return true;
+    if (state.permissions.includes("*")) return true;
+    if (state.permissions.includes(permission)) return true;
     const prefix = permission.split(".")[0];
-    return permissions.some((p) => p.endsWith("*") && p.startsWith(prefix));
+    return state.permissions.some((p) => p.endsWith("*") && p.startsWith(prefix));
   };
 
-  // Permission-based, never role-name based: an ADMIN-role member who is not the
-  // account owner must be treated exactly like the owner, and the key used here
-  // is the same one the API enforces on the matching route.
-  const canManageTeam = () => hasPermission("settings.manage");
+  const canManageTeam = () => hasPermission("team.manage");
+  const canManageRoles = () => state.isOwner;
   const canManageTours = () => hasPermission("tours.view");
-  const canManageFinance = () => hasPermission("payouts.view");
+  const canManageFinance = () => hasPermission("finance.view") || hasPermission("payouts.view");
   const canManageChat = () => hasPermission("chat.view");
   const canManageAnalytics = () => hasPermission("analytics.view");
   const canManageBusinessProfile = () => hasPermission("settings.business");
@@ -122,16 +145,13 @@ export function TeamRoleProvider({ children }) {
   return (
     <TeamRoleContext.Provider
       value={{
-        teamRole,
-        teamRoles,
-        permissions,
-        isOwner,
-        storefronts,
-        supplierCreatedBookings,
+        ...state,
         loading,
+        error,
         refetch,
         hasPermission,
         canManageTeam,
+        canManageRoles,
         canManageTours,
         canManageFinance,
         canManageChat,

@@ -148,3 +148,45 @@ export async function declineInvite(token) {
 
 // Payout functions are shared from the finance feature to avoid duplication.
 export { fetchPayoutMethods, createPayoutMethod, deletePayoutMethod, fetchPayouts, fetchPayoutSettings, fetchFinanceSummary } from "@/features/finance/api";
+
+export async function fetchTeamPermissionCatalog() {
+  const response = await api.get("/suppliers/settings/team/permissions", { skipGlobalErrorHandler: true });
+  return response.data?.data || null;
+}
+
+export async function fetchTeamRoles() {
+  const response = await api.get("/suppliers/settings/team/roles", { skipGlobalErrorHandler: true });
+  return response.data?.data?.roles || [];
+}
+
+export async function createTeamRole(data) {
+  const response = await api.post("/suppliers/settings/team/roles", data, { skipGlobalErrorHandler: true });
+  return response.data?.data?.role || null;
+}
+
+export async function updateTeamRole(id, data) {
+  const response = await api.patch(`/suppliers/settings/team/roles/${id}`, data, { skipGlobalErrorHandler: true });
+  return response.data?.data?.role || null;
+}
+
+export async function archiveTeamRole(id) {
+  return api.post(`/suppliers/settings/team/roles/${id}/archive`, {}, { skipGlobalErrorHandler: true });
+}
+
+export async function updateTeamMemberRoles(id, { roles, customRoleIds }) {
+  const list = Array.isArray(roles) ? roles : [];
+  return api.patch(
+    `/suppliers/settings/team/members/${id}/roles`,
+    { roles: list, role: list[0], customRoleIds },
+    { skipGlobalErrorHandler: true },
+  );
+}
+
+export async function updateTeamMemberAccess(id, data) {
+  const response = await api.patch(
+    `/suppliers/settings/team/members/${id}/access`,
+    data,
+    { skipGlobalErrorHandler: true },
+  );
+  return response.data?.data?.member || null;
+}

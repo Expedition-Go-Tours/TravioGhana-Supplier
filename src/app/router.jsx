@@ -30,6 +30,7 @@ import SupplierStatusPage from "@/features/supplier/pages/SupplierStatusPage";
 import VerificationPage from "@/features/supplier/pages/VerificationPage";
 
 import TeamInvitePage from "@/pages/TeamInvitePage";
+import NoAccessPage from "@/pages/NoAccessPage";
 
 import NotFoundPage from "@/pages/errors/NotFoundPage";
 import ServerErrorPage from "@/pages/errors/ServerErrorPage";
@@ -89,6 +90,9 @@ export const router = createBrowserRouter([
                 { path: "special-offers", element: <SpecialOffersListPage /> },
                 { path: "special-offers/build/:id?/:step?", element: <SpecialOfferBuilderPage /> },
               ] },
+              // A role with no allowed page must have a terminal destination,
+              // not a redirect back to a page it cannot open.
+              { path: "no-access", element: <NoAccessPage /> },
               // The 404 owns its own full-screen centred layout.
               { path: "*", element: <NotFoundPage />, handle: { bleed: true } },
             ],

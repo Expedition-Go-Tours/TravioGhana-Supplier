@@ -63,14 +63,31 @@ const asMemberOf = (roles) => {
   useTeamRole.mockReturnValue({
     isOwner: false,
     teamRoles: roles,
+    roleNames: roles,
+    customRoles: [],
     permissions: roles.flatMap((r) => [r]),
+    notificationCategories: ['bookings', 'payments', 'reviews', 'messages'],
+    uiPreferences: {},
     hasPermission: (permission) => hasTeamPermission(roles, permission),
+  });
+};
+
+const asCustomPermissions = (permissions) => {
+  useTeamRole.mockReturnValue({
+    isOwner: false,
+    teamRoles: [],
+    roleNames: ['Custom'],
+    customRoles: [],
+    permissions,
+    notificationCategories: ['bookings', 'payments', 'reviews', 'messages'],
+    uiPreferences: {},
+    hasPermission: (permission) => permissions.includes(permission) || permissions.includes('*'),
   });
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  asMemberOf(['finance']);
+  asCustomPermissions(['dashboard.view', 'finance.view', 'earnings.view', 'dashboard.revenue.view', 'notifications.view']);
   fetchSupplierDashboard.mockResolvedValue(DASHBOARD);
   fetchMonthlyRevenue.mockResolvedValue([]);
   fetchSupplierBookings.mockResolvedValue({ bookings: BOOKINGS, total: 1 });
@@ -103,11 +120,12 @@ describe('a role without the Bookings page', () => {
   it('still shows the dashboard it does have', async () => {
     renderPage();
 
-    await waitFor(() => expect(screen.getByText('Total Bookings')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Total Earnings')).toBeInTheDocument());
     expect(screen.getByText('Shai Hills Safari')).toBeInTheDocument();
   });
 
   it('reports every booking on the "Total Bookings" card', async () => {
+    asMemberOf(['editor']);
     renderPage();
 
     await waitFor(() => expect(screen.getByText('Total Bookings')).toBeInTheDocument());

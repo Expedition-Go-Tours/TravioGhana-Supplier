@@ -138,7 +138,7 @@ describe('sidebar navigation per team role', () => {
     const shown = shownNav();
     expect(shown).toEqual(expect.arrayContaining(['Finance', 'Analytics']));
     expect(shown).not.toContain('Products');
-    expect(shown).not.toContain('Bookings');
+    expect(shown).toContain('Bookings');
     expect(shown).not.toContain('Customers');
   });
 

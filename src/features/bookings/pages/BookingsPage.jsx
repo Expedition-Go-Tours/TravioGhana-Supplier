@@ -81,7 +81,7 @@ export default function BookingsPage() {
   // platform already holds for this supplier. Fetched with the list so the
   // button can explain itself instead of failing on submit.
   const [commissionCover, setCommissionCover] = useState(null);
-  const { hasPermission, supplierCreatedBookings } = useTeamRole();
+  const { hasPermission, supplierCreatedBookings, uiPreferences } = useTeamRole();
   // `sm` breakpoint. The primary action moves beside the title on phones but
   // must exist only once in the DOM, so the placement is chosen, not CSS-hidden.
   const isDesktop = useMediaQuery("(min-width: 640px)");
@@ -514,6 +514,21 @@ export default function BookingsPage() {
     };
   }, [filteredData, bookingSummary, pagination]);
 
+  const canSeeRevenue = hasPermission("bookings.revenue.view") || hasPermission("earnings.view");
+  const canExport = hasPermission("bookings.export");
+  const bookingKpis = [
+    { key: "total", label: "Total Bookings", value: stats.total, icon: ShoppingCart, color: "text-slate-900", bar: "bg-slate-200" },
+    { key: "pending", label: "Pending", value: stats.pending, icon: Clock, color: "text-amber-600", bar: "bg-amber-400" },
+    { key: "confirmed", label: "Confirmed", value: stats.confirmed, icon: CheckCircle2, color: "text-blue-600", bar: "bg-blue-400" },
+    { key: "completed", label: "Completed", value: stats.completed, icon: BadgeCheck, color: "text-green-700", bar: "bg-green-500" },
+    { key: "cancellations", label: "Cancellations", value: stats.cancelled, icon: AlertTriangle, color: "text-red-600", bar: "bg-red-400" },
+    { key: "revenue", label: "Revenue", value: formatCurrency(stats.revenue), icon: TrendingUp, color: "text-[#044b3b]", bar: "bg-[#044b3b]" },
+  ].filter((card) => {
+    if (card.key === "revenue" && !canSeeRevenue) return false;
+    const kpis = uiPreferences?.bookings?.kpis;
+    return !Array.isArray(kpis) || kpis.includes(card.key);
+  });
+
   const hasFilters = Boolean(
     customerIdParam ||
     searchTerm ||
@@ -653,61 +668,13 @@ export default function BookingsPage() {
         <>
       {/* ====== STATS ====== */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 lg:gap-4">
-        {[
-          {
-            label: "Total Bookings",
-            value: stats.total,
-            icon: ShoppingCart,
-            color: "text-slate-900",
-            bar: "bg-slate-200",
-          },
-          {
-            label: "Pending",
-            value: stats.pending,
-            icon: Clock,
-            color: "text-amber-600",
-            bar: "bg-amber-400",
-          },
-          {
-            label: "Confirmed",
-            value: stats.confirmed,
-            icon: CheckCircle2,
-            color: "text-blue-600",
-            bar: "bg-blue-400",
-          },
-          {
-            label: "Completed",
-            value: stats.completed,
-            icon: BadgeCheck,
-            color: "text-green-700",
-            bar: "bg-green-500",
-          },
-          {
-            label: "Cancellations",
-            value: stats.cancelled,
-            icon: AlertTriangle,
-            color: "text-red-600",
-            bar: "bg-red-400",
-          },
-          {
-            label: "Revenue",
-            value: formatCurrency(stats.revenue),
-            icon: TrendingUp,
-            color: "text-[#044b3b]",
-            bar: "bg-[#044b3b]",
-          },
-        ].map((s) => (
+        {bookingKpis.map((s) => (
           <div
             key={s.label}
             className="bg-white rounded-xl border border-emerald-100/60 p-3 sm:p-4 lg:p-2 xl:p-4 hover:shadow-md transition-shadow"
           >
             <div className="flex items-center justify-between gap-1 mb-2">
               <div className="w-8 h-8 sm:w-9 sm:h-9 lg:w-6 lg:h-6 xl:w-9 xl:h-9 rounded-lg bg-emerald-50/40 border border-emerald-100/60 flex items-center justify-center shrink-0">
-                {/* Six columns at exactly 1024px (sidebar expanded) leave ~104px
-                    per card. Measured: the value needs 62px at 14px and 80px at
-                    18px, beside a 36px icon — so the font steps back up only
-                    where the column is genuinely wider. Revenue must never
-                    ellipsis at lg+, hence the 2xl step rather than xl. */}
                 <s.icon size={14} className={`${s.color} lg:w-3 lg:h-3`} />
               </div>
               <span
@@ -785,6 +752,7 @@ export default function BookingsPage() {
             </button>
           )}
 
+          {canExport && (
           <button
             type="button"
             onClick={handleExport}
@@ -798,6 +766,7 @@ export default function BookingsPage() {
             )}
             Export CSV
           </button>
+          )}
 
           <button
             onClick={() => setShowBulkCancel(true)}
