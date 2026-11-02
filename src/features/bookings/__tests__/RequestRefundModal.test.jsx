@@ -68,12 +68,15 @@ function renderModal(props = {}) {
   );
 }
 
-async function fillRequiredForm(user, amount = "20") {
+async function fillRequiredForm(user, { amount } = {}) {
   await user.click(screen.getByRole("radio", { name: "Yes" }));
   const attendance = screen.getByText("Did the customer go on this tour?").closest("fieldset");
   await user.click(within(attendance).getByRole("radio", { name: "Yes" }));
   await user.selectOptions(screen.getByLabelText(/Reason for refund/i), "SERVICE_QUALITY");
-  await user.type(screen.getByLabelText(/Percentage of the booking/i), amount);
+  if (amount != null) {
+    await user.selectOptions(screen.getByLabelText(/Refund type/i), "AMOUNT");
+    await user.type(screen.getByLabelText(/Refund amount/i), String(amount));
+  }
 }
 
 beforeEach(() => {
@@ -85,26 +88,41 @@ beforeEach(() => {
 });
 
 describe("RequestRefundModal", () => {
-  it("shows the booking context and the server-provided balance", async () => {
-    const user = userEvent.setup();
+  it("shows the booking context, full amount and the server-provided balance", async () => {
     renderModal();
 
     expect(await screen.findByText("Cape Coast Castle Heritage Walk")).toBeInTheDocument();
     expect(screen.getByText(/Travel 30 Oct 2026/)).toBeInTheDocument();
-    await user.type(screen.getByLabelText(/Percentage of the booking/i), "20");
-    expect(screen.getByText("$3,025.00")).toBeInTheDocument();
+    expect(screen.getByLabelText(/Refund type/i)).toHaveValue("FULL");
+    expect(screen.getByText("Full remaining refund")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Refund amount/i)).not.toBeInTheDocument();
+    expect(screen.getAllByText("$3,025.00").length).toBeGreaterThan(0);
   });
 
-  it("blocks a percentage above 100 before it reaches the API", async () => {
+  it("blocks a specific amount above the refundable balance", async () => {
     const user = userEvent.setup();
     renderModal();
 
     await screen.findByText("Cape Coast Castle Heritage Walk");
-    await fillRequiredForm(user, "120");
+    await fillRequiredForm(user, { amount: "1200" });
 
-    expect(screen.getByText("A percentage cannot exceed 100.")).toBeInTheDocument();
+    expect(screen.getByText(/That is more than the \$900\.00 left to refund/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Submit refund request" })).toBeDisabled();
     expect(createRefundRequest).not.toHaveBeenCalled();
+  });
+
+  it("switches between full and specific amount without leaking the value", async () => {
+    const user = userEvent.setup();
+    renderModal();
+
+    await screen.findByText("Cape Coast Castle Heritage Walk");
+    await user.selectOptions(screen.getByLabelText(/Refund type/i), "AMOUNT");
+    await user.type(screen.getByLabelText(/Refund amount/i), "25");
+    expect(screen.getByLabelText(/Refund amount/i)).toHaveValue(25);
+
+    await user.click(screen.getByRole("button", { name: "Use full amount" }));
+    expect(screen.getByLabelText(/Refund type/i)).toHaveValue("FULL");
+    expect(screen.queryByLabelText(/Refund amount/i)).not.toBeInTheDocument();
   });
 
   it("asks the attendance question again after switching operated back to Yes", async () => {
@@ -143,7 +161,6 @@ describe("RequestRefundModal", () => {
     const attendance = screen.getByText("Did the customer go on this tour?").closest("fieldset");
     await user.click(within(attendance).getByRole("radio", { name: "Yes" }));
     await user.selectOptions(screen.getByLabelText(/Reason for refund/i), "OTHER");
-    await user.type(screen.getByLabelText(/Percentage of the booking/i), "20");
 
     expect(screen.getByText(/Add a note explaining the Other reason/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Submit refund request" })).toBeDisabled();
@@ -168,7 +185,7 @@ describe("RequestRefundModal", () => {
     expect(screen.getByText("$45.00")).toBeInTheDocument();
     expect(createRefundRequest).toHaveBeenCalledWith(
       "b1",
-      expect.objectContaining({ reasonCode: "SERVICE_QUALITY", value: 20, refundType: "PERCENT" }),
+      expect.objectContaining({ reasonCode: "SERVICE_QUALITY", value: 100, refundType: "PERCENT" }),
       { idempotencyKey: "test-idempotency-key" },
     );
     expect(onSubmitted).toHaveBeenCalled();

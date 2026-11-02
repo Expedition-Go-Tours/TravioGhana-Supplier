@@ -43,7 +43,7 @@ function BookingSummary({ booking, quote, currency, gross, refunded, refundable,
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5">
       <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
           <FileText size={17} />
         </span>
         <div className="min-w-0 flex-1">
@@ -89,7 +89,7 @@ function ChoiceGroup({ legend, name, value, onChange, options }) {
                 "flex cursor-pointer items-center justify-between gap-3 rounded-lg border px-3.5 py-2.5 text-sm font-medium transition-colors",
                 "focus-within:ring-2 focus-within:ring-primary-100",
                 selected
-                  ? "border-primary-500 bg-primary-50 text-primary-800"
+                  ? "border-primary-300 bg-primary-50 text-slate-900"
                   : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
               )}
             >
@@ -105,7 +105,7 @@ function ChoiceGroup({ legend, name, value, onChange, options }) {
                 aria-hidden="true"
                 className={cn(
                   "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2",
-                  selected ? "border-primary-600 bg-primary-600" : "border-slate-300 bg-white",
+                  selected ? "border-primary-400 bg-primary-400" : "border-slate-300 bg-white",
                 )}
               >
                 {selected && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
@@ -125,7 +125,7 @@ function SummaryRow({ label, value, tone = "default" }) {
       <span
         className={cn(
           "shrink-0 text-[13px] font-semibold tabular-nums",
-          tone === "danger" ? "text-danger-600" : tone === "primary" ? "text-primary-700" : "text-slate-900",
+          tone === "danger" ? "text-danger-600" : "text-slate-900",
         )}
       >
         {value}
@@ -142,7 +142,9 @@ export default function RequestRefundModal({ isOpen, onClose, booking, onSubmitt
   const [operated, setOperated] = useState(null);
   const [attended, setAttended] = useState(null);
   const [reasonCode, setReasonCode] = useState("");
-  const [refundType, setRefundType] = useState("PERCENT");
+  // FULL refunds the remaining refundable balance without an amount input.
+  // AMOUNT is the only mode that needs a typed value.
+  const [refundMode, setRefundMode] = useState("FULL");
   const [value, setValue] = useState("");
   const [note, setNote] = useState("");
 
@@ -208,15 +210,15 @@ export default function RequestRefundModal({ isOpen, onClose, booking, onSubmitt
   const openRequest = quote?.openRequest || null;
 
   const estimate = useMemo(() => {
-    const raw = Number(value);
+    const full = refundMode === "FULL";
+    const raw = full ? 100 : Number(value);
     if (!Number.isFinite(raw) || raw <= 0) {
       return { proposed: 0, charge: 0, capped: false, overPercent: false };
     }
 
-    let proposed = refundType === "PERCENT" ? (gross * raw) / 100 : raw;
-    const overPercent = refundType === "PERCENT" && raw > 100;
-    const overAmount = refundType === "AMOUNT" && proposed > refundable + 0.005;
-    if (refundType === "PERCENT") proposed = Math.min(proposed, refundable);
+    let proposed = full ? (gross * raw) / 100 : raw;
+    const overAmount = !full && proposed > refundable + 0.005;
+    if (full) proposed = Math.min(proposed, refundable);
 
     const isFull = proposed >= refundable - 0.005 && refunded === 0;
     const charge = isFull
@@ -228,10 +230,10 @@ export default function RequestRefundModal({ isOpen, onClose, booking, onSubmitt
     return {
       proposed: Math.max(0, Math.round(proposed * 100) / 100),
       charge: Math.max(0, Math.round(charge * 100) / 100),
-      capped: overPercent || overAmount,
-      overPercent,
+      capped: overAmount,
+      overPercent: false,
     };
-  }, [value, refundType, gross, refundable, supplierPayout, payoutSettled, refunded]);
+  }, [refundMode, value, gross, refundable, supplierPayout, payoutSettled, refunded]);
 
   const otherNeedsNote = reasonCode === "OTHER" && !note.trim();
   const balance = quote?.supplierBalance || null;
@@ -244,7 +246,7 @@ export default function RequestRefundModal({ isOpen, onClose, booking, onSubmitt
     (operated === false || attended !== null) &&
     !!reasonCode &&
     !otherNeedsNote &&
-    Number(value) > 0 &&
+    (refundMode === "FULL" || Number(value) > 0) &&
     estimate.proposed > 0 &&
     !estimate.capped &&
     !submitting;
@@ -254,9 +256,8 @@ export default function RequestRefundModal({ isOpen, onClose, booking, onSubmitt
   else if (operated === true && attended === null) missing.push("whether the customer attended");
   if (!reasonCode) missing.push("a reason");
   if (otherNeedsNote) missing.push("a note explaining the Other reason");
-  if (!(Number(value) > 0)) missing.push("a refund amount");
-  if (estimate.overPercent) missing.push("a percentage of 100 or less");
-  else if (estimate.capped) missing.push("an amount within the refundable balance");
+  if (refundMode === "AMOUNT" && !(Number(value) > 0)) missing.push("a refund amount");
+  if (estimate.capped) missing.push("an amount within the refundable balance");
 
   const savedPreview = result?.preview || estimate;
 
@@ -267,10 +268,10 @@ export default function RequestRefundModal({ isOpen, onClose, booking, onSubmitt
     setAttended(next === false ? false : null);
   }
 
-  function chooseRefundType(next) {
-    setRefundType(next);
-    // A percentage and a currency amount are not the same number. Clearing
-    // prevents a 20% input silently becoming 20 GHS.
+  function chooseRefundMode(next) {
+    setRefundMode(next);
+    // A full refund and a typed amount are different things. Clearing prevents
+    // a value typed in one mode from silently carrying into the other.
     setValue("");
   }
 
@@ -286,8 +287,8 @@ export default function RequestRefundModal({ isOpen, onClose, booking, onSubmitt
           operated,
           attended: operated === false ? false : attended,
           reasonCode,
-          refundType,
-          value: Number(value),
+          refundType: refundMode === "FULL" ? "PERCENT" : "AMOUNT",
+          value: refundMode === "FULL" ? 100 : Number(value),
           note: note.trim() || null,
         },
         { idempotencyKey },
@@ -336,7 +337,7 @@ export default function RequestRefundModal({ isOpen, onClose, booking, onSubmitt
         aria-labelledby="refund-modal-title"
         aria-describedby="refund-modal-description"
         tabIndex={-1}
-        className="relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl outline-none animate-in fade-in-0 zoom-in-95 duration-200 motion-reduce:animate-none sm:max-w-2xl sm:rounded-2xl"
+        className="relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl outline-none animate-in fade-in-0 zoom-in-95 duration-200 motion-reduce:animate-none sm:max-w-[560px] sm:rounded-2xl"
       >
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-5 py-5 sm:px-6">
           <div className="min-w-0">
@@ -414,8 +415,8 @@ export default function RequestRefundModal({ isOpen, onClose, booking, onSubmitt
               <div className="flex items-start gap-3 rounded-xl border border-success-200 bg-success-50 p-4">
                 <CheckCircle2 size={20} className="mt-0.5 shrink-0 text-success-600" />
                 <div>
-                  <p className="font-semibold text-success-800">Request submitted</p>
-                  <p className="mt-1 text-sm leading-relaxed text-success-800">
+                  <p className="font-semibold text-slate-900">Request submitted</p>
+                  <p className="mt-1 text-sm leading-relaxed text-slate-700">
                     {result.requestNumber ? `${result.requestNumber} is` : "Your request is"} waiting for Travio to review.
                     Nothing has been refunded yet — you will get an email once it is decided.
                   </p>
@@ -480,7 +481,7 @@ export default function RequestRefundModal({ isOpen, onClose, booking, onSubmitt
                   id="refund-reason"
                   value={reasonCode}
                   onChange={(event) => setReasonCode(event.target.value)}
-                  className="mt-1.5 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800 outline-none transition-colors focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+                  className="mt-1.5 h-11 w-full max-w-[320px] rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800 outline-none transition-colors focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
                 >
                   <option value="">Select a reason</option>
                   {(quote.reasons || []).map((reason) => (
@@ -489,83 +490,79 @@ export default function RequestRefundModal({ isOpen, onClose, booking, onSubmitt
                 </select>
               </div>
 
-              <div>
-                <span className="text-sm font-semibold text-slate-800">
-                  Refund type <span className="text-danger-500">*</span>
-                </span>
-                <div className="mt-1.5 grid grid-cols-2 gap-2" role="group" aria-label="Refund type">
-                  {[
-                    ["Percentage", "PERCENT"],
-                    ["Specific amount", "AMOUNT"],
-                  ].map(([label, type]) => (
-                    <button
-                      key={type}
-                      type="button"
-                      aria-pressed={refundType === type}
-                      onClick={() => chooseRefundType(type)}
+              <div className="grid gap-4 sm:grid-cols-[minmax(0,220px)_minmax(0,220px)]">
+                <div>
+                  <label htmlFor="refund-type" className="text-sm font-semibold text-slate-800">
+                    Refund type <span className="text-danger-500">*</span>
+                  </label>
+                  <select
+                    id="refund-type"
+                    value={refundMode}
+                    onChange={(event) => chooseRefundMode(event.target.value)}
+                    className="mt-1.5 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800 outline-none transition-colors focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
+                  >
+                    <option value="FULL">Full amount</option>
+                    <option value="AMOUNT">Specific amount</option>
+                  </select>
+                </div>
+
+                {refundMode === "FULL" ? (
+                  <div>
+                    <span className="text-sm font-semibold text-slate-800">Amount</span>
+                    <div className="mt-1.5 flex h-11 w-full items-center rounded-lg border border-primary-200 bg-primary-50 px-3">
+                      <span className="text-sm font-semibold tabular-nums text-slate-900">
+                        {money(refundable, currency)}
+                      </span>
+                    </div>
+                    <p className="mt-1.5 text-xs text-slate-500">Full remaining refund</p>
+                  </div>
+                ) : (
+                  <div>
+                    <label htmlFor="refund-amount" className="text-sm font-semibold text-slate-800">
+                      Refund amount <span className="text-danger-500">*</span>
+                    </label>
+                    <div
                       className={cn(
-                        "rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-100",
-                        refundType === type
-                          ? "border-primary-500 bg-primary-50 text-primary-800"
-                          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
+                        "mt-1.5 flex h-11 w-full overflow-hidden rounded-lg border bg-white transition-colors focus-within:ring-2",
+                        estimate.capped
+                          ? "border-danger-300 focus-within:border-danger-400 focus-within:ring-danger-100"
+                          : "border-slate-300 focus-within:border-slate-400 focus-within:ring-slate-100",
                       )}
                     >
-                      {label}
+                      <span className="flex items-center border-r border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-600">
+                        {currency}
+                      </span>
+                      <input
+                        id="refund-amount"
+                        type="number"
+                        min="0"
+                        max={refundable || undefined}
+                        step="0.01"
+                        inputMode="decimal"
+                        value={value}
+                        onChange={(event) => setValue(event.target.value)}
+                        placeholder="0.00"
+                        aria-invalid={estimate.capped}
+                        aria-describedby="refund-amount-help"
+                        className="w-full bg-transparent px-3 text-sm tabular-nums text-slate-800 outline-none"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => chooseRefundMode("FULL")}
+                      className="mt-1.5 inline-flex items-center rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                    >
+                      Use full amount
                     </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="refund-amount" className="text-sm font-semibold text-slate-800">
-                  {refundType === "PERCENT" ? "Percentage of the booking" : "Traveller refund amount"}{" "}
-                  <span className="text-danger-500">*</span>
-                </label>
-                <div
-                  className={cn(
-                    "mt-1.5 flex h-11 overflow-hidden rounded-lg border bg-white transition-colors focus-within:ring-2 focus-within:ring-primary-100",
-                    estimate.overPercent || estimate.capped
-                      ? "border-danger-300 focus-within:border-danger-400"
-                      : "border-slate-300 focus-within:border-primary-500",
-                  )}
-                >
-                  {refundType === "AMOUNT" && (
-                    <span className="flex items-center border-r border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-600">
-                      {currency}
-                    </span>
-                  )}
-                  <input
-                    id="refund-amount"
-                    type="number"
-                    min="0"
-                    max={refundType === "PERCENT" ? 100 : refundable || undefined}
-                    step={refundType === "PERCENT" ? "1" : "0.01"}
-                    inputMode="decimal"
-                    value={value}
-                    onChange={(event) => setValue(event.target.value)}
-                    placeholder={refundType === "PERCENT" ? "0" : "0.00"}
-                    aria-invalid={estimate.overPercent || estimate.capped}
-                    aria-describedby="refund-amount-help"
-                    className="w-full bg-transparent px-3 text-sm tabular-nums text-slate-800 outline-none"
-                  />
-                  {refundType === "PERCENT" && (
-                    <span className="flex items-center border-l border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-600">
-                      %
-                    </span>
-                  )}
-                </div>
-                <p id="refund-amount-help" className="mt-1.5 text-xs text-slate-500">
-                  {refundType === "PERCENT"
-                    ? `Up to 100% of the ${money(gross, currency)} booking. `
-                    : ""}
-                  Refundable balance: {money(refundable, currency)}.
-                </p>
-                {(estimate.overPercent || (estimate.capped && !estimate.overPercent)) && (
-                  <p role="alert" className="mt-1 text-xs text-danger-600">
-                    {estimate.overPercent
-                      ? "A percentage cannot exceed 100."
-                      : `That is more than the ${money(refundable, currency)} left to refund.`}
-                  </p>
+                    <p id="refund-amount-help" className="mt-1 text-xs text-slate-500">
+                      Refundable balance: {money(refundable, currency)}.
+                    </p>
+                    {estimate.capped && (
+                      <p role="alert" className="mt-1 text-xs text-danger-600">
+                        That is more than the {money(refundable, currency)} left to refund.
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -626,7 +623,7 @@ export default function RequestRefundModal({ isOpen, onClose, booking, onSubmitt
                   maxLength={1000}
                   placeholder="What happened, and anything we should know before approving."
                   aria-describedby="refund-note-help"
-                  className="mt-1.5 w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition-colors focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+                  className="mt-1.5 w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition-colors focus:border-slate-400 focus:ring-2 focus:ring-slate-100"
                 />
                 <div id="refund-note-help" className="mt-1 flex items-center justify-between gap-3 text-xs text-slate-500">
                   <span>{reasonCode === "OTHER" ? "Explain what happened." : "Shared with the Travio reviewer."}</span>
@@ -673,7 +670,7 @@ export default function RequestRefundModal({ isOpen, onClose, booking, onSubmitt
               <Link
                 to="/finance?tab=refunds"
                 onClick={onClose}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-600"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
               >
                 View in Finance <ArrowRight size={14} />
               </Link>
@@ -698,7 +695,7 @@ export default function RequestRefundModal({ isOpen, onClose, booking, onSubmitt
               <Link
                 to="/finance?tab=refunds"
                 onClick={onClose}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-600"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
               >
                 Track request <ArrowRight size={14} />
               </Link>
@@ -731,7 +728,7 @@ export default function RequestRefundModal({ isOpen, onClose, booking, onSubmitt
                     type="button"
                     onClick={handleSubmit}
                     disabled={!canSubmit}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {submitting && <Loader2 size={14} className="animate-spin" />}
                     {submitting ? "Submitting…" : "Submit refund request"}
