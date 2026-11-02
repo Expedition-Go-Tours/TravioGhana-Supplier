@@ -326,12 +326,23 @@ export async function fetchRefundQuote(bookingId) {
  * POST /bookings/:id/refund-requests — files a PENDING_APPROVAL request.
  * Resolves to { request } inside response.data.data.
  */
-export async function createRefundRequest(bookingId, payload) {
+export async function createRefundRequest(bookingId, payload, { idempotencyKey } = {}) {
   return api.post(
     `/travioghana/supplier/bookings/${bookingId}/refund-requests`,
     payload,
-    { skipGlobalErrorHandler: true }
+    {
+      skipGlobalErrorHandler: true,
+      ...(idempotencyKey ? { headers: { "Idempotency-Key": idempotencyKey } } : {}),
+    }
   );
+}
+
+/** Stable key for one modal mount, so a retry cannot file a second request. */
+export function newRefundRequestIdempotencyKey() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `refund-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
 }
 
 /** GET /refund-requests — the supplier's own requests, newest first. */

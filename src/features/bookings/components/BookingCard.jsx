@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useContext, useState, useCallback } from "react";
 import {
   ChevronDown,
   Users,
@@ -19,6 +19,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { BOOKING_STATUSES } from "@/lib/constants";
+import { TeamRoleContext } from "@/contexts/teamRoleContext";
 import { formatCurrency, formatDate, formatTime, cn } from "@/lib/utils";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import {
@@ -49,10 +50,10 @@ const STATUS_ACTIONS = {
   COMPLETED: [
     // Refunds on a delivered trip are a REQUEST (admin approves and the
     // supplier's balance pays). The label says "request" on purpose.
-    { value: "REFUND_REQUEST", label: "Refund customer", variant: "secondary" },
+    { value: "REFUND_REQUEST", label: "Request refund", variant: "secondary" },
   ],
   NO_SHOW: [
-    { value: "REFUND_REQUEST", label: "Refund customer", variant: "secondary" },
+    { value: "REFUND_REQUEST", label: "Request refund", variant: "secondary" },
   ],
   CANCELLED: [],
   REFUNDED: [],
@@ -171,6 +172,10 @@ export default function BookingCard({
   mutationError,
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
+  // The server is the authority, but a view-only teammate should not be shown
+  // money-moving buttons that can only end in a 403.
+  const teamRole = useContext(TeamRoleContext);
+  const canManage = !teamRole || teamRole.hasPermission?.("bookings.manage") !== false;
   const isPayLater = booking.paymentTiming === 'later';
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -180,7 +185,7 @@ export default function BookingCard({
   // A PAID PENDING booking (pay-later charged, or a manual-confirmation tour)
   // is awaiting the supplier's acceptance, so the Accept action must be shown.
   const payLaterUnpaid = isPayLater && booking.status === 'PENDING' && booking.paymentStatus !== 'SUCCEEDED';
-  const actions = (STATUS_ACTIONS[booking.status] || []).filter(
+  const actions = (canManage ? (STATUS_ACTIONS[booking.status] || []) : []).filter(
     (a) => !(payLaterUnpaid && a.value === 'CONFIRMED')
   ).filter(
     (a) => !(travelDatePassed && a.value === 'CONFIRMED')

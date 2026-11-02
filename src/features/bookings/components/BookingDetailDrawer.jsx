@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import {
   X,
   Loader2,
@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import StatusBadge from "@/components/shared/StatusBadge";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { BOOKING_STATUSES } from "@/lib/constants";
+import { TeamRoleContext } from "@/contexts/teamRoleContext";
 import { formatCurrency, formatDate, formatTime, cn } from "@/lib/utils";
 import {
   fetchBookingDetail,
@@ -324,6 +325,8 @@ function RescheduleForm({ booking, onMoved, onRefresh }) {
 }
 
 function StatusActions({ booking, onStatusUpdate, isUpdating, onChanged }) {
+  const teamRole = useContext(TeamRoleContext);
+  const canManage = !teamRole || teamRole.hasPermission?.("bookings.manage") !== false;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const travelDatePassed = new Date(booking.travelDate) < today;
@@ -333,6 +336,13 @@ function StatusActions({ booking, onStatusUpdate, isUpdating, onChanged }) {
     booking.paymentStatus !== "SUCCEEDED";
 
   const actions = [];
+  if (!canManage) {
+    return (
+      <p className="text-xs text-slate-500">
+        View-only access — managing this booking needs the bookings.manage permission.
+      </p>
+    );
+  }
   if (booking.status === "PENDING") {
     actions.push({
       value: "CONFIRMED",
@@ -369,7 +379,7 @@ function StatusActions({ booking, onStatusUpdate, isUpdating, onChanged }) {
     // completed booking dead-ended on "no further actions".
     actions.push({
       value: "REFUND_REQUEST",
-      label: "Refund customer",
+      label: "Request refund",
       variant: "secondary",
     });
   }

@@ -29,6 +29,9 @@ vi.mock("../api", () => ({
   updateBookingStatus: vi.fn(),
   cancelBookingStructured: vi.fn(),
   withdrawCancellationRequest: vi.fn(),
+  fetchRefundQuote: vi.fn(),
+  createRefundRequest: vi.fn(),
+  newRefundRequestIdempotencyKey: () => "test-key",
 }));
 
 vi.mock("@/stores/authStore", () => ({
