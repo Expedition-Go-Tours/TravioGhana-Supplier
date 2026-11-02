@@ -37,6 +37,7 @@ import {
 import { getAuthToken } from "@/stores/authStore";
 import BookingCard from "../components/BookingCard";
 import CancelBookingModal from "../components/CancelBookingModal";
+import RequestRefundModal from "../components/RequestRefundModal";
 import BookingDetailDrawer from "../components/BookingDetailDrawer";
 import BulkCancelWizard from "../components/BulkCancelWizard";
 import CancellationRequestsPanel from "../components/CancellationRequestsPanel";
@@ -66,6 +67,9 @@ export default function BookingsPage() {
   const [mutationErrors, setMutationErrors] = useState({});
   const [showFilters, setShowFilters] = useState(false);
   const [cancelBooking, setCancelBooking] = useState(null);
+  // Refund requests are a separate flow: nothing is cancelled, nothing moves
+  // until an admin approves.
+  const [refundBooking, setRefundBooking] = useState(null);
   const [showBulkCancel, setShowBulkCancel] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [view, setView] = useState("bookings"); // bookings | requests
@@ -296,6 +300,13 @@ export default function BookingsPage() {
       if (status === "CANCELLED") {
         const booking = bookings.find((b) => b.id === bookingId);
         setCancelBooking(booking || { id: bookingId, tour: {} });
+        return;
+      }
+      // Not a status change: opens the refund-request modal. Sending
+      // "REFUND_REQUEST" to PATCH /status would be rejected by the server.
+      if (status === "REFUND_REQUEST") {
+        const booking = bookings.find((b) => b.id === bookingId);
+        setRefundBooking(booking || { id: bookingId });
         return;
       }
       setUpdatingId(bookingId);
@@ -1013,6 +1024,15 @@ export default function BookingsPage() {
         booking={cancelBooking}
         isLoading={!!updatingId}
         onRefresh={() => loadBookings({ silent: true })}
+      />
+      <RequestRefundModal
+        // Remount per booking: the modal's state is per-request, so a second
+        // booking must never inherit the first one's form.
+        key={refundBooking?.id || "none"}
+        isOpen={!!refundBooking}
+        onClose={() => setRefundBooking(null)}
+        booking={refundBooking}
+        onSubmitted={() => loadBookings({ silent: true })}
       />
       <BulkCancelWizard
         isOpen={showBulkCancel}

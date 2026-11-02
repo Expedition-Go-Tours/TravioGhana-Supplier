@@ -303,6 +303,63 @@ export function withdrawCancellationRequest(id) {
   );
 }
 
+// ── Supplier-initiated refund requests ──
+//
+// The supplier asks, an admin decides, and the refund is charged to the
+// supplier's balance. Paths are written in full (not rewritten) because they
+// are new: /travioghana/supplier/* is where the routes live.
+
+/**
+ * GET /bookings/:id/refund-quote — what this booking can refund right now:
+ * the ceiling, the supplier's share, the allow-listed reasons, and any request
+ * already awaiting a decision. Server-computed; the modal never guesses.
+ */
+export async function fetchRefundQuote(bookingId) {
+  const response = await api.get(
+    `/travioghana/supplier/bookings/${bookingId}/refund-quote`,
+    { skipGlobalErrorHandler: true }
+  );
+  return response.data?.data || null;
+}
+
+/**
+ * POST /bookings/:id/refund-requests — files a PENDING_APPROVAL request.
+ * Resolves to { request } inside response.data.data.
+ */
+export async function createRefundRequest(bookingId, payload) {
+  return api.post(
+    `/travioghana/supplier/bookings/${bookingId}/refund-requests`,
+    payload,
+    { skipGlobalErrorHandler: true }
+  );
+}
+
+/** GET /refund-requests — the supplier's own requests, newest first. */
+export async function fetchRefundRequests({ status, page = 1, limit = 25 } = {}) {
+  const params = { page, limit };
+  if (status && status !== "ALL") params.status = status;
+  const response = await api.get("/travioghana/supplier/refund-requests", {
+    params,
+    skipGlobalErrorHandler: true,
+  });
+  const payload = response.data?.data || {};
+  return {
+    requests: payload.requests || [],
+    total: payload.total || 0,
+    page: payload.page || 1,
+    limit: payload.limit || limit,
+  };
+}
+
+/** POST /refund-requests/:id/withdraw — only possible while pending. */
+export function withdrawRefundRequest(id) {
+  return api.post(
+    `/travioghana/supplier/refund-requests/${id}/withdraw`,
+    null,
+    { skipGlobalErrorHandler: true }
+  );
+}
+
 export async function fetchCustomerBookings(customerId) {
   const response = await api.get("/bookings/supplier/bookings", {
     params: { customerId },
