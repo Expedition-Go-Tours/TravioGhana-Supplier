@@ -5,7 +5,7 @@ import {
   Loader2, Upload, Trash2, X, Plus, Building2,
   Wallet, Globe, MapPin, Clock, Phone, Save, Key, Eye, EyeOff,
   Landmark, Banknote, AlertTriangle, RefreshCw, Smartphone,
-  IdCard, ShieldCheck
+  IdCard, ShieldCheck, Link2, Check
 } from "lucide-react";
 import { toast } from "sonner";
 import PhoneInput from "@/components/forms/PhoneInput";
@@ -24,7 +24,7 @@ import {
   fetchPayoutMethods, createPayoutMethod, deletePayoutMethod,
   fetchPayouts, fetchPayoutSettings, fetchFinanceSummary,
   fetchTeamMembers, inviteTeamMember, removeTeamMember,
-  directAddTeamMember, resendInvite, revokeTeamInvite,
+  directAddTeamMember, resendInvite, revokeTeamInvite, fetchInviteLink,
   fetchTeamRoles, fetchTeamPermissionCatalog, updateTeamMemberRoles
 } from "../api";
 import { getAuthToken, useAuthStore } from "@/stores/authStore";
@@ -1460,6 +1460,12 @@ function SecurityTab() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  const user = useAuthStore((state) => state.user);
+  const updateUser = useAuthStore((state) => state.updateUser);
+  // A Google-only account has no password hash yet. Anything other than an
+  // explicit `false` means "normal account" so older stored sessions that
+  // predate the flag keep showing the change form.
+  const canChangePassword = user?.hasPassword !== false;
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
@@ -1471,14 +1477,29 @@ function SecurityTab() {
       toast.error("Password must be at least 8 characters");
       return;
     }
+    if (new TextEncoder().encode(form.newPassword).length > 72) {
+      toast.error("Password must be 72 bytes or fewer");
+      return;
+    }
+    if (canChangePassword && !form.currentPassword) {
+      toast.error("Enter your current password");
+      return;
+    }
     setSaving(true);
     try {
-      const api = (await import("@/lib/axios")).default;
-      await api.patch("/auth/change-password", {
-        currentPassword: form.currentPassword,
-        newPassword: form.newPassword,
-      });
-      toast.success("Password updated successfully");
+      if (canChangePassword) {
+        const api = (await import("@/lib/axios")).default;
+        await api.patch("/auth/change-password", {
+          currentPassword: form.currentPassword,
+          newPassword: form.newPassword,
+        });
+        toast.success("Password updated successfully");
+      } else {
+        const { setAccountPassword } = await import("@/features/auth/api");
+        await setAccountPassword(form.newPassword);
+        updateUser({ hasPassword: true });
+        toast.success("Password set. You can now sign in with email.");
+      }
       setForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
     } catch (err) {
       const msg = err.response?.data?.message || "Failed to update password";
@@ -1494,43 +1515,67 @@ function SecurityTab() {
             <Key size={16} className="text-emerald-600" />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-slate-800">Change Password</h2>
-            <p className="text-xs text-slate-500">Update your account password</p>
+            <h2 className="text-sm font-semibold text-slate-800">
+              {canChangePassword ? "Change Password" : "Set a password"}
+            </h2>
+            <p className="text-xs text-slate-500">
+              {canChangePassword
+                ? "Update your account password"
+                : "Add a password so you can sign in without Google"}
+            </p>
           </div>
         </div>
         <form onSubmit={handleChangePassword} className="px-6 py-5 space-y-4 max-w-md">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Current Password</label>
-            <div className="relative">
-              <input type={showCurrent ? "text" : "password"} value={form.currentPassword}
-                onChange={(e) => setForm((p) => ({ ...p, currentPassword: e.target.value }))}
-                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm pr-10 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" required />
-              <button type="button" onClick={() => setShowCurrent((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                {showCurrent ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
+          {!canChangePassword && (
+            <div className="flex items-start gap-2.5 rounded-xl border border-emerald-100 bg-emerald-50 px-3.5 py-3">
+              <ShieldCheck size={16} className="mt-0.5 shrink-0 text-emerald-600" />
+              <p className="text-xs leading-5 text-emerald-800">
+                You currently sign in with Google. Set a password to also sign in with your email address. You can keep using Google afterwards.
+              </p>
             </div>
-          </div>
+          )}
+          {canChangePassword && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Current Password</label>
+              <div className="relative">
+                <input type={showCurrent ? "text" : "password"} value={form.currentPassword}
+                  onChange={(e) => setForm((p) => ({ ...p, currentPassword: e.target.value }))}
+                  autoComplete="current-password"
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm pr-10 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" required />
+                <button type="button" onClick={() => setShowCurrent((v) => !v)}
+                  aria-label={showCurrent ? "Hide current password" : "Show current password"}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  {showCurrent ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+          )}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">New Password</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              {canChangePassword ? "New Password" : "Password"}
+            </label>
             <div className="relative">
               <input type={showNew ? "text" : "password"} value={form.newPassword}
                 onChange={(e) => setForm((p) => ({ ...p, newPassword: e.target.value }))}
+                autoComplete="new-password"
                 className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm pr-10 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" required />
               <button type="button" onClick={() => setShowNew((v) => !v)}
+                aria-label={showNew ? "Hide new password" : "Show new password"}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
                 {showNew ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
-            <p className="text-xs text-slate-400 mt-1">Minimum 8 characters with at least one uppercase, lowercase, and number</p>
+            <p className="text-xs text-slate-400 mt-1">At least 8 characters.</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Confirm New Password</label>
             <div className="relative">
               <input type={showConfirm ? "text" : "password"} value={form.confirmPassword}
                 onChange={(e) => setForm((p) => ({ ...p, confirmPassword: e.target.value }))}
+                autoComplete="new-password"
                 className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm pr-10 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 transition-all" required />
               <button type="button" onClick={() => setShowConfirm((v) => !v)}
+                aria-label={showConfirm ? "Hide confirmation" : "Show confirmation"}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
                 {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -1540,7 +1585,7 @@ function SecurityTab() {
             <button type="submit" disabled={saving}
               className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-all disabled:opacity-50 shadow-sm">
               {saving ? <Loader2 size={16} className="animate-spin" /> : <Key size={16} />}
-              Update Password
+              {canChangePassword ? "Update Password" : "Set Password"}
             </button>
           </div>
         </form>
@@ -1704,6 +1749,74 @@ function ResendButton({ email }) {
     <button onClick={handleResend} disabled={resending}
       className="p-1.5 text-slate-400 hover:text-emerald-600 rounded-lg hover:bg-emerald-50 transition-all disabled:opacity-50" title="Resend invitation">
       {resending ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+    </button>
+  );
+}
+
+function CopyInviteLinkButton({ memberId, email }) {
+  const [copying, setCopying] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const resetTimer = useRef(null);
+
+  useEffect(() => () => {
+    if (resetTimer.current) clearTimeout(resetTimer.current);
+  }, []);
+
+  const handleCopy = async () => {
+    setCopying(true);
+    try {
+      const data = await fetchInviteLink(memberId);
+      const url = data?.url;
+      if (!url) throw new Error("The invite link is empty");
+
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        // Older Safari and non-secure contexts do not expose the async API.
+        const field = document.createElement("textarea");
+        field.value = url;
+        field.setAttribute("readonly", "");
+        field.style.position = "fixed";
+        field.style.opacity = "0";
+        document.body.appendChild(field);
+        field.select();
+        document.execCommand("copy");
+        document.body.removeChild(field);
+      }
+
+      setCopied(true);
+      toast.success(`Invite link for ${email} copied. Paste it into WhatsApp or a message.`);
+      resetTimer.current = setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      const status = err?.response?.status;
+      if (status === 410) {
+        toast.error("That link has expired. Use Resend to create a fresh one.");
+      } else if (status === 409) {
+        toast.error("This invitation is no longer pending.");
+      } else {
+        toast.error(err?.response?.data?.message || "Could not copy the invite link");
+      }
+    } finally {
+      setCopying(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      disabled={copying}
+      aria-label={`Copy invite link for ${email}`}
+      title="Copy invite link"
+      className="p-1.5 text-slate-400 hover:text-emerald-600 rounded-lg hover:bg-emerald-50 transition-all disabled:opacity-50"
+    >
+      {copying ? (
+        <Loader2 size={14} className="animate-spin" />
+      ) : copied ? (
+        <Check size={14} className="text-emerald-600" />
+      ) : (
+        <Link2 size={14} />
+      )}
     </button>
   );
 }
@@ -2068,6 +2181,7 @@ function TeamTab() {
                       {/* justify-end pins the remove button to the same spot whether
                           or not a pending member also shows the resend button. */}
                       <div className="col-start-3 row-start-1 sm:col-start-5 flex items-center justify-end gap-0.5 shrink-0">
+                        {isPending && canManageTeam && <CopyInviteLinkButton memberId={m.id} email={m.email} />}
                         {isPending && canManageTeam && <ResendButton email={m.email} />}
                         {canManageTeam && (
                           <button

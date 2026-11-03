@@ -62,6 +62,34 @@ export async function fetchSupplierVerification(authToken = getAuthToken()) {
   };
 }
 
+export async function requestPasswordReset(email) {
+  const response = await api.post(
+    "/auth/forgot-password",
+    { email },
+    AUTH_REQUEST_OPTIONS
+  );
+  return response.data;
+}
+
+export async function resetPasswordWithToken(token, password) {
+  const response = await api.post(
+    "/auth/reset-password",
+    { token, password },
+    AUTH_REQUEST_OPTIONS
+  );
+  return response.data;
+}
+
+/** Set a password for a Google-only account (or change one, with the current password). */
+export async function setAccountPassword(newPassword, currentPassword) {
+  const response = await api.post(
+    "/auth/set-password",
+    currentPassword ? { newPassword, currentPassword } : { newPassword },
+    AUTH_REQUEST_OPTIONS
+  );
+  return response.data;
+}
+
 export async function loginWithEmail(email, password) {
   const response = await api.post(
     "/auth/login",

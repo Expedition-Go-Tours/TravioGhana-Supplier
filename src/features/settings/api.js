@@ -137,13 +137,34 @@ export async function fetchInviteDetails(token) {
   return response.data?.data || null;
 }
 
+/**
+ * Create the invitee's own account from the invitation.
+ *
+ * The email is deliberately NOT sent: the backend reads it from the token, so
+ * a forwarded link can never mint an account for a different address.
+ */
+export async function registerInvite(token, { name, password }) {
+  const response = await api.post(
+    `/suppliers/settings/team/invite/${token}/register`,
+    { name, password },
+    { skipGlobalErrorHandler: true },
+  );
+  return response.data?.data || null;
+}
+
 export async function acceptInvite(token) {
   const response = await api.post(`/suppliers/settings/team/invite/${token}/accept`, {}, { skipGlobalErrorHandler: true });
-  return response.data?.data?.member || null;
+  return response.data?.data || null;
 }
 
 export async function declineInvite(token) {
   return api.post(`/suppliers/settings/team/invite/${token}/decline`, {}, { skipGlobalErrorHandler: true });
+}
+
+/** A copyable invite URL for owners who send links over WhatsApp. */
+export async function fetchInviteLink(memberId) {
+  const response = await api.get(`/suppliers/settings/team/invite/${memberId}/link`, { skipGlobalErrorHandler: true });
+  return response.data?.data || null;
 }
 
 // Payout functions are shared from the finance feature to avoid duplication.

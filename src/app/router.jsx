@@ -2,7 +2,6 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 import AppShell from "@/components/layout/AppShell";
 import ProtectedRoute from "@/components/shared/ProtectedRoute";
 import RequirePageAccess from "@/components/shared/RequirePageAccess";
-import AuthOnlyRoute from "@/components/shared/AuthOnlyRoute";
 import GuestRoute from "@/components/shared/GuestRoute";
 import RootLayout, { ProductBuilderRedirect } from "./RootLayout";
 
@@ -25,6 +24,8 @@ import SpecialOfferBuilderPage from "@/features/special-offers/pages/SpecialOffe
 
 import AuthCallback from "@/features/auth/pages/AuthCallback";
 import LoginPage from "@/features/auth/pages/LoginPage";
+import ForgotPasswordPage from "@/features/auth/pages/ForgotPasswordPage";
+import ResetPasswordPage from "@/features/auth/pages/ResetPasswordPage";
 
 import SupplierStatusPage from "@/features/supplier/pages/SupplierStatusPage";
 import VerificationPage from "@/features/supplier/pages/VerificationPage";
@@ -46,17 +47,17 @@ export const router = createBrowserRouter([
         path: "/login",
         element: <GuestRoute><LoginPage /></GuestRoute>,
       },
+      { path: "/forgot-password", element: <ForgotPasswordPage /> },
+      { path: "/reset-password", element: <ResetPasswordPage /> },
+      // Public: an invitee without an account has no session yet, and the page
+      // itself decides whether to show sign-up, sign-in or Google. The token in
+      // the query string is the secret.
+      { path: "/team/invite", element: <TeamInvitePage /> },
       { path: "/supplier/status", element: <SupplierStatusPage /> },
       { path: "/error/404", element: <NotFoundPage /> },
       { path: "/error/500", element: <ServerErrorPage /> },
       { path: "/error/403", element: <ForbiddenPage /> },
       { path: "/error/network", element: <NetworkErrorPage /> },
-      {
-        element: <AuthOnlyRoute />,
-        children: [
-          { path: "/team/invite", element: <TeamInvitePage /> },
-        ],
-      },
       {
         element: <ProtectedRoute />,
         children: [
