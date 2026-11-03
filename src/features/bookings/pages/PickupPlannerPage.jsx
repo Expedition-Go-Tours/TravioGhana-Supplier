@@ -29,6 +29,7 @@ import EditPickupModal from "../components/pickup/EditPickupModal";
 import ExportMenu from "../components/pickup/ExportMenu";
 import SegmentedControl from "../components/pickup/SegmentedControl";
 import { resolvePickupState } from "../lib/pickupState";
+import { describeActionError } from "@/lib/errorHandler";
 
 const RANGE_OPTIONS = [
   { key: "today", label: "Today" },
@@ -209,8 +210,8 @@ export default function PickupPlannerPage() {
         )
       );
       loadPlanner();
-    } catch {
-      toast.error("Failed to update pickup");
+    } catch (err) {
+      toast.error(describeActionError(err, "Couldn't update pickup"));
     } finally {
       setPickedBusy(null);
     }
@@ -253,7 +254,7 @@ export default function PickupPlannerPage() {
       await persistDayOrder(dateKey, next);
       await loadPlanner();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to save the pickup order");
+      toast.error(describeActionError(err, "Couldn't save the pickup order"));
       loadPlanner();
     } finally {
       setReordering(false);
@@ -280,7 +281,7 @@ export default function PickupPlannerPage() {
       await persistDayOrder(dateKey, ids);
       await loadPlanner();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to save the pickup order");
+      toast.error(describeActionError(err, "Couldn't save the pickup order"));
       loadPlanner();
     } finally {
       setReordering(false);

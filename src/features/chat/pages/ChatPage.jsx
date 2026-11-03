@@ -12,6 +12,7 @@ import { getConversations, getOrCreateConversation, getMessages, sendMessage, ma
 import { useChatSocket } from "../hooks/useChatSocket";
 import { getChatSocket } from "../chatSocket";
 import { SHELL_GUTTER } from "@/components/layout/shell";
+import { describeActionError } from "@/lib/errorHandler";
 
 const PAGE_SIZE = 50;
 const TABS = [
@@ -214,8 +215,8 @@ export default function ChatPage() {
         // Refresh conversation list to ensure it includes the new conversation
         loadConversations();
       })
-      .catch(() => {
-        toast.error("Failed to open conversation");
+      .catch((err) => {
+        toast.error(describeActionError(err, "Couldn't open conversation"));
       });
   }, [customerIdParam, bookingIdParam, bookingNumberParam, tourTitleParam, currentUserId, conversations, handleSelectConversation, appendConversation, loadConversations]);
 

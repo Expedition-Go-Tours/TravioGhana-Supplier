@@ -25,6 +25,7 @@ import {
 } from "../../lib/pickupHelpers";
 import { resolvePickupState } from "../../lib/pickupState";
 import { updateBookingPickup } from "../../api";
+import { describeActionError } from "@/lib/errorHandler";
 
 const READ_ONLY_STATUSES = ["CANCELLED", "REFUNDED", "COMPLETED", "NO_SHOW"];
 const sameCoord = (a, b) => {
@@ -293,7 +294,7 @@ export default function EditPickupModal({ booking, onClose, onSaved }) {
       }
       onSaved();
     } catch (err) {
-      toast.error(err.response?.data?.message || err.message || "Failed to save pickup details");
+      toast.error(describeActionError(err, "Couldn't save pickup details"));
     } finally {
       setSaving(false);
     }

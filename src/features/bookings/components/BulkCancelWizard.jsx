@@ -21,6 +21,7 @@ import {
 import CancellationReasonWizard, {
   CancellationConfirmPanel,
 } from "./CancellationReasonWizard";
+import { describeActionError } from "@/lib/errorHandler";
 
 /**
  * GYG-style bulk cancellation wizard (Cancel multiple bookings):
@@ -206,7 +207,7 @@ export default function BulkCancelWizard({ isOpen, onClose, onCompleted }) {
       }
       onCompleted?.();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to cancel bookings");
+      toast.error(describeActionError(err, "Couldn't cancel bookings"));
     } finally {
       setSubmitting(false);
     }

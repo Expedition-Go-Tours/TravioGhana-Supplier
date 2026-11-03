@@ -48,15 +48,25 @@ function refusalMessage(error) {
 }
 
 /**
- * What to show when a user-initiated action fails. Pass the action so the
- * toast keeps its context:
- * "Couldn't update pickup — You don't have permission to perform this action.
- *  Ask the business owner to update your role."
+ * What to show when a user-initiated action fails. Pass the fallback the call
+ * site already used ("Couldn't update pickup") so:
+ *   - a refusal keeps its context AND says what happened and who fixes it:
+ *     "Couldn't update pickup — You don't have permission to perform this
+ *      action. Ask the business owner to update your role.";
+ *   - anything else behaves exactly as it did before (the server's own message
+ *     when it sent one, otherwise the fallback) — never axios's raw text.
  */
-export function describeActionError(error, action = '') {
-  if (getErrorType(error) !== ErrorType.FORBIDDEN) return getErrorMessage(error);
+export function describeActionError(error, fallback = '') {
+  if (getErrorType(error) !== ErrorType.FORBIDDEN) {
+    return (
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      fallback ||
+      getErrorMessage(error)
+    );
+  }
   const sentence = `${refusalMessage(error)} ${PERMISSION_HINT}`;
-  return action ? `${action} — ${sentence}` : sentence;
+  return fallback ? `${fallback} — ${sentence}` : sentence;
 }
 
 /**

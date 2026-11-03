@@ -24,8 +24,11 @@ import {
   withdrawRefundRequest,
 } from "../api";
 import { getAuthToken } from "@/stores/authStore";
+import { useTeamRole } from "@/hooks/useTeamRole";
+import { DENIED_ACTION_REASON } from "@/config/pageAccess";
 import { moneyLine, moneyTotal, hasPositiveAmount } from "../money";
 import { COUNTRIES, PAYOUT_METHOD_TYPES, maskTail } from "../config/payoutMethodForm";
+import { describeActionError } from "@/lib/errorHandler";
 
 const TABS = [
   { key: "earnings", label: "Earnings", icon: DollarSign },
@@ -396,7 +399,7 @@ export default function FinancePage() {
       toast.success("Payout method deleted");
       await loadData();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to delete payout method");
+      toast.error(describeActionError(err, "Couldn't delete payout method"));
     }
   };
 
@@ -444,10 +447,21 @@ export default function FinancePage() {
 
   const windowInfo = summary?.withdrawalWindow || null;
   const windowOpen = Boolean(windowInfo?.open);
+  // Payout actions are gated separately from opening this page: `finance.view`
+  // gets you the numbers, `payouts.request` / `payout-methods.manage` get you
+  // the buttons. A read-only finance role must see why a button is inert, not
+  // click it and read a 403.
+  const { hasPermission } = useTeamRole();
+  // The API accepts either key for payout methods (add and remove are both
+  // `payout-methods.manage` OR `payouts.request`), so the buttons must not be
+  // stricter than the server.
+  const canRequestPayoutMoney = hasPermission("payouts.request");
+  const canManageMethods =
+    hasPermission("payout-methods.manage") || hasPermission("payouts.request");
   // Only the legacy (unmigrated) flow has a request button: enrolled suppliers
   // are paid on their automatic invoice schedule and there is nothing to ask
   // for by hand. An open withdrawal window + eligible earnings enables it.
-  const canRequestPayout = windowOpen && hasAvailable && !summaryFailed;
+  const canRequestPayout = windowOpen && hasAvailable && !summaryFailed && canRequestPayoutMoney;
 
   // A payout that finance is already holding. While this exists the supplier has
   // no balance to ask for — the bookings have moved to REQUESTED — so the page
@@ -464,6 +478,7 @@ export default function FinancePage() {
   // an option: a disabled button does not emit pointer events, so the tooltip
   // never shows and the supplier is left with an unexplained grey box.
   const requestBlockedReason = useMemo(() => {
+    if (!canRequestPayoutMoney) return DENIED_ACTION_REASON;
     if (summaryFailed) return "We couldn't load your balance, so nothing can be requested right now.";
     if (inFlightRequest) return "Your payout is already in review.";
     if (!hasAvailable) return "Nothing is eligible to request yet.";
@@ -473,7 +488,7 @@ export default function FinancePage() {
         : "Early requests are not open right now.";
     }
     return null;
-  }, [summaryFailed, inFlightRequest, hasAvailable, windowOpen, windowInfo]);
+  }, [canRequestPayoutMoney, summaryFailed, inFlightRequest, hasAvailable, windowOpen, windowInfo]);
 
   // Automated payout schedule (twice a month / monthly).
   //
@@ -504,7 +519,7 @@ export default function FinancePage() {
       setShowRequestModal(false);
       await loadData();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to submit payout request");
+      toast.error(describeActionError(err, "Couldn't submit payout request"));
     } finally { setSubmittingRequest(false); }
   };
 
@@ -516,7 +531,7 @@ export default function FinancePage() {
       toast.success("Payout request cancelled");
       await loadData();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to cancel payout request");
+      toast.error(describeActionError(err, "Couldn't cancel payout request"));
     } finally { setCancellingRequestId(null); }
   };
 
@@ -552,7 +567,7 @@ export default function FinancePage() {
       setShowRefundModal(false);
       await loadData();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to submit refund request");
+      toast.error(describeActionError(err, "Couldn't submit refund request"));
     } finally { setSubmittingRefund(false); }
   };
 
@@ -564,7 +579,7 @@ export default function FinancePage() {
       toast.success("Refund request withdrawn");
       await loadData();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to withdraw refund request");
+      toast.error(describeActionError(err, "Couldn't withdraw refund request"));
     } finally { setWithdrawingDisputeId(null); }
   };
 
@@ -1725,14 +1740,22 @@ export default function FinancePage() {
               <div className="flex items-center justify-end">
                 <button
                   onClick={() => setShowMethodForm((v) => !v)}
+                  disabled={!canManageMethods}
                   className={cn(
                     "flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all",
-                    "bg-emerald-700 text-white hover:bg-emerald-800"
+                    canManageMethods
+                      ? "bg-emerald-700 text-white hover:bg-emerald-800"
+                      : "bg-gray-100 text-gray-400 cursor-not-allowed"
                   )}
                 >
                   <Plus size={16} />
                   Add method
                 </button>
+                {/* Visible, not a tooltip: a disabled button emits no pointer
+                    events, so the reason has to be on the page. */}
+                {!canManageMethods && (
+                  <p className="ml-3 text-xs text-gray-500 max-w-[260px]">{DENIED_ACTION_REASON}</p>
+                )}
               </div>
 
               <PayoutMethodFormSheet
@@ -1871,13 +1894,25 @@ export default function FinancePage() {
                                     <DetailRow label="Added" value={formatDate(method.createdAt)} />
                                   )}
                                   <div className="col-span-2 flex justify-end pt-2 border-t border-gray-100">
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); handleDeleteMethod(method.id); }}
-                                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                    >
-                                      <Trash2 size={14} />
-                                      Remove method
-                                    </button>
+                                    {/* The span keeps the hover alive: a
+                                        disabled button swallows pointer events,
+                                        so `title` on the button itself would
+                                        never render. */}
+                                    <span title={canManageMethods ? undefined : DENIED_ACTION_REASON}>
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleDeleteMethod(method.id); }}
+                                        disabled={!canManageMethods}
+                                        className={cn(
+                                          "flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors",
+                                          canManageMethods
+                                            ? "text-red-600 hover:bg-red-50"
+                                            : "text-gray-400 cursor-not-allowed"
+                                        )}
+                                      >
+                                        <Trash2 size={14} />
+                                        Remove method
+                                      </button>
+                                    </span>
                                   </div>
                                 </div>
                               </div>

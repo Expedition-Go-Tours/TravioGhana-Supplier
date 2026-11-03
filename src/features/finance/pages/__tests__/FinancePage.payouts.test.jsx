@@ -54,6 +54,13 @@ vi.mock('@/stores/authStore', () => ({
 vi.mock('@/features/refund-claims/pages/RefundClaimsPage', () => ({ default: () => null }));
 vi.mock('../../components/PayoutMethodFormSheet', () => ({ default: () => null }));
 
+// The page gates payout actions on `payouts.request` / `payout-methods.manage`.
+// These tests are about copy and layout, so the role may do everything; the
+// denial copy has its own test in config/pageAccess.
+vi.mock('@/hooks/useTeamRole', () => ({
+  useTeamRole: () => ({ hasPermission: () => true }),
+}));
+
 // Real layout, no animation: these tests are about what the page *says*, and
 // framer-motion's enter/exit cycle would leave elements mid-transition.
 // Motion-only props are stripped rather than destructured away, because

@@ -11,6 +11,7 @@ import { getMyProduct } from "@/features/products/api";
 import Step1Products from "@/features/special-offers/components/Step1Products";
 import Step2Details from "@/features/special-offers/components/Step2Details";
 import Step3Discount from "@/features/special-offers/components/Step3Discount";
+import { describeActionError } from "@/lib/errorHandler";
 
 const STEP_COMPONENTS = [Step1Products, Step2Details, Step3Discount];
 
@@ -204,7 +205,7 @@ export default function SpecialOfferBuilderPage() {
       markSaved();
       navigate("/special-offers");
     } catch (err) {
-      toast.error(err.response?.data?.message || err.message || "Failed to save offer");
+      toast.error(describeActionError(err, "Couldn't save offer"));
     } finally {
       setSaving(false);
     }

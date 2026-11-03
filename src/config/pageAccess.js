@@ -73,6 +73,21 @@ export function canOpenPath(hasPermission, pathname) {
 }
 
 /**
+ * Why a button the role may not use is inert.
+ *
+ * Opening a page and changing it are separate permissions (the catalog's
+ * `requires` only runs one way), so a role can legitimately hold, say,
+ * `availability.view` without `availability.manage`. The route guard cannot
+ * hide a button inside a page the role is allowed to open, so each button
+ * carries this reason itself:
+ *   - as a `title` on a wrapper SPAN when the button is icon-sized (a disabled
+ *     button emits no pointer events, so `title` on the button never renders);
+ *   - as visible text next to the control when there is room for a line.
+ */
+export const DENIED_ACTION_REASON =
+  "Your role can't do this. Ask the business owner to update your role.";
+
+/**
  * Settings tabs follow the same idea, one rule per tab: the key is what the
  * tab's WRITES require in the API, so nobody opens a form whose Save button is
  * guaranteed to 403. `security` carries no rule — every member may change

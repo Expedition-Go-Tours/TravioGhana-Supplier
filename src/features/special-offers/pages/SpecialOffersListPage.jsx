@@ -24,6 +24,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import { describeActionError } from "@/lib/errorHandler";
 
 const OFFER_TYPE_LABELS = { LIMITED_TIME: "Limited Time", EARLY_BIRD: "Early Bird", LAST_MINUTE: "Last Minute" };
 
@@ -52,7 +53,7 @@ export default function SpecialOffersListPage() {
     try {
       const res = await fetchSpecialOffers();
       setOffers(res.data?.data?.offers || []);
-    } catch { toast.error("Failed to load offers"); }
+    } catch (err) { toast.error(describeActionError(err, "Couldn't load offers")); }
     setLoading(false);
   }, []);
 
@@ -78,7 +79,7 @@ export default function SpecialOffersListPage() {
       toast.success("Offer deleted");
       setDeleteTarget(null);
       load();
-    } catch { toast.error("Failed to delete offer"); setDeleteTarget(null); }
+    } catch (err) { toast.error(describeActionError(err, "Couldn't delete offer")); setDeleteTarget(null); }
   };
   const cancelDelete = () => setDeleteTarget(null);
 
@@ -88,7 +89,7 @@ export default function SpecialOffersListPage() {
       const updated = res.data?.data?.offer;
       toast.success(updated?.isActive ? "Offer activated" : "Offer deactivated");
       load();
-    } catch { toast.error("Failed to toggle offer"); }
+    } catch (err) { toast.error(describeActionError(err, "Couldn't toggle offer")); }
   };
 
   const formatDate = (d) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -587,7 +588,7 @@ export default function SpecialOffersListPage() {
               toast.success(updated?.isActive ? "Offer activated" : "Offer deactivated");
               setSelectedOffer(null);
               load();
-            } catch { toast.error("Failed to toggle offer"); }
+            } catch (err) { toast.error(describeActionError(err, "Couldn't toggle offer")); }
           };
           const handleModalDelete = () => { setSelectedOffer(null); setDeleteTarget(o.id); };
 

@@ -26,6 +26,7 @@ import { groupTypeLabel } from "@/features/products/utils/groupTypeLabel";
 import { ACCOMMODATION_LABELS } from "@/features/products/utils/itineraryConstants";
 import DeleteModal from "@/components/ui/DeleteModal";
 import { SHELL_GUTTER, SHELL_MEASURE, SHELL_PADDING_Y } from "@/components/layout/shell";
+import { describeActionError } from "@/lib/errorHandler";
 
 function reorderPhotos(tour) {
   const rawPhotos = (tour?.photos || []).filter(Boolean);
@@ -377,7 +378,7 @@ export default function ProductDetailPage() {
     setDeleting(true);
     deleteProduct(id)
       .then(() => { toast.success("Product deleted successfully"); navigate("/products"); })
-      .catch((err) => { toast.error(err.response?.data?.message || err.message || "Failed to delete product"); })
+      .catch((err) => { toast.error(describeActionError(err, "Couldn't delete product")); })
       .finally(() => setDeleting(false));
   };
 

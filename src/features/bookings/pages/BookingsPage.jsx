@@ -43,6 +43,7 @@ import BulkCancelWizard from "../components/BulkCancelWizard";
 import CancellationRequestsPanel from "../components/CancellationRequestsPanel";
 import CreateBookingDrawer from "../components/CreateBookingDrawer";
 import { listMyProducts } from "@/features/products/api";
+import { describeActionError } from "@/lib/errorHandler";
 
 const QUICK_FILTERS = [
   { key: "ALL", label: "All bookings" },
@@ -395,9 +396,7 @@ export default function BookingsPage() {
           await loadBookings({ silent: true });
           return;
         }
-        toast.error(
-          err.response?.data?.message || "Failed to withdraw the request"
-        );
+        toast.error(describeActionError(err, "Couldn't withdraw the request"));
         throw err;
       }
     },
@@ -453,7 +452,7 @@ export default function BookingsPage() {
       URL.revokeObjectURL(url);
       toast.success("Bookings exported");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to export bookings");
+      toast.error(describeActionError(err, "Couldn't export bookings"));
     } finally {
       setExporting(false);
     }

@@ -9,6 +9,7 @@ import {
   extractHandle,
   buildSocialUrl,
 } from "./socialPlatforms";
+import { describeActionError } from "@/lib/errorHandler";
 
 const PANEL_WIDTH = 328;
 
@@ -94,7 +95,7 @@ export default function SocialMediaManager({ value = {}, onChange, onPersist, di
       toast.success(`${selected.name} link added`);
       close();
     } catch (err) {
-      toast.error(err.response?.data?.message || `Failed to save ${selected.name} link`);
+      toast.error(describeActionError(err, `Couldn't save ${selected.name} link`));
     } finally {
       setSaving(false);
     }
@@ -109,7 +110,7 @@ export default function SocialMediaManager({ value = {}, onChange, onPersist, di
       onChange(next);
       toast.success(`${platform.name} link removed`);
     } catch (err) {
-      toast.error(err.response?.data?.message || `Failed to remove ${platform.name} link`);
+      toast.error(describeActionError(err, `Couldn't remove ${platform.name} link`));
     } finally {
       setSaving(false);
     }

@@ -38,6 +38,7 @@ import {
 } from "../lib/formatTravelers";
 import { pickupDisplay } from "../lib/pickupHelpers";
 import useBodyScrollLock from "@/hooks/useBodyScrollLock";
+import { describeActionError } from "@/lib/errorHandler";
 
 /**
  * Booking detail panel — the GYG-style slide-over that opens from a booking
@@ -100,7 +101,7 @@ function NotesEditor({ booking, onSaved }) {
       toast.success("Note saved");
       onSaved?.();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to save the note");
+      toast.error(describeActionError(err, "Couldn't save the note"));
     } finally {
       setSaving(false);
     }

@@ -12,6 +12,7 @@ import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { fetchCancellationRequests, withdrawCancellationRequest } from "../api";
 import { cancellationRequestStatusLabel } from "../lib/cancellationReasons";
 import { WithdrawCancellationButton } from "./PendingCancellationBadge";
+import { describeActionError } from "@/lib/errorHandler";
 
 const STATUS_FILTERS = [
   { key: "PENDING_APPROVAL", label: "Pending" },
@@ -243,9 +244,7 @@ export default function CancellationRequestsPanel({ onWithdrawn }) {
           onWithdrawn?.();
           return;
         }
-        toast.error(
-          err.response?.data?.message || "Failed to withdraw the request"
-        );
+        toast.error(describeActionError(err, "Couldn't withdraw the request"));
         throw err;
       }
     },

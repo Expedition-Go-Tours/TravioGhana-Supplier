@@ -24,6 +24,7 @@ import {
 import { optimizeImage } from "@/lib/image";
 
 import { getChatSocket, isChatSocketConnected } from "../chatSocket";
+import { describeActionError } from "@/lib/errorHandler";
 
 const ADMIN_SUPPORT_ID = config.support?.adminId || "";
 const POLL_INTERVAL = 30000;
@@ -405,8 +406,8 @@ export default function SupportFloating() {
         prev.map((c) => c.id === conv.id ? { ...c, updatedAt: msg.createdAt, messages: [msg] } : c)
       );
       requestAnimationFrame(() => scrollToBottom(true));
-    } catch {
-      toast.error("Failed to send message");
+    } catch (err) {
+      toast.error(describeActionError(err, "Couldn't send message"));
     } finally {
       setSending(false);
     }
@@ -432,8 +433,8 @@ export default function SupportFloating() {
     try {
       const { url, type } = await uploadChatImage(file);
       await handleSend("", { url, type });
-    } catch {
-      toast.error("Failed to upload image");
+    } catch (err) {
+      toast.error(describeActionError(err, "Couldn't upload image"));
     }
     e.target.value = "";
   }, [handleSend]);
@@ -734,7 +735,7 @@ export default function SupportFloating() {
                                       setConversations((prev) => prev.some((c) => c.id === conv.id) ? prev : [conv, ...prev]);
                                       getChatSocket(currentUserId).emit("chat:join", { conversationId: conv.id });
                                       loadAndSetMessages(conv.id);
-                                    } catch { toast.error("Failed to start conversation"); }
+                                    } catch (err) { toast.error(describeActionError(err, "Couldn't start conversation")); }
                                   }}
                                   className="group flex w-full items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-left shadow-sm transition-all duration-200 hover:border-emerald-600/30 hover:shadow-md hover:-translate-y-0.5"
                                 >

@@ -14,6 +14,7 @@ import {
   canOpenPath,
   canOpenSettingsTab,
   pageAccessFor,
+  DENIED_ACTION_REASON,
 } from '../pageAccess';
 import {
   ADMIN_ONLY_PERMISSIONS,
@@ -182,5 +183,20 @@ describe('canOpenSettingsTab', () => {
     const tabs = Object.keys(SETTINGS_TAB_ACCESS)
       .filter((tab) => canOpenSettingsTab((p) => has([TEAM_ROLES.SUPPORT], p), tab));
     expect(tabs).toEqual(['notifications', 'security']);
+  });
+});
+
+describe('actions a role can see but may not perform', () => {
+  it('opens the notifications page for a role that holds no permissions at all', () => {
+    // The inbox is the member's own, filtered to their assigned categories —
+    // so it carries no permission rule, and a zero-permission role still gets
+    // a working page rather than a redirect loop.
+    expect(PAGE_ACCESS['/notifications']).toBeNull();
+    expect(canOpenPath(() => false, '/notifications')).toBe(true);
+  });
+
+  it('names the reason an action is inert, so the member knows who fixes it', () => {
+    expect(DENIED_ACTION_REASON).toContain("can't do this");
+    expect(DENIED_ACTION_REASON).toContain('business owner');
   });
 });

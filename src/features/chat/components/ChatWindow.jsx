@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useContext } from "react";
 import { Send, ChevronDown, ChevronLeft, Paperclip } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -9,6 +9,9 @@ import { optimizeImage } from "@/lib/image";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { CHAT_BG_STYLE } from "../utils/chatBackground";
 import { useAuthStore } from "@/stores/authStore";
+import { describeActionError } from "@/lib/errorHandler";
+import { TeamRoleContext } from "@/contexts/teamRoleContext";
+import { DENIED_ACTION_REASON } from "@/config/pageAccess";
 
 function formatDateSeparator(dateStr) {
   const d = new Date(dateStr);
@@ -62,6 +65,12 @@ const MessageSkeleton = ({ align = "left" }) => (
 
 export default function ChatWindow({ conversation, messages, messageStatuses, onSendMessage, onLoadMore, hasMore, loading, loadingMore, sending, currentUserId, onOpenDetails, showDetailsButton, showBackButton, onBack }) {
   const currentUser = useAuthStore((s) => s.user);
+  // Reading a conversation and replying are separate permissions. Read the
+  // context directly (not useTeamRole) so this component still renders in
+  // tests that mount it without the provider, where "no context" means the
+  // caller has already decided what it may do.
+  const teamRole = useContext(TeamRoleContext);
+  const canRespond = !teamRole || teamRole.hasPermission?.("chat.respond") !== false;
   const [input, setInput] = useState("");
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [adminTyping, setAdminTyping] = useState(false);
@@ -199,8 +208,8 @@ export default function ChatWindow({ conversation, messages, messageStatuses, on
     try {
       const { url, type } = await uploadChatImage(file);
       await onSendMessage("", { url, type });
-    } catch {
-      toast.error("Failed to upload image");
+    } catch (err) {
+      toast.error(describeActionError(err, "Couldn't upload image"));
     }
     e.target.value = "";
   };
@@ -382,13 +391,27 @@ export default function ChatWindow({ conversation, messages, messageStatuses, on
       )}
 
       <div className="border-t border-slate-200 bg-white px-3 py-2 sm:px-4 sm:py-3">
+        {!canRespond && (
+          <p className="mb-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-[11px] leading-4 text-amber-800">
+            View only — {DENIED_ACTION_REASON}
+          </p>
+        )}
         <div className="flex items-end gap-2">
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
-          >
-            <Paperclip className="h-[18px] w-[18px]" />
-          </button>
+          {/* The span keeps the hover alive: a disabled button swallows
+              pointer events, so `title` on the button itself never renders. */}
+          <span title={canRespond ? undefined : DENIED_ACTION_REASON}>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={!canRespond}
+              className={`flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl transition-colors ${
+                canRespond
+                  ? "text-slate-400 hover:text-emerald-600 hover:bg-emerald-50"
+                  : "text-slate-300 cursor-not-allowed"
+              }`}
+            >
+              <Paperclip className="h-[18px] w-[18px]" />
+            </button>
+          </span>
           <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" />
           <div className="relative flex-1">
             <textarea
@@ -396,20 +419,22 @@ export default function ChatWindow({ conversation, messages, messageStatuses, on
               value={input}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              placeholder="Type a message..."
+              placeholder={canRespond ? "Type a message..." : "Your role can't reply to customers"}
               rows={1}
-              disabled={loading || sending}
+              disabled={loading || sending || !canRespond}
               className="w-full resize-none overflow-y-hidden rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300 focus:bg-white transition-all disabled:opacity-50"
               style={{ maxHeight: "120px" }}
             />
           </div>
-          <button
-            onClick={handleSend}
-            disabled={!input.trim() || loading || sending}
-            className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white transition-all hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <Send className="h-[18px] w-[18px]" />
-          </button>
+          <span title={canRespond ? undefined : DENIED_ACTION_REASON}>
+            <button
+              onClick={handleSend}
+              disabled={!input.trim() || loading || sending || !canRespond}
+              className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white transition-all hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Send className="h-[18px] w-[18px]" />
+            </button>
+          </span>
         </div>
       </div>
       </div>

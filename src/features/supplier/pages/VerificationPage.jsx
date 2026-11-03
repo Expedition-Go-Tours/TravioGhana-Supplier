@@ -22,6 +22,7 @@ import {
 import { fetchSupplierVerification } from "@/features/auth/api";
 import { replaceDocument, addDocument, addVehicle, removeVehicle, addGuide, removeGuide } from "@/features/supplier/api";
 import { formatDate } from "@/lib/utils";
+import { describeActionError } from "@/lib/errorHandler";
 
 const DOC_LABEL = (type) =>
   (type || "Other").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -484,7 +485,7 @@ export default function VerificationPage() {
       toast.success("Document re-uploaded — it's back under review");
       refresh();
     },
-    onError: () => toast.error("Failed to upload replacement"),
+    onError: (err) => toast.error(describeActionError(err, "Couldn't upload replacement")),
   });
 
   const handleReplace = (doc, file) => replaceMutation.mutate({ doc, file });
@@ -503,8 +504,8 @@ export default function VerificationPage() {
         toast.success("Document uploaded — it's now under review");
       }
       refresh();
-    } catch {
-      toast.error("Failed to upload document");
+    } catch (err) {
+      toast.error(describeActionError(err, "Couldn't upload document"));
     }
   };
 
@@ -523,8 +524,8 @@ export default function VerificationPage() {
         toast.success("Document uploaded — it's now under review");
       }
       refresh();
-    } catch {
-      toast.error("Failed to upload document");
+    } catch (err) {
+      toast.error(describeActionError(err, "Couldn't upload document"));
     }
   };
 
@@ -544,8 +545,8 @@ export default function VerificationPage() {
       setDocForm(emptyDocForm);
       setShowDocForm(false);
       refresh();
-    } catch {
-      toast.error("Failed to add document");
+    } catch (err) {
+      toast.error(describeActionError(err, "Couldn't add document"));
     } finally {
       setDocSaving(false);
     }
@@ -574,8 +575,8 @@ export default function VerificationPage() {
       setVehicleForm(emptyVehicle);
       setShowVehicleForm(false);
       refresh();
-    } catch {
-      toast.error("Failed to add vehicle");
+    } catch (err) {
+      toast.error(describeActionError(err, "Couldn't add vehicle"));
     } finally {
       setVehicleSaving(false);
     }
@@ -586,8 +587,8 @@ export default function VerificationPage() {
       await removeVehicle(id);
       toast.success("Vehicle removed");
       refresh();
-    } catch {
-      toast.error("Failed to remove vehicle");
+    } catch (err) {
+      toast.error(describeActionError(err, "Couldn't remove vehicle"));
     }
   };
 
@@ -612,8 +613,8 @@ export default function VerificationPage() {
       setGuideForm(emptyGuide);
       setShowGuideForm(false);
       refresh();
-    } catch {
-      toast.error("Failed to add guide");
+    } catch (err) {
+      toast.error(describeActionError(err, "Couldn't add guide"));
     } finally {
       setGuideSaving(false);
     }
@@ -624,8 +625,8 @@ export default function VerificationPage() {
       await removeGuide(id);
       toast.success("Guide removed");
       refresh();
-    } catch {
-      toast.error("Failed to remove guide");
+    } catch (err) {
+      toast.error(describeActionError(err, "Couldn't remove guide"));
     }
   };
 

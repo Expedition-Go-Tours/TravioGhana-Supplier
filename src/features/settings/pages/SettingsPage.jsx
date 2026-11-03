@@ -43,6 +43,7 @@ import { emptyWeeklyHours, normalizeWeeklyHours, validateOperatingHours } from "
 import { PayoutScheduleEditor } from "@/features/finance/components/PayoutScheduleCard";
 import { GHANA_REGIONS } from "../utils/regions";
 import { isIndividualSupplier } from "../utils/supplierKind";
+import { describeActionError } from "@/lib/errorHandler";
 
 /**
  * Masks an ID number so verification data is visible without being exposed in
@@ -274,7 +275,7 @@ function ProfileTab() {
       if (user) useAuthStore.getState().updateUser(user);
       toast.success("Personal info updated");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to update personal info");
+      toast.error(describeActionError(err, "Couldn't update personal info"));
     } finally { setSaving(false); }
   };
 
@@ -328,7 +329,7 @@ function ProfileTab() {
       setInitialOperatingRegions([...operatingRegions]);
       toast.success(isIndividual ? "Profile updated" : "Business profile updated");
     } catch (err) {
-      toast.error(err.response?.data?.message || (isIndividual ? "Failed to update profile" : "Failed to update business profile"));
+      toast.error(describeActionError(err, isIndividual ? "Couldn't update profile" : "Couldn't update business profile"));
     } finally { setSaving(false); }
   };
 
@@ -360,7 +361,7 @@ function ProfileTab() {
         toast.success("Logo uploaded");
         setLogoFile(null); setLogoPreview(null);
       }
-    } catch (err) { toast.error(err.response?.data?.message || "Failed to upload logo"); }
+    } catch (err) { toast.error(describeActionError(err, "Couldn't upload logo")); }
     finally { setUploadingLogo(false); }
   };
 
@@ -370,7 +371,7 @@ function ProfileTab() {
       setCurrentLogoUrl(null);
       useAuthStore.getState().updateUser({ logoUrl: null });
       toast.success("Logo removed");
-    } catch { toast.error("Failed to remove logo"); }
+    } catch (err) { toast.error(describeActionError(err, "Couldn't remove logo")); }
   };
 
   const hasPersonalChanges = initialForm && JSON.stringify({
@@ -868,7 +869,7 @@ function NotificationsTab() {
       if (data) setPrefs(data);
       toast.success("Notification preferences updated");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to update preferences");
+      toast.error(describeActionError(err, "Couldn't update preferences"));
     } finally { setSaving(false); }
   };
 
@@ -1256,7 +1257,7 @@ function PayoutsTab() {
       toast.success("Payout method removed");
       await loadData();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to remove payout method");
+      toast.error(describeActionError(err, "Couldn't remove payout method"));
     }
   };
 
@@ -1648,7 +1649,7 @@ function TaxTab() {
       await updateTaxInfo(form);
       toast.success("Tax information updated");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to update tax info");
+      toast.error(describeActionError(err, "Couldn't update tax info"));
     } finally { setSaving(false); }
   };
 
@@ -1739,7 +1740,7 @@ function ResendButton({ email }) {
       if (emailSent) toast.success("Invitation resent to " + email);
       else toast.warning("A new link was created for " + email + ", but the email could not be sent.");
     } catch (err) {
-      toast.error(err?.response?.data?.message || "Failed to resend invitation");
+      toast.error(describeActionError(err, "Couldn't resend invitation"));
     } finally {
       setResending(false);
     }
@@ -1933,7 +1934,7 @@ function TeamTab() {
       setForm({ email: "", roles: ["editor"], customRoleIds: [] });
       setShowInvite(false);
     } catch (err) {
-      toast.error(err?.response?.data?.message || "Failed to send invitation");
+      toast.error(describeActionError(err, "Couldn't send invitation"));
     } finally {
       setSending(false);
     }
@@ -1960,7 +1961,7 @@ function TeamTab() {
       setEditingRole(null);
       toast.success("Roles updated successfully");
     } catch (err) {
-      toast.error(err?.response?.data?.message || "Failed to update role");
+      toast.error(describeActionError(err, "Couldn't update role"));
     }
   };
 
@@ -1981,7 +1982,7 @@ function TeamTab() {
       }
       setMemberToRemove(null);
     } catch (err) {
-      toast.error(err?.response?.data?.message || (isPending ? "Failed to cancel invitation" : "Failed to remove member"));
+      toast.error(describeActionError(err, isPending ? "Couldn't cancel invitation" : "Couldn't remove member"));
     }
   };
 

@@ -75,11 +75,21 @@ describe('errorHandler', () => {
     });
 
     it('leaves every other failure exactly as it was', () => {
+      // The server's own message still wins, so a validation or provider error
+      // reads the way it always did.
       expect(describeActionError({ response: { status: 500, data: { message: 'Database paused' } } })).toBe(
         'Database paused',
       );
       expect(describeActionError({ code: 'ECONNABORTED', message: 'timeout of 30000ms exceeded' })).toBe(
         'Request timed out. Please try again.',
+      );
+    });
+
+    it('falls back to the call site wording when the failure carries no message', () => {
+      // A network error has no response body; axios's raw "Network Error" must
+      // never reach a toast — the action's own words do.
+      expect(describeActionError({ message: 'Network Error' }, "Couldn't delete offer")).toBe(
+        "Couldn't delete offer",
       );
     });
   });

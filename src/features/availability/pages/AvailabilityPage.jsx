@@ -49,6 +49,9 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import { describeActionError } from "@/lib/errorHandler";
+import { useTeamRole } from "@/hooks/useTeamRole";
+import { DENIED_ACTION_REASON } from "@/config/pageAccess";
 
 const STATUS_CONFIG = {
   available: { label: "Available", dot: "bg-emerald-500", badge: "text-emerald-700 bg-emerald-50 border-emerald-200", bar: "bg-emerald-400", icon: CheckCircle2 },
@@ -80,6 +83,12 @@ function monthRange(date) {
 export default function AvailabilityPage() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
+  // Opening the calendar and changing it are separate permissions, so a
+  // read-only role lands here and must not be able to press Apply. Every write
+  // control in this page sits inside one disabled fieldset plus the two range
+  // buttons in the toolbar.
+  const { hasPermission } = useTeamRole();
+  const canManage = hasPermission("availability.manage");
 
   const tourFromUrl = searchParams.get("tour") || "";
   const dateFromUrl = searchParams.get("date") || format(new Date(), "yyyy-MM-dd");
@@ -243,13 +252,13 @@ export default function AvailabilityPage() {
         ? removeDateOverride(tourId, date)
         : updateDateAvailability(tourId, date, { status }),
     onSuccess: (_, vars) => { toast.success(vars?.unblock ? "Date unblocked" : "Date blocked"); queryClient.invalidateQueries({ queryKey: ["tour-availability", tourId] }); },
-    onError: (e) => { toast.error(e.response?.data?.message || "Failed to update"); },
+    onError: (e) => { toast.error(describeActionError(e, "Couldn't update")); },
   });
 
   const revertMut = useMutation({
     mutationFn: ({ tourId, date }) => removeDateOverride(tourId, date),
     onSuccess: () => { toast.success("Reverted to template"); queryClient.invalidateQueries({ queryKey: ["tour-availability", tourId] }); },
-    onError: (e) => { toast.error(e.response?.data?.message || "Failed to revert"); },
+    onError: (e) => { toast.error(describeActionError(e, "Couldn't revert")); },
   });
 
   const capacityMut = useMutation({
@@ -260,7 +269,7 @@ export default function AvailabilityPage() {
       setCapacityDraft(String(vars.capacity ?? day?.baseCapacity ?? ""));
       queryClient.invalidateQueries({ queryKey: ["tour-availability", tourId] });
     },
-    onError: (e) => { toast.error(e.response?.data?.message || "Failed to update day limit"); },
+    onError: (e) => { toast.error(describeActionError(e, "Couldn't update day limit")); },
   });
 
   const minMut = useMutation({
@@ -274,7 +283,7 @@ export default function AvailabilityPage() {
       setMinDraft(vars.minParticipants === null ? "" : String(vars.minParticipants));
       queryClient.invalidateQueries({ queryKey: ["tour-availability", tourId] });
     },
-    onError: (e) => { toast.error(e.response?.data?.message || "Failed to update minimum travelers"); },
+    onError: (e) => { toast.error(describeActionError(e, "Couldn't update minimum travelers")); },
   });
 
   const slotCutoffMut = useMutation({
@@ -284,7 +293,7 @@ export default function AvailabilityPage() {
       toast.success(vars.slotCutoffs && Object.keys(vars.slotCutoffs).length > 0 ? "Cut-off times updated" : "Default cut-off updated");
       queryClient.invalidateQueries({ queryKey: ["tour-availability", tourId] });
     },
-    onError: (e) => { toast.error(e.response?.data?.message || "Failed to update cut-off times"); },
+    onError: (e) => { toast.error(describeActionError(e, "Couldn't update cut-off times")); },
   });
 
   const openPanel = useCallback((date) => {
@@ -623,14 +632,23 @@ export default function AvailabilityPage() {
           <span className="w-1.5 h-1.5 rounded-full bg-[#044b3b]" />
           <span className="text-[11px] text-slate-400">Override</span>
         </div>
-        <button
-          type="button"
-          onClick={() => setRangeBlockOpen((v) => !v)}
-          className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-[11px] sm:text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-800 transition-all ml-auto"
-        >
-          <Ban size={11} />
-          Block a date range
-        </button>
+        {/* A disabled button emits no pointer events, so the reason lives on
+            the wrapper span, which still takes the hover. */}
+        <span title={canManage ? undefined : DENIED_ACTION_REASON}>
+          <button
+            type="button"
+            onClick={() => setRangeBlockOpen((v) => !v)}
+            disabled={!canManage}
+            className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg border text-[11px] sm:text-xs font-medium transition-all ml-auto ${
+              canManage
+                ? "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-800"
+                : "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
+            }`}
+          >
+            <Ban size={11} />
+            Block a date range
+          </button>
+        </span>
       </div>
 
       {/* ====== BULK BLOCK PANEL ====== */}
@@ -674,7 +692,7 @@ export default function AvailabilityPage() {
               <button
                 type="button"
                 onClick={handleBlockRange}
-                disabled={rangeDates.length === 0 || rangeSubmitting}
+                disabled={rangeDates.length === 0 || rangeSubmitting || !canManage}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-red-600 text-white hover:bg-red-700 disabled:bg-slate-200 disabled:text-slate-400 transition-colors"
               >
                 {rangeSubmitting && <Loader2 size={13} className="animate-spin" />}
@@ -856,7 +874,20 @@ export default function AvailabilityPage() {
             </div>
 
             {/* === PANEL BODY === */}
-            <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6">
+            {/* One disabled fieldset covers every write control in this panel
+                (Apply, Remove day limit, block/unblock, cutoffs): a read-only
+                role can open the calendar and still not change it. The reason
+                is a visible line, not a tooltip — a disabled control does not
+                emit pointer events. */}
+            <fieldset
+              disabled={!canManage}
+              className="flex-1 overflow-y-auto px-5 py-5 space-y-6 min-w-0 border-0"
+            >
+              {!canManage && (
+                <p className="rounded-xl border border-amber-100 bg-amber-50 px-3.5 py-2.5 text-xs leading-5 text-amber-800">
+                  View only — {DENIED_ACTION_REASON}
+                </p>
+              )}
 
               {/* --- Automatic status --- */}
               <div>
@@ -1169,7 +1200,7 @@ export default function AvailabilityPage() {
                   <span>{selectedDay.status === "blocked" ? "This date is manually blocked" : "An override is active for this date"}</span>
                 </div>
               )}
-            </div>
+            </fieldset>
 
             {/* === PANEL FOOTER === */}
             {confirmingBlock ? (
@@ -1201,7 +1232,7 @@ export default function AvailabilityPage() {
                   </button>
                   <button
                     onClick={handleBlockConfirm}
-                    disabled={pending || selectedDay.booked > 0}
+                    disabled={pending || selectedDay.booked > 0 || !canManage}
                     className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                   >
                     {blockMut.isPending ? <RefreshCw size={14} className="animate-spin" /> : <Ban size={14} />}
@@ -1215,7 +1246,7 @@ export default function AvailabilityPage() {
                   {selectedDay.hasOverride && selectedDay.status !== "blocked" && (
                     <button
                       onClick={handleRevert}
-                      disabled={pending}
+                      disabled={pending || !canManage}
                       className="flex-1 flex items-center justify-center gap-2 px-3 py-2 border border-slate-200 bg-white rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors disabled:opacity-50 shadow-sm"
                     >
                       <Undo2 size={13} /> Revert
@@ -1223,7 +1254,7 @@ export default function AvailabilityPage() {
                   )}
                   <button
                     onClick={handleBlockAction}
-                    disabled={pending}
+                    disabled={pending || !canManage}
                     className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm disabled:opacity-50 ${
                       selectedDay.status === "blocked"
                         ? "bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100"

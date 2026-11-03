@@ -23,6 +23,7 @@ import { loadSupplierProfile } from "@/features/auth/api";
 import { replaceDocument } from "@/features/supplier/api";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
+import { describeActionError } from "@/lib/errorHandler";
 
 const STATUS_CONFIG = {
   PENDING: {
@@ -344,8 +345,8 @@ function DocumentStatusRow({ doc, onReplaced }) {
       await replaceDocument(doc.id, file);
       toast.success("Document re-uploaded — it's back under review");
       onReplaced();
-    } catch {
-      toast.error("Failed to upload replacement");
+    } catch (err) {
+      toast.error(describeActionError(err, "Couldn't upload replacement"));
     } finally {
       setUploading(false);
       e.target.value = "";

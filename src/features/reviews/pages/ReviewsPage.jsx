@@ -40,6 +40,9 @@ import {
 } from "../api";
 import { getAuthToken } from "@/stores/authStore";
 import { fetchCustomerBookings } from "@/features/bookings/api";
+import { describeActionError } from "@/lib/errorHandler";
+import { useTeamRole } from "@/hooks/useTeamRole";
+import { DENIED_ACTION_REASON } from "@/config/pageAccess";
 
 const REVIEW_TABS = [
   { key: "all", label: "All Reviews", status: undefined },
@@ -490,6 +493,11 @@ export default function ReviewsPage() {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerBookings, setCustomerBookings] = useState([]);
   const [customerBookingsLoading, setCustomerBookingsLoading] = useState(false);
+  // Reading reviews and replying to them are separate permissions: `reviews.view`
+  // opens this page, `reviews.respond` is what replying and flagging need. A
+  // read-only role gets the buttons disabled with the reason on the page.
+  const { hasPermission } = useTeamRole();
+  const canRespond = hasPermission("reviews.respond");
 
   const currentTab = REVIEW_TABS.find((t) => t.key === activeTab) || REVIEW_TABS[0];
 
@@ -589,9 +597,17 @@ export default function ReviewsPage() {
     return () => { cancelled = true; };
   }, [highlightId, reviews, loading]);
 
-  const handleOpenReply = (review) => setReplyTarget(review);
+  const handleOpenReply = (review) => {
+    // Also covers the `?reply=1` deep link, which would otherwise open a modal
+    // whose submit can only 403.
+    if (!canRespond) { toast.error(DENIED_ACTION_REASON); return; }
+    setReplyTarget(review);
+  };
 
-  const handleOpenFlag = (review) => setFlagTarget(review);
+  const handleOpenFlag = (review) => {
+    if (!canRespond) { toast.error(DENIED_ACTION_REASON); return; }
+    setFlagTarget(review);
+  };
 
   const handleSubmitFlag = async (review, { reason, comment }) => {
     setFlagSaving(true);
@@ -601,7 +617,7 @@ export default function ReviewsPage() {
       setFlagTarget(null);
       await loadReviews();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to flag review");
+      toast.error(describeActionError(err, "Couldn't flag review"));
     } finally {
       setFlagSaving(false);
     }
@@ -620,7 +636,7 @@ export default function ReviewsPage() {
       setReplyTarget(null);
       await loadReviews();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to save response");
+      toast.error(describeActionError(err, "Couldn't save response"));
     } finally {
       setSubmitting(false);
     }
@@ -633,7 +649,7 @@ export default function ReviewsPage() {
       toast.success("Response removed");
       await loadReviews();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to remove response");
+      toast.error(describeActionError(err, "Couldn't remove response"));
     }
   };
 
@@ -943,13 +959,20 @@ export default function ReviewsPage() {
                           Flagged for review
                         </span>
                       ) : (
-                        <button
-                          onClick={() => handleOpenFlag(review)}
-                          title="Flag this review"
-                          className="p-2 text-slate-300 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
-                        >
-                          <Flag size={16} />
-                        </button>
+                        <span title={canRespond ? undefined : DENIED_ACTION_REASON}>
+                          <button
+                            onClick={() => handleOpenFlag(review)}
+                            disabled={!canRespond}
+                            title="Flag this review"
+                            className={`p-2 rounded-lg transition-all ${
+                              canRespond
+                                ? "text-slate-300 hover:text-amber-500 hover:bg-amber-50"
+                                : "text-slate-200 cursor-not-allowed"
+                            }`}
+                          >
+                            <Flag size={16} />
+                          </button>
+                        </span>
                       )}
                     </div>
                   </div>
@@ -1021,26 +1044,40 @@ export default function ReviewsPage() {
                   {/* Reply action */}
                   {!review.supplierResponse && (
                     <div className="mt-4 flex items-center gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all duration-200">
-                      <button
-                        onClick={() => handleOpenReply(review)}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/60 rounded-xl hover:bg-emerald-100 hover:border-emerald-300 transition-all"
-                      >
-                        <MessageSquare size={13} />
-                        Reply to this review
-                      </button>
+                      <span title={canRespond ? undefined : DENIED_ACTION_REASON}>
+                        <button
+                          onClick={() => handleOpenReply(review)}
+                          disabled={!canRespond}
+                          className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl border transition-all ${
+                            canRespond
+                              ? "text-emerald-700 bg-emerald-50 border-emerald-200/60 hover:bg-emerald-100 hover:border-emerald-300"
+                              : "text-slate-400 bg-slate-50 border-slate-200 cursor-not-allowed"
+                          }`}
+                        >
+                          <MessageSquare size={13} />
+                          Reply to this review
+                        </button>
+                      </span>
                     </div>
                   )}
 
                   {/* Always show reply/edit for replied reviews */}
                   {review.supplierResponse && (
                     <div className="mt-3 flex items-center gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all duration-200">
-                      <button
-                        onClick={() => handleOpenReply(review)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-500 border border-slate-200 rounded-xl hover:bg-slate-50 hover:text-slate-700 transition-all"
-                      >
-                        <Pen size={12} />
-                        Edit response
-                      </button>
+                      <span title={canRespond ? undefined : DENIED_ACTION_REASON}>
+                        <button
+                          onClick={() => handleOpenReply(review)}
+                          disabled={!canRespond}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border rounded-xl transition-all ${
+                            canRespond
+                              ? "text-slate-500 border-slate-200 hover:bg-slate-50 hover:text-slate-700"
+                              : "text-slate-400 border-slate-200 bg-slate-50 cursor-not-allowed"
+                          }`}
+                        >
+                          <Pen size={12} />
+                          Edit response
+                        </button>
+                      </span>
                     </div>
                   )}
                 </div>

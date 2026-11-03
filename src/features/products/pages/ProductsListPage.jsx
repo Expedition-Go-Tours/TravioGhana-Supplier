@@ -23,6 +23,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { describeActionError } from "@/lib/errorHandler";
+import { useTeamRole } from "@/hooks/useTeamRole";
+import { DENIED_ACTION_REASON } from "@/config/pageAccess";
 
 function extractPrice(tour) {
   try {
@@ -150,6 +153,11 @@ export default function ProductsListPage() {
   const location = useLocation();
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
+  // Opening the catalogue and deleting from it are separate permissions
+  // (`tours.view` vs `tours.delete`), so a read-only role sees the list but
+  // not a live delete button.
+  const { hasPermission } = useTeamRole();
+  const canDelete = hasPermission("tours.delete");
   const [viewMode, setViewMode] = useState("grid");
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -175,7 +183,7 @@ export default function ProductsListPage() {
       });
     },
     onError: (err) => {
-      toast.error(err.response?.data?.message || err.message || "Failed to delete product");
+      toast.error(describeActionError(err, "Couldn't delete product"));
     },
   });
 
@@ -551,13 +559,20 @@ export default function ProductsListPage() {
                             >
                               <Edit size={14} />
                             </button>
-                            <button
-                              onClick={() => setDeleteTarget(product)}
-                              className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                            <span title={canDelete ? undefined : DENIED_ACTION_REASON}>
+                              <button
+                                onClick={() => setDeleteTarget(product)}
+                                disabled={!canDelete}
+                                className={`p-1.5 rounded-lg transition-colors ${
+                                  canDelete
+                                    ? "text-slate-400 hover:text-red-500 hover:bg-red-50"
+                                    : "text-slate-300 cursor-not-allowed"
+                                }`}
+                                title="Delete"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </span>
                           </>
                         )}
                       </div>
@@ -642,13 +657,20 @@ export default function ProductsListPage() {
                           {usingSupplierEndpoint && product.storefront !== "EXPEDITION" && (
                             <>
                               <button onClick={() => navigate(`/products/build/${product.id}/type`)} className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Edit"><Edit size={14} /></button>
-                              <button
-                                onClick={() => setDeleteTarget(product)}
-                                className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                title="Delete"
-                              >
-                                <Trash2 size={14} />
-                              </button>
+                              <span title={canDelete ? undefined : DENIED_ACTION_REASON}>
+                                <button
+                                  onClick={() => setDeleteTarget(product)}
+                                  disabled={!canDelete}
+                                  className={`p-1.5 rounded-lg transition-colors ${
+                                    canDelete
+                                      ? "text-slate-400 hover:text-red-500 hover:bg-red-50"
+                                      : "text-slate-300 cursor-not-allowed"
+                                  }`}
+                                  title="Delete"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </span>
                             </>
                           )}
                         </div>
