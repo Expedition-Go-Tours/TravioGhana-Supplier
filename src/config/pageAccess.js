@@ -37,8 +37,12 @@ export const PAGE_ACCESS = {
   "/analytics": "analytics.view",
   // KYC documents and fleet/guides belong to the account owner.
   "/verification": "verification.view",
-  // Notifications are per-account alerts: every member has their own inbox.
-  "/notifications": "notifications.view",
+  // Notifications are per-account alerts: every member has their own inbox,
+  // and it is filtered to the categories assigned to their role — so this page
+  // opens for every role (`null`), exactly as the header note promises. The
+  // `notifications.view` key stays in the catalog for stored roles but gates
+  // nothing: a member with notifications assigned must not be refused by it.
+  "/notifications": null,
   // Settings tabs are gated inside the page (each tab has its own key).
   "/settings": null,
 };
@@ -106,8 +110,13 @@ export const LANDING_PRIORITY = [
   "/reviews",
   "/finance",
   "/analytics",
-  "/notifications",
+  // Settings last-but-one on purpose: `/notifications` is open to every role
+  // (it is a member's own inbox), so listing it first would make it the
+  // landing page for any role that can open nothing else — and Settings,
+  // where a locked-out member can still see who they are and change their
+  // password, is the more useful destination.
   "/settings",
+  "/notifications",
 ];
 
 export function firstAllowedPath(hasPermission) {

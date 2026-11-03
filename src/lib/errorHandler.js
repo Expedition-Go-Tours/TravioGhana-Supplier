@@ -16,6 +16,50 @@ export const ErrorType = {
 };
 
 /**
+ * The one refusal a role can produce, in one wording.
+ *
+ * A member who clicks something their role cannot do must be told that plainly
+ * — never "Failed to save", which reads as a broken feature — and told who
+ * fixes it. The backend answers the same sentence from every guard
+ * (`code: PERMISSION_DENIED`), so this stays in step with it.
+ */
+export const PERMISSION_ACTION = "You don't have permission to perform this action.";
+export const PERMISSION_HINT = 'Ask the business owner to update your role.';
+export const PERMISSION_MESSAGE = `${PERMISSION_ACTION} ${PERMISSION_HINT}`;
+
+// Refusals that already ARE the sentence above, rewritten so the hint always
+// lands. Anything else — "Supplier access required" — is a membership problem,
+// not a role one, and sending the member to the owner to fix a role for that
+// sends them to the wrong place.
+const GENERIC_REFUSALS = new Set([
+  PERMISSION_ACTION,
+  'You do not have permission to perform this action',
+  'You do not have permission for this action',
+  "You don't have permission to access this resource.",
+]);
+
+function refusalMessage(error) {
+  const server = (error.response?.data?.message || '').trim();
+  if (!server) return PERMISSION_ACTION;
+  if (GENERIC_REFUSALS.has(server)) return PERMISSION_ACTION;
+  // The backend writes refusals without terminal punctuation; the toast is a
+  // sentence, so close it before the hint joins on.
+  return /[.!?]$/.test(server) ? server : `${server}.`;
+}
+
+/**
+ * What to show when a user-initiated action fails. Pass the action so the
+ * toast keeps its context:
+ * "Couldn't update pickup — You don't have permission to perform this action.
+ *  Ask the business owner to update your role."
+ */
+export function describeActionError(error, action = '') {
+  if (getErrorType(error) !== ErrorType.FORBIDDEN) return getErrorMessage(error);
+  const sentence = `${refusalMessage(error)} ${PERMISSION_HINT}`;
+  return action ? `${action} — ${sentence}` : sentence;
+}
+
+/**
  * Error Messages Map
  */
 const errorMessages = {
@@ -25,7 +69,7 @@ const errorMessages = {
   [ErrorType.VALIDATION]: 'Validation error. Please check your input.',
   [ErrorType.SERVER]: 'Server error. Please try again later.',
   [ErrorType.NOT_FOUND]: 'Resource not found.',
-  [ErrorType.FORBIDDEN]: "You don't have permission to access this resource.",
+  [ErrorType.FORBIDDEN]: PERMISSION_MESSAGE,
   [ErrorType.UNKNOWN]: 'An unexpected error occurred.',
 };
 
@@ -62,6 +106,13 @@ export function getErrorMessage(error) {
   // user toast — always use the friendly mapped copy instead.
   if (errorType === ErrorType.TIMEOUT) {
     return errorMessages[ErrorType.TIMEOUT];
+  }
+
+  // A refusal always lands on the one sentence plus who fixes it, whatever the
+  // guard happened to call it. (describeActionError does not call back here for
+  // this branch, so there is no recursion.)
+  if (errorType === ErrorType.FORBIDDEN) {
+    return describeActionError(error);
   }
 
   // Try to get message from response

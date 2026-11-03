@@ -116,8 +116,11 @@ export default function DashboardPage() {
     if (canOpen(path)) navigate(path, options);
   };
 
-  const canSeeNotifications = hasPermission("notifications.view")
-    && (uiPreferences?.dashboard?.panels === undefined || uiPreferences.dashboard.panels.includes("notifications"));
+  // The panel is the member's own inbox, filtered to the categories their role
+  // was assigned — the same rule as the Notifications page, so it opens for
+  // every role and only the owner's panel preference hides it.
+  const canSeeNotifications =
+    uiPreferences?.dashboard?.panels === undefined || uiPreferences.dashboard.panels.includes("notifications");
   const canSeeRevenue = (hasPermission("dashboard.revenue.view") || hasPermission("analytics.revenue.view"))
     && (uiPreferences?.dashboard?.panels === undefined || uiPreferences.dashboard.panels.includes("revenue"));
   const canSeeCancellation = hasPermission("cancellation.view")
