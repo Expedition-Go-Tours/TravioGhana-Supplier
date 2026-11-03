@@ -17,7 +17,7 @@ import LocationMapPicker from "@/components/shared/LocationMapPicker";
 import StatusBadge from "@/components/shared/StatusBadge";
 import PickupMapPreview from "../PickupMapPreview";
 import PickupStatePill from "./PickupStatePill";
-import { formatDate, formatDateTime, formatTime, cn } from "@/lib/utils";
+import { formatDate, formatTravelDate, formatDateTime, formatTime, cn } from "@/lib/utils";
 import {
   pickupCoords,
   pickupDisplay,
@@ -299,7 +299,7 @@ export default function EditPickupModal({ booking, onClose, onSaved }) {
     }
   };
 
-  const dateLabel = booking?.travelDate ? formatDate(booking.travelDate) : "";
+  const dateLabel = booking?.travelDate ? formatTravelDate(booking.travelDate) : "";
   const bookingTimeLabel = booking?.selectedTime ? formatTime(booking.selectedTime) : "";
 
   return (

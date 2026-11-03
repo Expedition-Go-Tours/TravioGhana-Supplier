@@ -1,13 +1,16 @@
+import { formatTravelDate } from "@/lib/utils";
+
 /**
  * Customer rows for the header search palette.
  *
  * The palette could jump to pages and products but had no notion of people, so
  * searching a customer's name found nothing even when they had bookings. The
  * data comes from the same server-side booking search the Bookings page uses
- * (`GET /bookings/supplier/bookings?search=`), which matches booking number,
- * customer name, customer email and tour title.
+ * (`GET /bookings/supplier/bookings?search=`), which matches the reference,
+ * the account name and email, the LEAD TRAVELLER'S name and email, the guest
+ * identity on a supplier-created reservation, and the tour title.
  *
- * Two honesty rules:
+ * Three honesty rules:
  *
  *  - NO FABRICATED COUNTS. The endpoint returns a page of bookings, not a
  *    per-customer total, so "3 bookings" would be "3 of however many we
@@ -15,7 +18,17 @@
  *    their most relevant activity date.
  *  - ONE ROW PER PERSON. Several bookings in the sample collapse to a single
  *    customer row — searching a name must not return the same face five times.
+ *  - NO PLACEHOLDER PEOPLE. `mapBookingRow` answers "—" for a name it does not
+ *    have. A row built from that is not a person, and its link would be
+ *    `?search=—`, which can only ever return nothing: a booking with no
+ *    account is grouped by its traveller, and a row with neither is dropped.
  */
+
+/** `mapBookingRow`'s fallbacks are placeholders, not identities. */
+function cleanName(value) {
+  const name = typeof value === 'string' ? value.trim() : '';
+  return name && name !== '—' && name !== '-' ? name : '';
+}
 
 /** A booking row as `mapBookingRow` produces it (see features/bookings/api). */
 function activityOf(row) {
@@ -45,45 +58,54 @@ export function customerActivityLine(bookings) {
       .sort((a, b) => new Date(b.travelDate) - new Date(a.travelDate))[0];
   if (!chosen) return "";
 
-  const date = new Date(chosen.travelDate).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  const date = formatTravelDate(chosen.travelDate);
   return `${upcoming ? "Next" : "Last"}: ${date}${chosen.tourName ? ` · ${chosen.tourName}` : ""}`;
 }
 
 /** The one-line subtitle: email first (it is what separates two "Kwames"). */
 export function customerSubtitle(customer) {
   const activity = customerActivityLine(customer.bookings || []);
-  return [customer.email, activity].filter(Boolean).join(" · ");
+  // A booking with no account is named for its traveller, so the line says so
+  // rather than implying there is a customer profile behind the row.
+  const kind = customer.guest ? "Guest booking" : "";
+  return [kind, customer.email, activity].filter(Boolean).join(" · ");
 }
 
 /**
- * Collapse a page of booking rows into distinct customers, keeping every
- * booking of theirs that was in the sample (the activity line picks from
- * them). Order is preserved — the server already ranked the matches.
+ * Collapse a page of booking rows into distinct people, keeping every booking
+ * of theirs that was in the sample (the activity line picks from them). Order
+ * is preserved — the server already ranked the matches.
+ *
+ * Accountless rows (guest checkouts, supplier-created reservations) group by
+ * the LEAD TRAVELLER: that is who the booking is for, and it is the name the
+ * card and the search both use.
  */
 export function groupCustomerResults(rows) {
-  const byCustomer = new Map();
+  const byPerson = new Map();
   for (const row of rows || []) {
-    const key = row.customerId || row.customerEmail || row.customerName;
+    const accountName = cleanName(row.customerName);
+    const travellerName = cleanName(row.leadTravelerName);
+    const hasAccount = Boolean(row.customerId || row.customerEmail || accountName);
+    const name = hasAccount ? accountName || travellerName : travellerName;
+    const email = (hasAccount ? row.customerEmail : row.leadTravelerEmail) || "";
+    const key = (hasAccount && (row.customerId || row.customerEmail)) || name || email;
     if (!key) continue;
 
-    const existing = byCustomer.get(key);
+    const existing = byPerson.get(key);
     if (existing) {
       existing.bookings.push(activityOf(row));
       continue;
     }
-    byCustomer.set(key, {
+    byPerson.set(key, {
       id: row.customerId || "",
-      name: row.customerName || "Unknown customer",
-      email: row.customerEmail || "",
+      name: name || "Unknown customer",
+      email,
+      guest: !hasAccount,
       bookings: [activityOf(row)],
     });
   }
 
-  return [...byCustomer.values()].map((customer) => ({
+  return [...byPerson.values()].map((customer) => ({
     ...customer,
     subtitle: customerSubtitle(customer),
   }));
@@ -97,11 +119,15 @@ export function groupCustomerResults(rows) {
  * payload), and the server's search matches the real address — so searching
  * for the relay would find nothing. `customerId` is exact and needs no name
  * matching, which also means two "Kwames" never share a link.
+ *
+ * A booking with no account has no id to scope by, so it falls back to a
+ * search for the traveller's name — which the server matches — and to the bare
+ * page when there is no usable name at all, never to `?search=—`.
  */
 export function customerBookingsPath(customer) {
   if (customer.id) return `/bookings?customerId=${encodeURIComponent(customer.id)}`;
-  // Legacy rows without an id: fall back to a name search.
-  return `/bookings?search=${encodeURIComponent(customer.name || "")}`;
+  const term = cleanName(customer.name);
+  return term ? `/bookings?search=${encodeURIComponent(term)}` : "/bookings";
 }
 
 /** The secondary action: open the conversation with this customer. */

@@ -20,7 +20,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { BOOKING_STATUSES } from "@/lib/constants";
 import { TeamRoleContext } from "@/contexts/teamRoleContext";
-import { formatCurrency, formatDate, formatTime, cn } from "@/lib/utils";
+import { formatCurrency, formatDate, formatTravelDate, formatTime, cn } from "@/lib/utils";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import {
   formatPartySummary,
@@ -286,7 +286,7 @@ export default function BookingCard({
           <span className="flex items-center gap-1 min-w-0">
             <CalendarDays size={12} className="shrink-0 text-slate-400" />
             <span className="truncate">
-              {formatDate(booking.travelDate)}
+              {formatTravelDate(booking.travelDate)}
               {booking.selectedTime && ` · ${formatTime(booking.selectedTime)}`}
             </span>
           </span>
@@ -376,7 +376,7 @@ export default function BookingCard({
           <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-slate-400">
             <CalendarDays size={12} className="shrink-0" />
             <span className="whitespace-nowrap">
-              {formatDate(booking.travelDate)}
+              {formatTravelDate(booking.travelDate)}
               {booking.selectedTime && ` · ${formatTime(booking.selectedTime)}`}
             </span>
             <span className="text-slate-300">·</span>
@@ -594,7 +594,7 @@ export default function BookingCard({
                       Activity date
                     </p>
                     <p className="text-sm font-medium text-slate-800">
-                      {formatDate(booking.travelDate)}
+                      {formatTravelDate(booking.travelDate)}
                     </p>
                   </div>
                   <div>

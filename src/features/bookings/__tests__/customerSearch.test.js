@@ -127,3 +127,66 @@ describe('customerSubtitle', () => {
     expect(row.subtitle.indexOf('kwame@example.com')).toBeLessThan(row.subtitle.indexOf('Next:'));
   });
 });
+
+/**
+ * A booking with no account behind it — a guest checkout or a supplier-created
+ * reservation — has no `customerId`, and `mapBookingRow` answers "—" for the
+ * account name. These used to group into one person called "—" whose link was
+ * `?search=—`, a search that can only return nothing.
+ */
+describe('bookings with no account', () => {
+  const guestBooking = (over = {}) => ({
+    id: 'b-g1',
+    bookingNumber: 'TRG-74688375-2026-89',
+    customerId: '',
+    customerName: '—',
+    customerEmail: '',
+    leadTravelerName: 'Thomas Rhodes',
+    leadTravelerEmail: 'thomas@example.com',
+    tourName: 'Accra Guided City Tour',
+    travelDate: FUTURE,
+    ...over,
+  });
+
+  it('groups the row by its traveller, not by the placeholder', () => {
+    const rows = groupCustomerResults([guestBooking()]);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].name).toBe('Thomas Rhodes');
+    expect(rows[0].id).toBe('');
+    expect(rows[0].guest).toBe(true);
+    expect(rows[0].name).not.toBe('—');
+  });
+
+  it('collapses several bookings by the same traveller into one row', () => {
+    const rows = groupCustomerResults([
+      guestBooking({ id: 'b-g1' }),
+      guestBooking({ id: 'b-g2', bookingNumber: 'TRG-2', travelDate: PAST }),
+    ]);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].bookings).toHaveLength(2);
+  });
+
+  it('links to a search the server actually matches', () => {
+    const [row] = groupCustomerResults([guestBooking()]);
+
+    expect(customerBookingsPath(row)).toBe('/bookings?search=Thomas%20Rhodes');
+    expect(customerBookingsPath(row)).not.toContain('%E2%80%94'); // the "—" placeholder
+  });
+
+  it('drops a row that has neither an account nor a traveller', () => {
+    expect(
+      groupCustomerResults([{ id: 'b-none', customerId: '', customerName: '—', customerEmail: '' }]),
+    ).toEqual([]);
+    // And never degrades into a link that cannot match anything.
+    expect(customerBookingsPath({ name: '—' })).toBe('/bookings');
+  });
+
+  it('says in the subtitle that the booking is a guest booking', () => {
+    const [row] = groupCustomerResults([guestBooking()]);
+
+    expect(row.subtitle.startsWith('Guest booking')).toBe(true);
+    expect(row.subtitle).toContain('Next:');
+  });
+});

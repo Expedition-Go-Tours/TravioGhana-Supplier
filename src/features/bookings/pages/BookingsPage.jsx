@@ -722,8 +722,8 @@ export default function BookingsPage() {
             />
             <input
               type="search"
-              aria-label="Search bookings by customer, reference or tour"
-              placeholder="Search name, reference or tour..."
+              aria-label="Search bookings by traveller, customer, reference or tour"
+              placeholder="Search traveller, customer, reference or tour..."
               value={localSearch}
               onChange={(e) => setLocalSearch(e.target.value)}
               className="w-full pl-9 pr-3 py-2 bg-emerald-50/40 border border-emerald-100/60 rounded-lg text-base sm:text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#044b3b]/20 focus:border-[#044b3b] focus:bg-white transition-all"

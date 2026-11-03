@@ -23,7 +23,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { BOOKING_STATUSES } from "@/lib/constants";
 import { TeamRoleContext } from "@/contexts/teamRoleContext";
-import { formatCurrency, formatDate, formatTime, cn } from "@/lib/utils";
+import { formatCurrency, formatDate, formatTravelDate, formatTime, cn } from "@/lib/utils";
 import {
   fetchBookingDetail,
   fetchBookingCollections,
@@ -283,9 +283,9 @@ function RescheduleForm({ booking, onMoved, onRefresh }) {
         <div className="mt-3 p-3 rounded-lg border border-amber-200 bg-amber-50">
           <p className="text-sm text-amber-900">
             Move booking {booking.bookingNumber} from{" "}
-            <strong>{formatDate(booking.travelDate)}</strong>
+            <strong>{formatTravelDate(booking.travelDate)}</strong>
             {booking.selectedTime ? ` · ${formatTime(booking.selectedTime)}` : ""} to{" "}
-            <strong>{formatDate(date)}</strong>
+            <strong>{formatTravelDate(date)}</strong>
             {time ? ` · ${formatTime(time)}` : ""}?
           </p>
           <p className="text-xs text-amber-800 mt-1">
@@ -650,7 +650,7 @@ export default function BookingDetailDrawer({
                   <div className="min-w-0 space-y-1">
                     <p className="text-sm font-semibold text-slate-900">{booking.tourName}</p>
                     <p className="text-xs text-slate-500">
-                      {formatDate(booking.travelDate)}
+                      {formatTravelDate(booking.travelDate)}
                       {booking.selectedTime && ` · ${formatTime(booking.selectedTime)}`}
                     </p>
                     <p className="text-xs text-slate-500">

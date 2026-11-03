@@ -16,7 +16,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { toast } from "sonner";
-import { formatDate, formatDateTime, formatTime, cn } from "@/lib/utils";
+import { formatDate, formatTravelDate, formatDateTime, formatTime, cn } from "@/lib/utils";
 import StatusBadge from "@/components/shared/StatusBadge";
 import PickupMapPreview from "../PickupMapPreview";
 import TravelerManifest from "./TravelerManifest";
@@ -112,7 +112,7 @@ export default function PickupBookingCard({
               <span className="text-[11px] font-semibold leading-none text-red-600">No time</span>
             )}
           </div>
-          <div className="mt-1 text-[10px] leading-none text-slate-400">{formatDate(booking.travelDate)}</div>
+          <div className="mt-1 text-[10px] leading-none text-slate-400">{formatTravelDate(booking.travelDate)}</div>
         </div>
 
         {/* Main (toggles details) */}
