@@ -17,7 +17,7 @@ import LocationMapPicker from "@/components/shared/LocationMapPicker";
 import StatusBadge from "@/components/shared/StatusBadge";
 import PickupMapPreview from "../PickupMapPreview";
 import PickupStatePill from "./PickupStatePill";
-import { formatDate, formatTravelDate, formatDateTime, formatTime, cn } from "@/lib/utils";
+import { formatTravelDate, formatDateTime, formatTime, cn } from "@/lib/utils";
 import {
   pickupCoords,
   pickupDisplay,
