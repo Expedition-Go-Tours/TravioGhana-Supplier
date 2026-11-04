@@ -128,9 +128,11 @@ describe("notificationPresentation — cancellation decisions", () => {
     const links = screen.getAllByRole("link", { name: /View booking/i });
     expect(links).toHaveLength(2);
     expect(within(links[0]).getByText(/View booking/i)).toBeTruthy();
-    expect(links[0].getAttribute("href")).toBe(
-      "/bookings?bookingId=BK-2026-0001"
-    );
+    // Newest first: the rejected decision is 10:00, the approved one 09:00.
+    expect(links.map((link) => link.getAttribute("href"))).toEqual([
+      "/bookings?bookingId=BK-2026-0002",
+      "/bookings?bookingId=BK-2026-0001",
+    ]);
   });
 });
 
