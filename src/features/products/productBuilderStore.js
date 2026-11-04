@@ -619,13 +619,14 @@ export const useProductBuilderStore = create(
           if (!cat) return s
           const tiers = cat.tiers || []
           const lastTier = tiers[tiers.length - 1]
+          const maxP = s.maxParticipants ?? 10
 
           // First tier: starts from 1 (GetYourGuide standard).
           // Peel a single unit off the front: Tier 1 becomes 1..1 and the
           // remaining 2..N becomes the first sub-tier. The base row (Tier 1)
           // stays in place and a sub-tier card appears right away.
           if (!lastTier) {
-            const firstTo = s.maxParticipants ?? 10
+            const firstTo = maxP
             if (1 >= firstTo) return s
 
             // GetYourGuide behavior: Add same tier structure to ALL categories
@@ -641,15 +642,6 @@ export const useProductBuilderStore = create(
             }
           }
 
-          // Additional tiers: peel a single unit off the front of the last tier.
-          // The new tier extends to the last tier's current upper bound
-          // (normally the capacity step's max).
-          const lastTo = lastTier.to ?? s.maxParticipants ?? 10
-          const lastFrom = lastTier.from
-
-          // Can't split if the range is too small (need at least 2 units)
-          if (lastTo - lastFrom < 1) return s
-
           // GetYourGuide behavior: Apply tier structure change to ALL categories
           return {
             pricingCategories: s.pricingCategories.map((c) => {
@@ -662,19 +654,35 @@ export const useProductBuilderStore = create(
                   ...c,
                   tiers: [
                     { id: safeId(), from: 1, to: 1, pricePerPerson: null },
-                    { id: safeId(), from: 2, to: lastTo, pricePerPerson: null },
+                    { id: safeId(), from: 2, to: maxP, pricePerPerson: null },
                   ]
                 }
               }
 
-              // Split the last tier: keep [from..from] with its existing price,
-              // the rest [from+1..to] becomes a new tier needing a price
+              const catLastTo = catLastTier.to ?? maxP
+
+              // The last band still covers the rest of the range: split it,
+              // keeping [from..from] with its existing price and turning
+              // [from+1..to] into a new tier that needs a price.
+              if (catLastTo >= maxP) {
+                if (catLastTo - catLastTier.from < 1) return c
+                return {
+                  ...c,
+                  tiers: [
+                    ...catTiers.slice(0, -1),
+                    { ...catLastTier, to: catLastTier.from },
+                    { id: safeId(), from: catLastTier.from + 1, to: maxP, pricePerPerson: null },
+                  ]
+                }
+              }
+
+              // The chain stops short of max (the user shortened the last
+              // band). Continue it from where it stops instead of resetting it.
               return {
                 ...c,
                 tiers: [
-                  ...catTiers.slice(0, -1),
-                  { ...catLastTier, to: catLastTier.from },
-                  { id: safeId(), from: catLastTier.from + 1, to: lastTo, pricePerPerson: null },
+                  ...catTiers,
+                  { id: safeId(), from: catLastTo + 1, to: maxP, pricePerPerson: null },
                 ]
               }
             }),
@@ -727,21 +735,23 @@ export const useProductBuilderStore = create(
           if (!cat) return s
           const tiers = cat.tiers || []
           if (tiers.length <= 1) return s
-          
-          const removed = tiers[tierIndex]
-          
+
+          // Structural change: the same band goes from every category and its
+          // range is merged into the neighbouring band. Adding a tier reaches
+          // all categories, so removing one has to as well.
           return {
-            pricingCategories: s.pricingCategories.map((c, ci) => {
-              if (ci !== catIndex) return c
+            pricingCategories: s.pricingCategories.map((c) => {
               const catTiers = c.tiers || []
-              if (catTiers.length <= 1) return { ...c, tiers: [] }
-              
+              if (catTiers.length <= 1) return c
+              const removed = catTiers[tierIndex]
+              if (!removed) return c
+
               return {
                 ...c,
                 tiers: catTiers
                   .map((t, j) => {
-                    if (j === tierIndex - 1 && removed) return { ...t, to: removed.to }
-                    if (j === tierIndex + 1 && tierIndex === 0 && removed) return { ...t, from: removed.from }
+                    if (j === tierIndex - 1) return { ...t, to: removed.to }
+                    if (j === tierIndex + 1 && tierIndex === 0) return { ...t, from: removed.from }
                     return t
                   })
                   .filter((_, j) => j !== tierIndex),

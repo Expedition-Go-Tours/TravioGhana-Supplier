@@ -146,16 +146,28 @@ describe('rederiveTiersFrom', () => {
     expect(bands(out)).toEqual(['1-10'])
   })
 
-  it('pins a shrunk last tier back to max (4-10 -> 4-10) — no top gap', () => {
+  it('honours a shrunk last tier (4-10 -> 4-7) — the edit wins over max', () => {
     const tiers = base([[1, 1], [2, 2], [3, 3], [4, 10]])
     const out = rederiveTiersFrom(tiers, 3, { to: 7 }, 10)
-    expect(bands(out)).toEqual(['1-1', '2-2', '3-3', '4-10'])
+    expect(bands(out)).toEqual(['1-1', '2-2', '3-3', '4-7'])
   })
 
-  it('pins a widened last tier to max (2-10 stays 2-10)', () => {
+  it('honours a shrunk final band on a two-tier chain (2-10 -> 2-6)', () => {
     const tiers = base([[1, 1], [2, 10]])
     const out = rederiveTiersFrom(tiers, 1, { to: 6 }, 10)
-    expect(bands(out)).toEqual(['1-1', '2-10'])
+    expect(bands(out)).toEqual(['1-1', '2-6'])
+  })
+
+  it('lets a single tier shrink below max (1-10 -> 1-4)', () => {
+    const tiers = base([[1, 10]])
+    const out = rederiveTiersFrom(tiers, 0, { to: 4 }, 10)
+    expect(bands(out)).toEqual(['1-4'])
+  })
+
+  it('never closes a band below its own start', () => {
+    const tiers = base([[1, 1], [2, 10]])
+    const out = rederiveTiersFrom(tiers, 1, { to: 1 }, 10)
+    expect(bands(out)).toEqual(['1-1', '2-2'])
   })
 
   it('clamps an overshoot to maxParticipants silently (idx0 to=17, max=10)', () => {

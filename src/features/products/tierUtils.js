@@ -68,11 +68,14 @@ export function normalizeCategoryTiers(tiers, maxParticipants) {
  *
  * Rules:
  *  - The base tier always starts at 1.
+ *  - An edited `to` is honoured, including a reduction — the caller then
+ *    appends the remaining range with Add tier if the chain no longer reaches
+ *    `maxParticipants`.
  *  - Every tier after the edited one starts at `prev.to + 1` and is
- *    single-unit (`to === from`) unless it is the final band.
- *  - The final band is always pinned to `maxParticipants` so the chain
- *    covers `1..max` with no gaps.
- *  - An edited `to` is silently clamped to `[1, maxParticipants]`.
+ *    single-unit (`to === from`) unless it is the final band, which keeps
+ *    covering the rest (`to = maxParticipants`) when the chain still runs that
+ *    far.
+ *  - An edited bound is silently clamped to `[1, maxParticipants]`.
  *  - A cleared `to` (null / non-numeric) is treated as reaching
  *    `maxParticipants`.
  *  - Any trailing tier whose `from` would exceed `maxParticipants` after
@@ -100,14 +103,12 @@ export function rederiveTiersFrom(tiers, tierIndex, edits, maxParticipants) {
     editedTo = toNum(edits.to)
     if (!Number.isFinite(editedTo)) {
       editedTo = mp
-    } else {
-      editedTo = Math.max(1, Math.min(mp, editedTo))
     }
   } else {
     editedTo = toNum(edited.to)
     if (!Number.isFinite(editedTo)) editedTo = mp
-    editedTo = Math.max(1, Math.min(mp, editedTo))
   }
+  editedTo = Math.max(1, Math.min(mp, editedTo))
   if (edits && edits.from !== undefined) {
     edited.from = toNum(edits.from)
     if (!Number.isFinite(edited.from)) edited.from = tierIndex === 0 ? 1 : (tiers[tierIndex - 1].to ?? 0) + 1
@@ -116,7 +117,9 @@ export function rederiveTiersFrom(tiers, tierIndex, edits, maxParticipants) {
   if (edited.from == null) {
     edited.from = tierIndex === 0 ? 1 : (tiers[tierIndex - 1].to ?? 0) + 1
   }
-  edited.to = Math.max(edited.to ?? edited.from, editedTo)
+  // The edit wins: a smaller `to` must actually shrink the band. It can never
+  // close below its own start.
+  edited.to = Math.max(edited.from, editedTo)
 
   const out = next.slice(0, tierIndex + 1)
   let prevTo = edited.to
@@ -129,9 +132,6 @@ export function rederiveTiersFrom(tiers, tierIndex, edits, maxParticipants) {
     out.push({ ...next[i], from, to })
     prevTo = to
   }
-
-  const last = out[out.length - 1]
-  if (last) last.to = mp
 
   return out
 }
