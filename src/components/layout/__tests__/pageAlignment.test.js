@@ -137,7 +137,7 @@ describe("dashboard shell alignment", () => {
     expect(files.length).toBeGreaterThan(10);
   });
 
-  it.each(files)("$rel keeps the shared left edge", ({ rel, path }) => {
+  it.each(files)("$rel centres what it narrows", ({ rel, path }) => {
     const source = readFileSync(path, "utf8");
     const component = defaultExportFunction(parseSource(source, path));
     expect(component, `${rel} has no default-exported component`).toBeTruthy();
@@ -148,10 +148,14 @@ describe("dashboard shell alignment", () => {
     for (const root of roots) {
       const where = `${rel}:${root.line}`;
 
-      expect(
-        root.text.includes("mx-auto"),
-        `${where} centres the page ("${root.text}") — content must stay left-aligned with the header logo.`,
-      ).toBe(false);
+      // The page column is centred (shell.js), so a root that narrows the
+      // measure must centre itself or it hugs the left of that column.
+      if (root.text.includes("max-w-")) {
+        expect(
+          root.text.includes("mx-auto"),
+          `${where} narrows the measure ("${root.text}") — add mx-auto so it centres inside the page column.`,
+        ).toBe(true);
+      }
 
       if (root.text.includes("SHELL_GUTTER")) continue; // bleed route, owns its gutter
 
@@ -179,11 +183,28 @@ describe("shell wiring", () => {
     }
   });
 
-  it("Header shares the same gutter as the pages", () => {
+  it("Header shares the same gutter and measure as the pages", () => {
     const source = read("Header.jsx");
     expect(source).toContain("SHELL_GUTTER");
+    // The inner column must use the page measure, or the logo drifts off the
+    // page column's edge.
+    expect(source).toContain("SHELL_MEASURE");
     // The gutter must not be re-hardcoded next to the logo.
     expect(source).not.toMatch(/px-2 sm:px-4 lg:px-6/);
+  });
+
+  it("the page measure carries the centring on its own", () => {
+    const source = read("shell.js");
+    // A column that is not centred is the bug this guards: the admin app
+    // (AppLayout.tsx) centres its 1440 column, and both apps share the width.
+    expect(source).toMatch(/SHELL_MEASURE\s*=\s*"[^"]*mx-auto[^"]*"/);
+  });
+
+  it("Header puts the search on the header's centre line", () => {
+    const source = read("Header.jsx");
+    // [1fr, auto, 1fr]: equal side tracks are what make the middle track land
+    // on the centre line regardless of the logo/profile widths.
+    expect(source).toContain("xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]");
   });
 
   it("AppShell wraps every page in PageContainer and honours handle.bleed", () => {

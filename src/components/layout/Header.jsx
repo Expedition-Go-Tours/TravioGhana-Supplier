@@ -15,7 +15,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import OptimizedImage from "@/components/shared/OptimizedImage";
-import { SHELL_GUTTER } from "./shell";
+import { SHELL_GUTTER, SHELL_MEASURE } from "./shell";
 import logoSrc from "@/assets/TravioGhana_Logo.svg";
 
 export default function Header() {
@@ -44,41 +44,48 @@ export default function Header() {
 
   return (
     <header
-      className={`fixed top-[var(--preview-banner-height)] right-0 h-16 bg-white border-b border-[#eaeaea] flex items-center ${SHELL_GUTTER} z-40 transition-all duration-300 ${
+      className={`fixed top-[var(--preview-banner-height)] right-0 h-16 bg-white border-b border-[#eaeaea] z-40 transition-all duration-300 ${
         isCollapsed ? "lg:left-[64px]" : "lg:left-[270px]"
       } left-0`}
     >
-      {/* Mobile: Menu toggle */}
-      {!isMobileOpen && (
-        <button
-          onClick={toggleMobile}
-          className="lg:hidden p-1.5 rounded-lg text-[#065f46] hover:bg-[#065f46]/10 transition-colors mr-1 sm:mr-2 shrink-0"
-          aria-label="Toggle menu"
-        >
-          <Menu size={16} />
-        </button>
-      )}
-
-      {/* Left: Logo */}
-      <div className="flex items-center shrink-0 mr-2 lg:mr-4">
-        <a
-          href="/"
-          onClick={(e) => { e.preventDefault(); navigate('/') }}
-          className="flex items-center py-1"
-        >
-          <img src={logoSrc} alt="Travio Ghana" className="w-[100px] sm:w-[140px] lg:w-[180px] h-auto" />
-        </a>
-      </div>
-
-      {/* Center: Search — centered with controlled width */}
-      <div className="flex-1 flex items-center justify-end sm:justify-center min-w-0 px-2 lg:px-4">
-        <div className="w-auto sm:w-full max-w-sm">
-          <SearchDropdown />
+      {/* The header's inner column uses the same measure as PageContainer, so
+          the logo always sits on the page column's left edge. From xl the three
+          tracks are [1fr, auto, 1fr]: the two equal side tracks put the search
+          exactly on the header's centre line, whatever the logo or the profile
+          block happen to be measuring. Below xl it stays a flex row so the
+          search can shrink instead of colliding with the profile block. */}
+      <div
+        className={`flex h-full w-full items-center gap-2 ${SHELL_MEASURE} ${SHELL_GUTTER} xl:grid xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] xl:gap-4`}
+      >
+        {/* Left: menu (mobile) + logo, starting on the page column's edge */}
+        <div className="flex min-w-0 items-center gap-2">
+          {!isMobileOpen && (
+            <button
+              onClick={toggleMobile}
+              className="lg:hidden p-1.5 rounded-lg text-[#065f46] hover:bg-[#065f46]/10 transition-colors shrink-0"
+              aria-label="Toggle menu"
+            >
+              <Menu size={16} />
+            </button>
+          )}
+          <a
+            href="/"
+            onClick={(e) => { e.preventDefault(); navigate('/') }}
+            className="flex items-center py-1 shrink-0"
+          >
+            <img src={logoSrc} alt="Travio Ghana" className="w-[100px] sm:w-[140px] lg:w-[180px] h-auto" />
+          </a>
         </div>
-      </div>
 
-      {/* Right: Notifications + Profile */}
-      <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 ml-2 lg:ml-4">
+        {/* Centre: search — one controlled width, centred by the grid track */}
+        <div className="flex min-w-0 flex-1 items-center justify-end sm:justify-center xl:flex-none">
+          <div className="w-auto sm:w-full max-w-sm">
+            <SearchDropdown />
+          </div>
+        </div>
+
+      {/* Right: Notifications + Profile — pinned to the column's right edge */}
+      <div className="flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-3 xl:justify-end">
         <NotificationBell />
 
         <DropdownMenu>
@@ -142,6 +149,7 @@ export default function Header() {
             </div>
           </DropdownMenuContent>
         </DropdownMenu>
+      </div>
       </div>
     </header>
   );

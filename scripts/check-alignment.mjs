@@ -1,9 +1,15 @@
 #!/usr/bin/env node
 /**
- * Verifies the dashboard alignment invariant: every page's content must start
- * on the same left edge as the header gutter (see src/components/layout/shell.js).
+ * Verifies the dashboard alignment invariant.
  *
- *   BASE_URL=http://localhost:4173 \
+ * Two things must hold at every width (see src/components/layout/shell.js):
+ *
+ *   1. the page column is CENTRED in the space right of the sidebar — equal
+ *      whitespace on both sides, the way the admin dashboard already works;
+ *   2. the header's logo and every page's content start on that column's left
+ *      edge, so the two can never drift apart.
+ *
+ *   BASE_URL=http://localhost:5173 \
  *   SUPPLIER_EMAIL=you@example.com SUPPLIER_PASSWORD=secret \
  *   npm run check:alignment
  *
@@ -97,12 +103,19 @@ try {
 
   const measure = (probe) =>
     page.evaluate((selector) => {
-      // Reference: the header's padded left edge — the gutter the logo sits on.
+      // Reference: the header's inner column, which uses the same measure as
+      // PageContainer. Its padded left edge is where the logo sits and where
+      // every page's content must start.
       const header = document.querySelector("header");
+      const main = document.querySelector("main");
       if (!header) return { error: "header not found" };
-      const headerStyle = getComputedStyle(header);
-      const referenceLeft =
-        header.getBoundingClientRect().left + (parseFloat(headerStyle.paddingLeft) || 0);
+      if (!main) return { error: "main not found" };
+
+      const column = header.firstElementChild;
+      const columnStyle = column ? getComputedStyle(column) : null;
+      const referenceLeft = column
+        ? column.getBoundingClientRect().left + (parseFloat(columnStyle.paddingLeft) || 0)
+        : null;
 
       const logo = document.querySelector('header img[alt="Travio Ghana"]');
       const logoLeft = logo ? Math.round(logo.getBoundingClientRect().left) : null;
@@ -112,10 +125,15 @@ try {
       const style = getComputedStyle(element);
       const rect = element.getBoundingClientRect();
       const pad = (parseFloat(style.borderLeftWidth) || 0) + (parseFloat(style.paddingLeft) || 0);
+      const padRight = (parseFloat(style.borderRightWidth) || 0) + (parseFloat(style.paddingRight) || 0);
+      const mainRect = main.getBoundingClientRect();
       return {
         referenceLeft: Math.round(referenceLeft),
         logoLeft,
         contentLeft: Math.round(rect.left + pad),
+        contentRight: Math.round(rect.right - padRight),
+        mainLeft: Math.round(mainRect.left),
+        mainRight: Math.round(mainRect.right),
       };
     }, probe);
 
@@ -144,15 +162,28 @@ try {
 
         const result = await measure(probe);
         if (result.error) throw new Error(result.error);
-        // If the header carries a brand logo, it must sit on that same gutter.
+        // If the header carries a brand logo, it must sit on the column edge.
         if (result.logoLeft !== null && Math.abs(result.logoLeft - result.referenceLeft) > 1) {
-          throw new Error(`header logo (${result.logoLeft}) is off its own gutter (${result.referenceLeft})`);
+          throw new Error(`header logo (${result.logoLeft}) is off the page column edge (${result.referenceLeft})`);
         }
 
         const delta = result.contentLeft - result.referenceLeft;
-        const ok = Math.abs(delta) <= 1;
-        if (!ok) failures.push({ width, name: route.name, path, ...result, delta });
-        rows.push({ width, name: route.name, gutter: result.referenceLeft, content: result.contentLeft, delta, note: ok ? "ok" : "MISALIGNED" });
+        // The column must be centred in the area right of the sidebar: equal
+        // whitespace on both sides.
+        const leftGap = result.contentLeft - result.mainLeft;
+        const rightGap = result.mainRight - result.contentRight;
+        const centred = Math.abs(leftGap - rightGap) <= 1;
+
+        const ok = Math.abs(delta) <= 1 && centred;
+        if (!ok) failures.push({ width, name: route.name, path, ...result, delta, leftGap, rightGap });
+        rows.push({
+          width,
+          name: route.name,
+          gutter: result.referenceLeft,
+          content: result.contentLeft,
+          delta,
+          note: ok ? "ok" : !centred ? `OFF-CENTRE (${leftGap} vs ${rightGap})` : "MISALIGNED",
+        });
       } catch (error) {
         failures.push({ width, name: route.name, path, error: String(error.message || error) });
         rows.push({ width, name: route.name, gutter: "-", content: "-", delta: "-", note: `error: ${error.message || error}` });
@@ -176,11 +207,17 @@ for (const row of rows) {
 }
 
 if (failures.length) {
-  console.error(`\n✗ ${failures.length} misaligned page(s):`);
+  console.error(`\n✗ ${failures.length} layout failure(s):`);
   for (const failure of failures) {
-    console.error(`  - ${failure.width}px ${failure.name} (${failure.path}): ${failure.error || `content ${failure.contentLeft} vs gutter ${failure.referenceLeft}`}`);
+    const detail = failure.error
+      ? failure.error
+      : [
+        `content ${failure.contentLeft} vs column ${failure.referenceLeft}`,
+        `gaps ${failure.leftGap} / ${failure.rightGap}`,
+      ].join(", ");
+    console.error(`  - ${failure.width}px ${failure.name} (${failure.path}): ${detail}`);
   }
   process.exit(1);
 }
 
-console.log("\n✓ every page starts on the header gutter (and the logo sits on it)");
+console.log("\n✓ every page sits on the centred column, and the logo sits on it");
