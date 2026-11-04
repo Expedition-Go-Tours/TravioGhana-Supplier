@@ -44,7 +44,7 @@ const mockUsers = [
     email: 'qwabs94@gmail.com',
     role: 'SUPPLIER',
     status: 'active',
-    photoURL: 'https://ui-avatars.com/api/?name=Qwabs+User&background=044b3b&color=fff',
+    photoURL: 'https://ui-avatars.com/api/?name=Qwabs+User&background=059669&color=fff',
   },
 ];
 

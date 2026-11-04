@@ -16,7 +16,7 @@ function SessionLoadingScreen() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#f8fafc]">
       <div className="flex flex-col items-center gap-3">
-        <Loader2 size={32} className="animate-spin text-[#044b3b]" />
+        <Loader2 size={32} className="animate-spin text-emerald-700" />
         <p className="text-sm text-[#64748b]">Verifying session...</p>
       </div>
     </div>

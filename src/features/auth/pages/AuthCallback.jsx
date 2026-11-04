@@ -97,7 +97,7 @@ export default function AuthCallback() {
         <div className="flex justify-center mb-6">
           <div className="w-16 h-16 rounded-full bg-[#f0fdf4] flex items-center justify-center">
             {status === "checking" || status === "loading" ? (
-              <Loader2 size={32} className="text-[#044b3b] animate-spin" />
+              <Loader2 size={32} className="text-emerald-700 animate-spin" />
             ) : status === "success" ? (
               <CheckCircle2 size={32} className="text-[#16a34a]" />
             ) : (
@@ -130,7 +130,7 @@ export default function AuthCallback() {
               localStorage.removeItem("auth_return_url");
               navigate(returnUrl || "/", { replace: true });
             }}
-            className="inline-flex items-center gap-2 px-6 py-2.5 bg-[#044b3b] text-white rounded-lg text-sm font-medium hover:bg-[#033629] transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors"
           >
             <span>{getSafeReturnUrl() ? "Continue Where You Left Off" : "Go to Dashboard"}</span>
             <ArrowRight size={16} />
@@ -143,7 +143,7 @@ export default function AuthCallback() {
               onClick={() =>
                 (window.location.href = "https://travioghana.com/login")
               }
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-[#044b3b] text-white rounded-lg text-sm font-medium hover:bg-[#033629] transition-colors"
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors"
             >
               <Shield size={16} />
               <span>Log in on Main Site</span>

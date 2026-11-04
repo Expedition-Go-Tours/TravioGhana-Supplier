@@ -105,24 +105,61 @@ const STATUS_STYLES = {
   },
 };
 
-export default function StatusBadge({ status, label, size = "sm" }) {
+/**
+ * Filled variants for badges that sit on a photo or another dark surface.
+ *
+ * The tinted style (light fill, coloured text, hairline border) is only
+ * legible on white. Pasted on a product image it turned into a white pill
+ * wrapped around a green-bordered pill — two badges pretending to be one.
+ * On media the badge fills with the status colour instead, so the colour and
+ * the label travel together.
+ */
+const STATUS_SOLID = {
+  AWAITING_CONFIRMATION: "bg-slate-600",
+  CONFIRMED: "bg-blue-600",
+  CANCELLED: "bg-red-600",
+  REJECTED: "bg-red-600",
+  REFUND_REQUEST: "bg-orange-600",
+  REFUNDED: "bg-blue-600",
+  REFUND_REJECTED: "bg-violet-600",
+  AMENDMENT_REQUEST: "bg-cyan-600",
+  AMENDED: "bg-teal-600",
+  PAID: "bg-emerald-600",
+  PENDING: "bg-slate-500",
+  FAILED: "bg-red-600",
+  ACTIVE: "bg-emerald-600",
+  INACTIVE: "bg-slate-500",
+  DRAFT: "bg-slate-500",
+  PENDING_APPROVAL: "bg-blue-600",
+  COMPLETED: "bg-emerald-600",
+};
+
+export default function StatusBadge({ status, label, size = "sm", variant = "soft" }) {
   const style = STATUS_STYLES[status] || STATUS_STYLES.INACTIVE;
-  const sizeClasses = size === "sm" 
-    ? "text-xs px-2 py-0.5" 
+  const sizeClasses = size === "sm"
+    ? "text-xs px-2 py-0.5"
     : "text-sm px-2.5 py-1";
+  const solid = variant === "solid";
 
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border font-medium",
-        style.bg,
-        style.text,
-        style.border,
+        "inline-flex items-center gap-1.5 rounded-full font-medium",
+        solid
+          ? cn("text-white shadow-sm", STATUS_SOLID[status] || "bg-slate-500")
+          : cn("border", style.bg, style.text, style.border),
         sizeClasses
       )}
     >
-      <span className={cn("w-1.5 h-1.5 rounded-full", style.dot)} />
-      {label || status.replace(/_/g, " ")}
+      <span
+        className={cn(
+          "w-1.5 h-1.5 rounded-full",
+          solid ? "bg-white/90" : style.dot
+        )}
+      />
+      <span className={cn(solid && "font-semibold")}>
+        {label || status.replace(/_/g, " ")}
+      </span>
     </span>
   );
 }

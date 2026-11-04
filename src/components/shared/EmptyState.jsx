@@ -122,7 +122,7 @@ export function EmptySearchResults({ searchQuery, onClear }) {
         onClear && (
           <button
             onClick={onClear}
-            className="px-4 py-2 text-sm font-medium text-[#044b3b] hover:bg-slate-50 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-slate-50 rounded-lg transition-colors"
           >
             Clear search
           </button>
@@ -142,7 +142,7 @@ export function EmptyFilterResults({ onClear }) {
         onClear && (
           <button
             onClick={onClear}
-            className="px-4 py-2 text-sm font-medium text-[#044b3b] hover:bg-slate-50 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-slate-50 rounded-lg transition-colors"
           >
             Clear all filters
           </button>

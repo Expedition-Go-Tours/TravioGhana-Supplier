@@ -37,7 +37,7 @@ export default function ForbiddenPage() {
           </button>
           <button
             onClick={() => navigate('/')}
-            className="flex items-center justify-center gap-2 px-6 py-3 bg-[#044b3b] text-white rounded-lg text-sm font-medium hover:bg-[#033629] transition-colors"
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors"
           >
             <Home size={16} />
             Go Home
@@ -46,7 +46,7 @@ export default function ForbiddenPage() {
 
         {/* Help Text */}
         <p className="mt-8 text-sm text-[#9e9e9e]">
-          Need access? <a href="/support" className="text-[#044b3b] hover:underline">Request Permission</a>
+          Need access? <a href="/support" className="text-emerald-700 hover:underline">Request Permission</a>
         </p>
       </div>
     </div>

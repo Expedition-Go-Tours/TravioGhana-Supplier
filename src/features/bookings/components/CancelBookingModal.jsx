@@ -267,7 +267,7 @@ export default function CancelBookingModal({
                   cancellation rate.{" "}
                   <a
                     href="/cancellation-rate"
-                    className="underline font-medium text-[#044b3b] hover:text-[#033629]"
+                    className="underline font-medium text-emerald-700 hover:text-[#047857]"
                   >
                     View your rate
                   </a>
@@ -328,7 +328,7 @@ export default function CancelBookingModal({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="px-5 py-2.5 bg-[#044b3b] text-white rounded-lg text-sm font-medium hover:bg-[#033629] transition-colors"
+                    className="px-5 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors"
                   >
                     Close
                   </button>

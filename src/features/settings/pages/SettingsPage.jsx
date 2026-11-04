@@ -427,7 +427,7 @@ function ProfileTab() {
           <button
             type="button"
             onClick={() => setReloadKey((k) => k + 1)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-[#044b3b] text-white hover:bg-[#033629]"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700"
           >
             <RefreshCw size={14} /> Retry
           </button>

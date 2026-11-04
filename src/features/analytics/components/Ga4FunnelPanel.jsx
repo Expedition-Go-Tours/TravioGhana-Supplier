@@ -154,7 +154,7 @@ export default function Ga4FunnelPanel() {
           <button
             type="button"
             onClick={load}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-slate-800 text-white hover:bg-slate-900"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700"
           >
             <RefreshCw size={14} /> Retry
           </button>

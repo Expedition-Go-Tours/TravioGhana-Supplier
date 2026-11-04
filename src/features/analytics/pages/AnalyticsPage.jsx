@@ -73,7 +73,7 @@ function ProductThumb({ src, alt }) {
   );
 }
 
-const PIE_COLORS = ["#044b3b", "#0f766e", "#0891b2", "#ca8a04", "#94a3b8"];
+const PIE_COLORS = ["#059669", "#0f766e", "#0891b2", "#ca8a04", "#94a3b8"];
 
 export default function AnalyticsPage() {
   const navigate = useNavigate();
@@ -333,7 +333,7 @@ export default function AnalyticsPage() {
                 <XAxis dataKey="month" interval={1} tickFormatter={formatMonthLabel} tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} tickFormatter={formatAxisCurrency} />
                 <Tooltip content={<CustomTooltip />} cursor={{ fill: "#f8fafc" }} />
-                <Bar dataKey="revenue" fill="#044b3b" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                <Bar dataKey="revenue" fill="#059669" radius={[4, 4, 0, 0]} maxBarSize={40} />
               </BarChart>
             </ResponsiveContainer>
           ) : (
@@ -424,7 +424,7 @@ export default function AnalyticsPage() {
                         type="button"
                         onClick={() => p.tourId && navigate(`/products/${p.tourId}`)}
                         disabled={!p.tourId}
-                        className="text-[11px] text-[#044b3b] font-medium hover:underline whitespace-nowrap disabled:text-slate-300 disabled:no-underline disabled:cursor-not-allowed"
+                        className="text-[11px] text-emerald-700 font-medium hover:underline whitespace-nowrap disabled:text-slate-300 disabled:no-underline disabled:cursor-not-allowed"
                       >
                         View details
                       </button>

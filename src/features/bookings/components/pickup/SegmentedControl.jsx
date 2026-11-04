@@ -34,7 +34,7 @@ export default function SegmentedControl({ options, value, onChange, ariaLabel, 
               <span
                 className={cn(
                   "hidden rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums sm:inline-block",
-                  active ? "bg-[#044b3b] text-white" : "bg-white text-slate-500"
+                  active ? "bg-emerald-600 text-white" : "bg-white text-slate-500"
                 )}
               >
                 {option.count}

@@ -367,56 +367,62 @@ export default function CreateBookingDrawer({ open, onClose, tours = [], onCreat
             </button>
           </div>
 
-          {/* Step rail */}
-          <div className="mt-4 flex items-end gap-2" role="list">
+          {/* Step rail.
+              Circles joined by connectors rather than four progress bars: the
+              bar above each step used to fill emerald-400 when done and
+              emerald-600 when active, so a completed step looked *less* done
+              than the one you were on. The connector now carries progress and
+              the circle carries state — filled for done, filled with a halo for
+              the step you're on, outlined for what's ahead. */}
+          <ol className="mt-5 flex items-start pb-4" aria-label="Booking steps">
             {STEPS.map((s, i) => {
               const done = i < step;
               const active = i === step;
+              const enabled = !submitting && (i < step || (i === step + 1 && stepOneValid));
               return (
-                <button
-                  key={s.key}
-                  type="button"
-                  role="listitem"
-                  aria-current={active ? "step" : undefined}
-                  onClick={() => (i < step || (i === step + 1 && stepOneValid)) && go(i)}
-                  disabled={i > step + 1 || submitting}
-                  className="group min-w-0 flex-1 pb-3 text-left"
-                >
-                  <div className="relative h-1 w-full overflow-hidden rounded-full bg-slate-100">
-                    <motion.div
-                      initial={false}
-                      animate={{ scaleX: done || active ? 1 : 0 }}
-                      transition={{ duration: 0.35, ease: "easeOut" }}
-                      style={{ originX: 0 }}
-                      className={cn("absolute inset-0 rounded-full", done ? "bg-emerald-400" : "bg-[#044b3b]")}
+                <li key={s.key} className="flex min-w-0 flex-1 items-start">
+                  {i > 0 && (
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "mt-3.5 h-0.5 flex-1 rounded-full",
+                        i <= step ? "bg-emerald-600" : "bg-slate-200",
+                      )}
                     />
-                  </div>
-                  <div className="mt-2 flex items-center gap-1.5">
+                  )}
+                  <button
+                    type="button"
+                    aria-current={active ? "step" : undefined}
+                    aria-label={`Step ${i + 1} of ${STEPS.length}: ${s.label}`}
+                    onClick={() => enabled && go(i)}
+                    disabled={!enabled}
+                    className="group flex w-16 shrink-0 flex-col items-center gap-1.5 sm:w-20"
+                  >
                     <span
                       className={cn(
-                        "flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold",
-                        done
-                          ? "bg-emerald-100 text-emerald-700"
-                          : active
-                            ? "bg-[#044b3b] text-white"
-                            : "bg-slate-100 text-slate-400",
+                        "flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold transition-all",
+                        done && "bg-emerald-600 text-white",
+                        active && "bg-emerald-600 text-white ring-4 ring-emerald-100",
+                        !done && !active &&
+                          "border border-slate-200 bg-white text-slate-400 group-hover:border-slate-300 group-hover:text-slate-600",
+                        !enabled && "cursor-not-allowed",
                       )}
                     >
-                      {done ? <CheckCircle2 size={10} /> : i + 1}
+                      {done ? <CheckCircle2 size={14} strokeWidth={2.5} /> : i + 1}
                     </span>
                     <span
                       className={cn(
-                        "truncate text-[11px] font-semibold",
+                        "w-full truncate text-center text-[10px] font-semibold sm:text-[11px]",
                         active ? "text-slate-900" : done ? "text-emerald-700" : "text-slate-400",
                       )}
                     >
                       {s.label}
                     </span>
-                  </div>
-                </button>
+                  </button>
+                </li>
               );
             })}
-          </div>
+          </ol>
         </div>
 
         {/* Body */}
@@ -470,7 +476,7 @@ export default function CreateBookingDrawer({ open, onClose, tours = [], onCreat
                     <button
                       type="button"
                       onClick={onClose}
-                      className="mt-6 inline-flex items-center gap-1.5 rounded-lg bg-[#044b3b] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#033629]"
+                      className="mt-6 inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
                     >
                       Done
                     </button>
@@ -1111,7 +1117,7 @@ export default function CreateBookingDrawer({ open, onClose, tours = [], onCreat
                     type="button"
                     onClick={() => go(step + 1)}
                     disabled={(step === 0 && !stepOneValid) || (step === 1 && !stepTwoValid && touched)}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#044b3b] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#033629] disabled:opacity-40"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-40"
                   >
                     Continue <ArrowRight size={14} />
                   </button>
@@ -1120,7 +1126,7 @@ export default function CreateBookingDrawer({ open, onClose, tours = [], onCreat
                     type="button"
                     onClick={submit}
                     disabled={!canSubmit}
-                    className="inline-flex items-center gap-2 rounded-lg bg-[#044b3b] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#033629] disabled:opacity-40"
+                    className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-40"
                   >
                     {submitting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
                     Create booking

@@ -97,7 +97,7 @@ export default function Header() {
                 <p className="text-xs font-medium text-slate-700">{displayName}</p>
                 <p className="text-[10px] text-slate-500 capitalize">{displayRole}</p>
               </div>
-              <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full overflow-hidden bg-[#044b3b] shrink-0 ring-2 ring-[#044b3b]/10">
+              <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full overflow-hidden bg-emerald-600 shrink-0 ring-2 ring-emerald-500/10">
                 {(user?.avatar || user?.photoURL) ? (
                   <OptimizedImage src={user.avatar || user.photoURL} width={32} className="w-full h-full object-cover" />
                 ) : (
@@ -110,7 +110,7 @@ export default function Header() {
           <DropdownMenuContent align="end" className="w-64 p-0 overflow-hidden">
             <div className="h-1.5 bg-[#065f46]" />
             <div className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-slate-100">
-              <div className="w-10 h-10 rounded-full overflow-hidden bg-[#044b3b] shrink-0 ring-2 ring-[#044b3b]/10">
+              <div className="w-10 h-10 rounded-full overflow-hidden bg-emerald-600 shrink-0 ring-2 ring-emerald-500/10">
                 {(user?.avatar || user?.photoURL) ? (
                   <OptimizedImage src={user.avatar || user.photoURL} width={40} className="w-full h-full object-cover" />
                 ) : (

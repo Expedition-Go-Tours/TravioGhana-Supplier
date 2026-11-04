@@ -25,7 +25,7 @@ export default function LoadingSpinner({
   return (
     <div className={cn("flex items-center justify-center gap-2", className)} {...props}>
       <Loader2 
-        className={cn("animate-spin text-[#044b3b]", sizeClasses[size])} 
+        className={cn("animate-spin text-emerald-700", sizeClasses[size])} 
       />
       {text && (
         <span className="text-sm text-slate-600">{text}</span>

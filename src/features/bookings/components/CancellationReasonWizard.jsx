@@ -104,7 +104,7 @@ export default function CancellationReasonWizard({
                 className={cn(
                   "flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all",
                   form.category === c.key
-                    ? "border-[#044b3b] bg-emerald-50/60 ring-1 ring-[#044b3b]/30"
+                    ? "border-emerald-600 bg-emerald-50/60 ring-1 ring-emerald-500/30"
                     : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
                 )}
               >
@@ -114,7 +114,7 @@ export default function CancellationReasonWizard({
                   value={c.key}
                   checked={form.category === c.key}
                   onChange={() => selectCategory(c.key)}
-                  className="mt-0.5 w-4 h-4 shrink-0 accent-[#044b3b]"
+                  className="mt-0.5 w-4 h-4 shrink-0 accent-[#059669]"
                 />
                 <span className="min-w-0">
                   <span className="block text-sm font-semibold text-slate-800">
@@ -150,7 +150,7 @@ export default function CancellationReasonWizard({
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-all text-sm",
                   form.cancellationCode === r.code
-                    ? "border-[#044b3b] bg-emerald-50/60 text-slate-800 font-medium"
+                    ? "border-emerald-600 bg-emerald-50/60 text-slate-800 font-medium"
                     : "border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
                 )}
               >
@@ -160,7 +160,7 @@ export default function CancellationReasonWizard({
                   value={r.code}
                   checked={form.cancellationCode === r.code}
                   onChange={() => selectReason(r.code)}
-                  className="w-4 h-4 shrink-0 accent-[#044b3b]"
+                  className="w-4 h-4 shrink-0 accent-[#059669]"
                 />
                 {r.label}
               </label>
@@ -198,7 +198,7 @@ export default function CancellationReasonWizard({
                   : "Explain why the experience can’t go ahead…"
               }
               aria-invalid={Boolean(showErrors && errors.explanation)}
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#044b3b]/20 focus:border-[#044b3b] transition-all resize-none"
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all resize-none"
             />
             {err("explanation")}
           </div>
@@ -219,7 +219,7 @@ export default function CancellationReasonWizard({
                 onChange={(e) => patch({ evidenceUrl: e.target.value })}
                 placeholder="https://… (weather report, news article, notice)"
                 aria-invalid={Boolean(showErrors && errors.evidenceUrl)}
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#044b3b]/20 focus:border-[#044b3b] transition-all"
+                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
               />
               {err("evidenceUrl")}
             </div>
@@ -238,7 +238,7 @@ export default function CancellationReasonWizard({
                     className={cn(
                       "flex items-center gap-2 px-4 py-2.5 rounded-lg border text-sm cursor-pointer transition-all",
                       form.customerRefundAgreed === value
-                        ? "border-[#044b3b] bg-emerald-50/60 text-slate-800 font-medium"
+                        ? "border-emerald-600 bg-emerald-50/60 text-slate-800 font-medium"
                         : "border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
                     )}
                   >
@@ -247,7 +247,7 @@ export default function CancellationReasonWizard({
                       name="cancellation-refund-agreed"
                       checked={form.customerRefundAgreed === value}
                       onChange={() => patch({ customerRefundAgreed: value })}
-                      className="w-4 h-4 accent-[#044b3b]"
+                      className="w-4 h-4 accent-[#059669]"
                     />
                     {value ? "Yes, refund the customer" : "No, I disagree"}
                   </label>
@@ -271,7 +271,7 @@ export default function CancellationReasonWizard({
               value={form.supplierNotes}
               onChange={(e) => patch({ supplierNotes: e.target.value })}
               placeholder="Visible only to your team"
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#044b3b]/20 focus:border-[#044b3b] transition-all"
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
             />
           </div>
 
@@ -288,13 +288,13 @@ export default function CancellationReasonWizard({
                 type="checkbox"
                 checked={form.agreedToTerms}
                 onChange={(e) => patch({ agreedToTerms: e.target.checked })}
-                className="mt-0.5 w-4 h-4 shrink-0 rounded border-slate-300 accent-[#044b3b]"
+                className="mt-0.5 w-4 h-4 shrink-0 rounded border-slate-300 accent-[#059669]"
                 aria-invalid={Boolean(showErrors && errors.agreedToTerms)}
               />
               <span className="text-xs text-slate-600 leading-relaxed">
                 <ShieldCheck
                   size={13}
-                  className="inline-block -mt-0.5 mr-1 text-[#044b3b]"
+                  className="inline-block -mt-0.5 mr-1 text-emerald-700"
                 />
                 I confirm this cancellation complies with the supplier terms
                 and conditions. I understand the customer will receive a full
@@ -342,7 +342,7 @@ export default function CancellationReasonWizard({
                 type="button"
                 onClick={trySubmit}
                 disabled={!form.agreedToTerms}
-                className="px-5 py-2.5 bg-[#044b3b] text-white rounded-lg text-sm font-medium hover:bg-[#033629] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-5 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitLabel}
               </button>

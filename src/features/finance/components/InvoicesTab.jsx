@@ -387,7 +387,7 @@ export default function InvoicesTab({ invoices, pagination, loading, error, page
             className={cn(
               "h-8 rounded-full border px-3 text-xs font-medium transition-colors",
               activeFilter === f.key
-                ? "border-slate-900 bg-slate-900 text-white"
+                ? "border-emerald-600 bg-emerald-600 text-white"
                 : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-800"
             )}
           >

@@ -9,7 +9,7 @@ export default function AuthOnlyRoute() {
   if (!hasHydrated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f8fafc]">
-        <Loader2 size={32} className="animate-spin text-[#044b3b]" />
+        <Loader2 size={32} className="animate-spin text-emerald-700" />
       </div>
     );
   }

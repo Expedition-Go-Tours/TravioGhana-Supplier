@@ -78,18 +78,27 @@ const FADE_UP = {
   show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: "easeOut" } },
 };
 
-function DraftStatusBadge({ product }) {
+function DraftStatusBadge({ product, variant = "soft" }) {
   if (product.status !== "ACTIVE") return null;
+  const solid = variant === "solid";
   if (product.draftStatus === "PENDING_APPROVAL") {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 border border-amber-200 px-2 py-0.5 text-[10px] font-semibold">
+      <span
+        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+          solid ? "bg-amber-500 text-white shadow-sm" : "bg-amber-100 text-amber-700 border border-amber-200"
+        }`}
+      >
         Pending edits
       </span>
     );
   }
   if (product.draftStatus === "REJECTED") {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 text-[10px] font-semibold">
+      <span
+        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+          solid ? "bg-red-500 text-white shadow-sm" : "bg-red-100 text-red-700 border border-red-200"
+        }`}
+      >
         Edits rejected
       </span>
     );
@@ -477,7 +486,7 @@ export default function ProductsListPage() {
                     )}
 
                     {product.storefront && product.storefront !== "GHANA" && (
-                      <span className="absolute left-2.5 top-2.5 rounded-full bg-slate-900/80 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
+                      <span className="absolute left-2.5 top-2.5 rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-medium text-slate-700 shadow-sm backdrop-blur-sm">
                         {product.storefront === "BOTH" ? "Both storefronts" : "Expedition"}
                       </span>
                     )}
@@ -487,10 +496,11 @@ export default function ProductsListPage() {
                       </span>
                     )}
                     <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-center gap-1.5 bg-gradient-to-t from-slate-900/70 via-slate-900/20 to-transparent px-2.5 pb-2.5 pt-8">
-                      <span className="rounded-md bg-white/95 px-1.5 py-0.5 shadow-sm">
-                        <StatusBadge status={product.status} label={PRODUCT_STATUSES[product.status]?.label} size="sm" />
-                      </span>
-                      <DraftStatusBadge product={product} />
+                      {/* Filled badge: a tinted one needs a white plate to stay
+                          readable over a photo, which read as a white pill
+                          wearing a green border. */}
+                      <StatusBadge status={product.status} label={PRODUCT_STATUSES[product.status]?.label} size="sm" variant="solid" />
+                      <DraftStatusBadge product={product} variant="solid" />
                     </div>
                   </div>
 

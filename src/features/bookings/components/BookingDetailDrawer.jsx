@@ -55,14 +55,21 @@ import { describeActionError } from "@/lib/errorHandler";
  *    cancellation wizard and its approval gate are unchanged.
  */
 
+/**
+ * A block of the booking.
+ *
+ * Deliberately not a card: the drawer is one long document, and ten bordered
+ * boxes inside it read as clutter. A tracked micro-label and a hairline do the
+ * same job of separation at a fraction of the ink.
+ */
 function Section({ title, icon: Icon, children }) {
   return (
-    <section className="py-4 border-b border-slate-100 last:border-b-0">
-      <h3 className="flex items-center gap-1.5 text-sm font-bold text-slate-900 mb-2.5">
-        {Icon && <Icon size={15} className="text-slate-400" />}
+    <section className="border-b border-slate-100 py-4 last:border-b-0">
+      <h3 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+        {Icon && <Icon size={13} className="text-slate-400" />}
         {title}
       </h3>
-      {children}
+      <div className="mt-2.5">{children}</div>
     </section>
   );
 }
@@ -70,7 +77,7 @@ function Section({ title, icon: Icon, children }) {
 function Fact({ label, children }) {
   return (
     <div>
-      <p className="text-xs text-slate-500 mb-0.5">{label}</p>
+      <p className="mb-0.5 text-[11px] text-slate-400">{label}</p>
       <div className="text-sm font-medium text-slate-800">{children}</div>
     </div>
   );
@@ -135,7 +142,7 @@ function NotesEditor({ booking, onSaved }) {
           className={cn(
             "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors",
             dirty && !saving
-              ? "bg-[#044b3b] text-white hover:bg-[#033629]"
+              ? "bg-emerald-600 text-white hover:bg-emerald-700"
               : "bg-slate-100 text-slate-400 cursor-not-allowed"
           )}
         >
@@ -297,7 +304,7 @@ function RescheduleForm({ booking, onMoved, onRefresh }) {
               type="button"
               onClick={submit}
               disabled={!canSubmit}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold bg-[#044b3b] text-white hover:bg-[#033629] disabled:bg-slate-200 disabled:text-slate-400"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400"
             >
               {submitting && <Loader2 size={13} className="animate-spin" />}
               Yes, move it
@@ -410,7 +417,7 @@ function StatusActions({ booking, onStatusUpdate, isUpdating, onChanged }) {
               className={cn(
                 "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors",
                 action.variant === "primary" &&
-                  "bg-[#044b3b] text-white hover:bg-[#033629] disabled:bg-slate-200 disabled:text-slate-400",
+                  "bg-emerald-600 text-white hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400",
                 action.variant === "secondary" &&
                   "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:text-slate-400",
                 action.variant === "danger" &&
@@ -453,6 +460,16 @@ export default function BookingDetailDrawer({
   const canSeeRevenue = !teamRole
     || teamRole.hasPermission?.("bookings.revenue.view") !== false
     || teamRole.hasPermission?.("earnings.view") !== false;
+  // The API sends a dash when there is no separate booker, and repeating the
+  // lead traveler's own name as "Booked by" says nothing.
+  const leadName = (booking?.leadTravelerName || "").trim();
+  const bookerName = (booking?.customerName || "").trim();
+  const showBooker = Boolean(
+    bookerName
+    && bookerName !== "—"
+    && bookerName !== "-"
+    && bookerName.toLowerCase() !== leadName.toLowerCase()
+  );
   const closeRef = useRef(null);
   const panelRef = useRef(null);
   // Only the newest fetch may land: the panel can be pointed at another
@@ -572,19 +589,42 @@ export default function BookingDetailDrawer({
         {/* Header */}
         <div className="flex items-start gap-3 px-5 py-4 border-b border-slate-200">
           <div className="flex-1 min-w-0">
-            <p className="text-xs text-slate-500">Booking</p>
-            <h2 className="text-lg font-bold text-slate-900 font-mono truncate">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Booking</p>
+            <h2 className="mt-0.5 text-lg font-bold text-slate-900 font-mono truncate">
               {booking?.bookingNumber || bookingId}
             </h2>
             {booking && (
-              <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                <StatusBadge
-                  status={booking.status}
-                  label={BOOKING_STATUSES[booking.status]?.label || booking.status}
-                  size="sm"
-                />
-                <AttentionBadge attention={booking.attention} />
-              </div>
+              <>
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  <StatusBadge
+                    status={booking.status}
+                    label={BOOKING_STATUSES[booking.status]?.label || booking.status}
+                    size="sm"
+                  />
+                  <AttentionBadge attention={booking.attention} />
+                </div>
+                {/* The three facts a supplier opens this for, on the header
+                    instead of buried under six sections. */}
+                <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
+                  <span className="whitespace-nowrap">
+                    {formatTravelDate(booking.travelDate)}
+                    {booking.selectedTime && ` · ${formatTime(booking.selectedTime)}`}
+                  </span>
+                  <span className="text-slate-300">·</span>
+                  <span className="whitespace-nowrap">
+                    {formatPartySummary(booking.travelersRaw) ||
+                      `${booking.travelers} traveler${booking.travelers !== 1 ? "s" : ""}`}
+                  </span>
+                  {canSeeRevenue && (
+                    <>
+                      <span className="text-slate-300">·</span>
+                      <span className="whitespace-nowrap font-semibold tabular-nums text-slate-900">
+                        {formatCurrency(booking.total, booking.currency)}
+                      </span>
+                    </>
+                  )}
+                </p>
+              </>
             )}
           </div>
           <button
@@ -602,7 +642,7 @@ export default function BookingDetailDrawer({
         <div className="flex-1 overflow-y-auto overflow-x-hidden px-5">
           {loading && (
             <div className="py-16 flex items-center justify-center">
-              <Loader2 size={28} className="animate-spin text-[#044b3b]" />
+              <Loader2 size={28} className="animate-spin text-emerald-700" />
             </div>
           )}
 
@@ -616,7 +656,7 @@ export default function BookingDetailDrawer({
               <button
                 type="button"
                 onClick={load}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-[#044b3b] text-white hover:bg-[#033629]"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700"
               >
                 <RefreshCw size={14} /> Retry
               </button>
@@ -668,28 +708,11 @@ export default function BookingDetailDrawer({
               <Section title="Customer" icon={Users}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Fact label="Lead traveller">{booking.leadTravelerName || booking.customerName}</Fact>
-                  <Fact label="Booked by">{booking.customerName}</Fact>
-                  <Fact label="Contact">
-                    {booking.contactEmail ? (
-                      <a
-                        href={`mailto:${booking.contactEmail}`}
-                        className="inline-flex items-center gap-1 text-[#044b3b] hover:underline break-all"
-                      >
-                        <Mail size={13} /> {booking.contactEmail}
-                      </a>
-                    ) : (
-                      // The relay helper blanks the address rather than ever
-                      // substituting the customer's real inbox. Show the same
-                      // honest placeholder the phone row uses instead of an
-                      // empty mailto: link.
-                      <span className="text-slate-400">Not provided</span>
-                    )}
-                  </Fact>
                   <Fact label="Phone">
                     {booking.contactPhone ? (
                       <a
                         href={`tel:${booking.contactPhone}`}
-                        className="inline-flex items-center gap-1 text-[#044b3b] hover:underline"
+                        className="inline-flex items-center gap-1 text-emerald-700 hover:underline"
                       >
                         <Phone size={13} /> {booking.contactPhone}
                       </a>
@@ -697,6 +720,29 @@ export default function BookingDetailDrawer({
                       <span className="text-slate-400">Not provided</span>
                     )}
                   </Fact>
+                  {/* Contact gets the full width: a relay address is long, and
+                      half a column broke it mid-domain. */}
+                  <div className="min-w-0 sm:col-span-2">
+                    <Fact label="Contact">
+                      {booking.contactEmail ? (
+                        <a
+                          href={`mailto:${booking.contactEmail}`}
+                          className="inline-flex items-start gap-1 break-all text-emerald-700 hover:underline"
+                        >
+                          <Mail size={13} className="mt-0.5 shrink-0" /> {booking.contactEmail}
+                        </a>
+                      ) : (
+                        // The relay helper blanks the address rather than ever
+                        // substituting the customer's real inbox. Show the same
+                        // honest placeholder the phone row uses instead of an
+                        // empty mailto: link.
+                        <span className="text-slate-400">Not provided</span>
+                      )}
+                    </Fact>
+                  </div>
+                  {showBooker && (
+                    <Fact label="Booked by">{bookerName}</Fact>
+                  )}
                 </div>
                 <button
                   type="button"
@@ -708,7 +754,7 @@ export default function BookingDetailDrawer({
               </Section>
 
               <Section title="Payment" icon={CreditCard}>
-                <div className="rounded-lg border border-slate-200 divide-y divide-slate-100 text-sm">
+                <div className="divide-y divide-slate-200/60 rounded-lg bg-slate-50 text-sm">
                   {canSeeRevenue && booking.subtotal > 0 && (
                     <div className="flex justify-between px-3 py-2">
                       <span className="text-slate-600">Subtotal</span>
@@ -762,7 +808,7 @@ export default function BookingDetailDrawer({
                       {ledger?.error ? "Commission could not be loaded right now." : "Loading…"}
                     </p>
                   ) : (
-                    <div className="rounded-lg border border-slate-200 divide-y divide-slate-100 text-sm">
+                    <div className="divide-y divide-slate-200/60 rounded-lg bg-slate-50 text-sm">
                       <div className="flex justify-between px-3 py-2">
                         <span className="text-slate-600">Recorded as collected</span>
                         <span className="tabular-nums">

@@ -121,7 +121,7 @@ export default function DataTable({
               <select
                 value={pageSize}
                 onChange={(e) => onPageSizeChange?.(Number(e.target.value))}
-                className="px-2 py-1 border border-[#eaeaea] rounded-md bg-white text-[#1e293b] text-sm focus:outline-none focus:ring-2 focus:ring-[#044b3b]/20 focus:border-[#044b3b]"
+                className="px-2 py-1 border border-[#eaeaea] rounded-md bg-white text-[#1e293b] text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
               >
                 {pageSizeOptions.map((size) => (
                   <option key={size} value={size}>

@@ -395,7 +395,7 @@ export default function PickupPlannerPage() {
               value={status}
               aria-label="Booking status"
               onChange={(e) => { setStatus(e.target.value); resetToFirstPage(); }}
-              className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 transition-colors focus:border-[#044b3b] focus:outline-none focus:ring-2 focus:ring-[#044b3b]/15"
+              className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 transition-colors focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/15"
             >
               <option value="">All active statuses</option>
               <option value="PENDING">Pending</option>
@@ -417,7 +417,7 @@ export default function PickupPlannerPage() {
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Search customer, booking #, address…"
                 aria-label="Search pickups"
-                className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-8 text-sm text-slate-700 placeholder:text-slate-400 transition-colors focus:border-[#044b3b] focus:outline-none focus:ring-2 focus:ring-[#044b3b]/15"
+                className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-8 text-sm text-slate-700 placeholder:text-slate-400 transition-colors focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/15"
               />
               {searchInput && (
                 <button

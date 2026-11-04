@@ -14,8 +14,8 @@ const Checkbox = forwardRef(({
     <input
       type="checkbox"
       className={cn(
-        "w-4 h-4 rounded border-slate-300 text-[#044b3b]",
-        "focus:ring-2 focus:ring-[#044b3b]/20 focus:ring-offset-0",
+        "w-4 h-4 rounded border-slate-300 text-emerald-700",
+        "focus:ring-2 focus:ring-emerald-500/20 focus:ring-offset-0",
         "disabled:bg-slate-50 disabled:cursor-not-allowed",
         "transition-colors cursor-pointer",
         error && "border-red-300",

@@ -140,7 +140,7 @@ export default function SupplierStatusPage() {
           <div className="space-y-3">
             <a
               href="https://www.travioghana.com/supplier/register"
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-[#044b3b] text-white rounded-lg text-sm font-medium hover:bg-[#033629] transition-colors"
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors"
             >
               <Shield size={16} />
               <span>Apply on Main Site</span>
@@ -159,7 +159,7 @@ export default function SupplierStatusPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] px-4">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 size={32} className="animate-spin text-[#044b3b]" />
+          <Loader2 size={32} className="animate-spin text-emerald-700" />
           <p className="text-sm text-[#64748b]">Loading your supplier status...</p>
         </div>
       </div>
@@ -194,7 +194,7 @@ export default function SupplierStatusPage() {
                 useAuthStore.getState().setUnauthenticated();
                 window.location.href = "/login";
               }}
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-[#044b3b] text-white rounded-lg text-sm font-medium hover:bg-[#033629] transition-colors"
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors"
             >
               <LogIn size={16} />
               <span>Log In Again</span>
@@ -202,7 +202,7 @@ export default function SupplierStatusPage() {
           ) : (
             <button
               onClick={() => window.location.reload()}
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-[#044b3b] text-white rounded-lg text-sm font-medium hover:bg-[#033629] transition-colors"
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors"
             >
               <RefreshCw size={16} />
               <span>Try Again</span>
@@ -270,7 +270,7 @@ export default function SupplierStatusPage() {
         {supplierProfile?.documents?.length > 0 && (
           <div className="mb-6">
             <div className="mb-3 flex items-center gap-2">
-              <FileText size={15} className="text-[#044b3b]" />
+              <FileText size={15} className="text-emerald-700" />
               <h2 className="text-sm font-bold text-[#1e293b]">Required documents</h2>
             </div>
             <div className="space-y-2">
@@ -285,7 +285,7 @@ export default function SupplierStatusPage() {
           <div className="mb-3">
             <button
               onClick={() => navigate("/verification")}
-              className="w-full inline-flex items-center justify-center gap-2 px-6 py-2.5 border border-[#044b3b] text-[#044b3b] rounded-lg text-sm font-medium hover:bg-[#f0fdf4] transition-colors"
+              className="w-full inline-flex items-center justify-center gap-2 px-6 py-2.5 border border-emerald-600 text-emerald-700 rounded-lg text-sm font-medium hover:bg-[#f0fdf4] transition-colors"
             >
               <Shield size={16} />
               <span>Manage Verification</span>
@@ -296,7 +296,7 @@ export default function SupplierStatusPage() {
         {canProceed && (
           <button
             onClick={() => navigate("/")}
-            className="w-full inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-[#044b3b] text-white rounded-lg text-sm font-medium hover:bg-[#033629] transition-colors"
+            className="w-full inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors"
           >
             <span>Go to Dashboard</span>
             <ArrowRight size={16} />
@@ -307,7 +307,7 @@ export default function SupplierStatusPage() {
           <div className="text-center">
             <a
               href="https://www.travioghana.com/supplier/register"
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-[#044b3b] text-white rounded-lg text-sm font-medium hover:bg-[#033629] transition-colors"
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors"
             >
               <Shield size={16} />
               <span>Re-apply on Main Site</span>
@@ -319,7 +319,7 @@ export default function SupplierStatusPage() {
           <div className="text-center">
             <button
               onClick={() => navigate("/")}
-              className="inline-flex items-center gap-2 px-6 py-2.5 text-[#044b3b] rounded-lg text-sm font-medium hover:bg-[#f0fdf4] transition-colors"
+              className="inline-flex items-center gap-2 px-6 py-2.5 text-emerald-700 rounded-lg text-sm font-medium hover:bg-[#f0fdf4] transition-colors"
             >
               <RefreshCw size={16} />
               <span>Check Again</span>
@@ -374,7 +374,7 @@ function DocumentStatusRow({ doc, onReplaced }) {
             type="button"
             onClick={() => inputRef.current?.click()}
             disabled={uploading}
-            className="inline-flex items-center gap-1 rounded-lg bg-[#044b3b] px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#033629] disabled:opacity-60"
+            className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
           >
             {uploading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
             {uploading ? "Uploading" : "Re-upload"}

@@ -44,7 +44,7 @@ export default function NetworkErrorPage() {
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button
             onClick={handleRefresh}
-            className="flex items-center justify-center gap-2 px-6 py-3 bg-[#044b3b] text-white rounded-lg text-sm font-medium hover:bg-[#033629] transition-colors"
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors"
           >
             <RefreshCw size={16} />
             Try Again

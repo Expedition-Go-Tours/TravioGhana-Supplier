@@ -430,7 +430,7 @@ export default function NotificationsPage() {
                 aria-pressed={active}
                 className={cn(
                   "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
-                  active ? "bg-[#044b3b] text-white" : "text-slate-500 hover:bg-slate-50 hover:text-slate-700",
+                  active ? "bg-emerald-600 text-white" : "text-slate-500 hover:bg-slate-50 hover:text-slate-700",
                 )}
               >
                 {tab.label}
@@ -485,7 +485,7 @@ export default function NotificationsPage() {
             </p>
             <button
               onClick={() => refetch()}
-              className="mt-5 rounded-lg bg-[#044b3b] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#033a2e]"
+              className="mt-5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#033a2e]"
             >
               Try again
             </button>

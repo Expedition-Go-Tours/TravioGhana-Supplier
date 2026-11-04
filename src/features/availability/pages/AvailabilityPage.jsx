@@ -450,7 +450,7 @@ export default function AvailabilityPage() {
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
       <AlertCircle size={40} className="text-red-500" />
       <p className="text-slate-500">Failed to load tours</p>
-      <button onClick={() => queryClient.invalidateQueries({ queryKey: ["supplier-tours"] })} className="flex items-center gap-2 px-4 py-2 bg-[#044b3b] text-white rounded-lg text-sm hover:bg-[#033629]"><RefreshCw size={14} /> Retry</button>
+      <button onClick={() => queryClient.invalidateQueries({ queryKey: ["supplier-tours"] })} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700"><RefreshCw size={14} /> Retry</button>
     </div>
   );
 
@@ -466,7 +466,7 @@ export default function AvailabilityPage() {
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
       <AlertCircle size={40} className="text-red-500" />
       <p className="text-slate-500">Failed to load availability for this tour</p>
-      <button onClick={() => refetchAvail()} className="flex items-center gap-2 px-4 py-2 bg-[#044b3b] text-white rounded-lg text-sm hover:bg-[#033629]"><RefreshCw size={14} /> Retry</button>
+      <button onClick={() => refetchAvail()} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm hover:bg-emerald-700"><RefreshCw size={14} /> Retry</button>
     </div>
   );
 
@@ -551,7 +551,7 @@ export default function AvailabilityPage() {
                 <span className="text-sm font-semibold text-slate-800 w-24 text-center select-none">{format(currentDate, "MMMM yyyy")}</span>
                 <button onClick={() => goMonth("next")} className="p-1 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"><ChevronRight size={15} /></button>
               </div>
-              <button onClick={() => { const d = new Date(); setCurrentDate(d); syncUrl(selectedTour, d); }} className="text-xs font-medium text-[#044b3b] hover:text-[#033629] transition-colors px-1.5 py-1 rounded-md hover:bg-emerald-50">
+              <button onClick={() => { const d = new Date(); setCurrentDate(d); syncUrl(selectedTour, d); }} className="text-xs font-medium text-emerald-700 hover:text-[#047857] transition-colors px-1.5 py-1 rounded-md hover:bg-emerald-50">
                 Today
               </button>
             </>
@@ -629,7 +629,7 @@ export default function AvailabilityPage() {
         })}
         <span className="text-[11px] text-slate-300 mx-0.5 sm:mx-1 hidden sm:inline">|</span>
         <div className="hidden sm:flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#044b3b]" />
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
           <span className="text-[11px] text-slate-400">Override</span>
         </div>
         {/* A disabled button emits no pointer events, so the reason lives on
@@ -750,7 +750,7 @@ export default function AvailabilityPage() {
           <div className="py-16 flex flex-col items-center justify-center text-center">
             <CalendarIcon size={32} className="text-slate-300 mb-2" strokeWidth={1.5} />
             <p className="text-sm text-slate-400">No dates in this range</p>
-            <button onClick={() => setStatusFilter({ available: true, limited: true, full: true, closed: true, blocked: true, past: true })} className="mt-2 text-xs text-[#044b3b] hover:text-[#033629] underline">
+            <button onClick={() => setStatusFilter({ available: true, limited: true, full: true, closed: true, blocked: true, past: true })} className="mt-2 text-xs text-emerald-700 hover:text-[#047857] underline">
               Reset filters
             </button>
           </div>
@@ -789,7 +789,7 @@ export default function AvailabilityPage() {
                                 : "hover:bg-slate-50 active:bg-slate-100 cursor-pointer bg-white"
                   } ${today && !isBlocked && !isClosed && !isPast && day.status !== "full" && day.status !== "limited" ? "bg-emerald-50/40" : ""}`}
                 >
-                  <span className={`text-xs sm:text-sm font-semibold leading-none mb-1 sm:mb-1.5 ${today && !isBlocked && !isClosed && !isPast && day.status !== "full" && day.status !== "limited" ? "text-[#044b3b]" : isPast ? "text-slate-300" : isBlocked || isClosed || day.status === "full" ? "text-slate-400" : day.status === "limited" ? "text-amber-600" : "text-slate-700"}`}>
+                  <span className={`text-xs sm:text-sm font-semibold leading-none mb-1 sm:mb-1.5 ${today && !isBlocked && !isClosed && !isPast && day.status !== "full" && day.status !== "limited" ? "text-emerald-700" : isPast ? "text-slate-300" : isBlocked || isClosed || day.status === "full" ? "text-slate-400" : day.status === "limited" ? "text-amber-600" : "text-slate-700"}`}>
                     {format(date, "d")}
                   </span>
 
@@ -834,7 +834,7 @@ export default function AvailabilityPage() {
                     </>
                   )}
 
-                  {day.hasOverride && <span className="absolute top-1.5 right-1.5 sm:right-2 w-1 h-1 rounded-full bg-[#044b3b]" />}
+                  {day.hasOverride && <span className="absolute top-1.5 right-1.5 sm:right-2 w-1 h-1 rounded-full bg-emerald-600" />}
                 </button>
               );
             })}
@@ -961,7 +961,7 @@ export default function AvailabilityPage() {
                         <button
                           onClick={handleCapacityApply}
                           disabled={capacityMut.isPending || !capacityDirty}
-                          className="shrink-0 px-3.5 py-2 text-xs font-semibold text-white bg-[#044b3b] rounded-lg hover:bg-[#033629] disabled:opacity-40 transition-colors"
+                          className="shrink-0 px-3.5 py-2 text-xs font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-40 transition-colors"
                         >
                           Apply
                         </button>
@@ -1022,7 +1022,7 @@ export default function AvailabilityPage() {
                         <button
                           onClick={handleMinApply}
                           disabled={minMut.isPending || !minDirty}
-                          className="shrink-0 px-3.5 py-2 text-xs font-semibold text-white bg-[#044b3b] rounded-lg hover:bg-[#033629] disabled:opacity-40 transition-colors"
+                          className="shrink-0 px-3.5 py-2 text-xs font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-40 transition-colors"
                         >
                           Apply minimum
                         </button>
@@ -1125,7 +1125,7 @@ export default function AvailabilityPage() {
                       <button
                         onClick={handleSaveSlotCutoffs}
                         disabled={slotCutoffMut.isPending}
-                        className="shrink-0 px-2.5 py-1 text-[11px] font-semibold text-white bg-[#044b3b] rounded-md hover:bg-[#033629] disabled:opacity-40 transition-colors"
+                        className="shrink-0 px-2.5 py-1 text-[11px] font-semibold text-white bg-emerald-600 rounded-md hover:bg-emerald-700 disabled:opacity-40 transition-colors"
                       >
                         {slotCutoffMut.isPending ? "Saving…" : "Save"}
                       </button>

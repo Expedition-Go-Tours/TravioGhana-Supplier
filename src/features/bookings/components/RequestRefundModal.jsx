@@ -670,7 +670,7 @@ export default function RequestRefundModal({ isOpen, onClose, booking, onSubmitt
               <Link
                 to="/finance?tab=refunds"
                 onClick={onClose}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
               >
                 View in Finance <ArrowRight size={14} />
               </Link>
@@ -695,7 +695,7 @@ export default function RequestRefundModal({ isOpen, onClose, booking, onSubmitt
               <Link
                 to="/finance?tab=refunds"
                 onClick={onClose}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
               >
                 Track request <ArrowRight size={14} />
               </Link>
@@ -728,7 +728,7 @@ export default function RequestRefundModal({ isOpen, onClose, booking, onSubmitt
                     type="button"
                     onClick={handleSubmit}
                     disabled={!canSubmit}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {submitting && <Loader2 size={14} className="animate-spin" />}
                     {submitting ? "Submitting…" : "Submit refund request"}

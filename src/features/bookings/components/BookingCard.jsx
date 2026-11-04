@@ -25,7 +25,6 @@ import { formatCurrency, formatDate, formatTravelDate, formatTime, cn } from "@/
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import {
   formatPartySummary,
-  formatTravelerDetails,
   getTravelerDetails,
 } from "../lib/formatTravelers";
 import { pickupDisplay } from "../lib/pickupHelpers";
@@ -160,6 +159,30 @@ function PaymentStatus({ paymentStatus, paymentTiming }) {
   );
 }
 
+/**
+ * One block of the expanded panel. Hairlines — not cards — separate the
+ * sections, and every block shares the same micro-label so the eye can run
+ * down one column instead of re-reading seven different headings.
+ */
+function PanelSection({ label, children }) {
+  return (
+    <section className="py-3.5">
+      <h4 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{label}</h4>
+      <div className="mt-2">{children}</div>
+    </section>
+  );
+}
+
+/** A label/value cell, identical in shape to the drawer's Fact. */
+function PanelFact({ label, children }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[11px] text-slate-400">{label}</p>
+      <div className="mt-0.5 text-sm font-medium text-slate-800">{children}</div>
+    </div>
+  );
+}
+
 export default function BookingCard({
   booking,
   onStatusUpdate,
@@ -181,6 +204,16 @@ export default function BookingCard({
   const canSeeRevenue = !teamRole
     || teamRole.hasPermission?.("bookings.revenue.view") !== false
     || teamRole.hasPermission?.("earnings.view") !== false;
+  // The API sends a dash when there is no separate booker; "Booked by —" is
+  // noise, and repeating the lead traveler's own name says nothing.
+  const leadName = (booking.leadTravelerName || "").trim();
+  const bookerName = (booking.customerName || "").trim();
+  const showBooker = Boolean(
+    bookerName
+    && bookerName !== "—"
+    && bookerName !== "-"
+    && bookerName.toLowerCase() !== leadName.toLowerCase()
+  );
   const isPayLater = booking.paymentTiming === 'later';
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -208,8 +241,12 @@ export default function BookingCard({
     pickup.skipValidation ||
     pickup.status === "deferred";
   const partySummary = formatPartySummary(booking.travelersRaw);
-  const travelerNames = formatTravelerDetails(booking.travelersRaw);
   const travelerDetails = getTravelerDetails(booking.travelersRaw);
+  // The lead traveler is already named above; repeating them as the only
+  // participant chip reads as though the rest of the party is missing.
+  const otherTravelers = travelerDetails.filter(
+    (d) => (d.name || "").trim().toLowerCase() !== leadName.toLowerCase()
+  );
   const guestCount = booking.travelers;
   // One compact payment cue for the collapsed row. The expanded panel explains
   // the state in full; this only flags the two states a supplier must not miss.
@@ -485,17 +522,15 @@ export default function BookingCard({
             transition={{ duration: 0.25, ease: "easeInOut" }}
             className="overflow-hidden"
           >
-            <div className="px-4 sm:px-5 pb-5 border-t border-slate-100">
+            <div className="border-t border-slate-100 px-4 pb-4 pt-4 sm:px-5">
               {/* Server-authoritative attention is shown before any payment
                   summary so an unpaid booking cannot look successful. */}
-              <div className="pt-4">
-                <BookingAttentionPanel
-                  attention={booking.attention}
-                  onAction={onPaymentLinkAction ? (payload) => onPaymentLinkAction(booking, payload) : undefined}
-                  onRefresh={onRefresh}
-                  variant="card"
-                />
-              </div>
+              <BookingAttentionPanel
+                attention={booking.attention}
+                onAction={onPaymentLinkAction ? (payload) => onPaymentLinkAction(booking, payload) : undefined}
+                onRefresh={onRefresh}
+                variant="card"
+              />
 
               {mutationError && (
                 <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5" role="alert">
@@ -510,7 +545,7 @@ export default function BookingCard({
                           onRefresh?.();
                         }}
                         disabled={isUpdating}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-red-200 text-red-800 hover:bg-red-100 disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-800 hover:bg-red-100 disabled:opacity-50"
                       >
                         {isUpdating ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
                         Try again
@@ -523,7 +558,7 @@ export default function BookingCard({
                           e.stopPropagation();
                           onRefresh();
                         }}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-800 hover:bg-red-100"
+                        className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-red-800 hover:bg-red-100"
                       >
                         <RefreshCw size={12} /> Refresh booking
                       </button>
@@ -532,295 +567,270 @@ export default function BookingCard({
                 </div>
               )}
 
-              {/* ── Payment status (paid / reserve-now-pay-later) ── */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 justify-between pt-4 pb-4 border-b border-slate-100">
-                <PaymentStatus paymentStatus={booking.paymentStatus} paymentTiming={booking.paymentTiming} />
-                <p className="text-xs text-slate-400 text-right">
-                  Total charged to customer
-                </p>
-              </div>
-
-              {/* ── Pricing breakdown ── */}
-              {booking.discount > 0 && (
-                <div className="py-3 border-b border-slate-100">
-                  <h4 className="text-sm font-bold text-slate-900 mb-2">
-                    Pricing breakdown
-                  </h4>
-                  <div className="rounded-lg bg-slate-50 border border-slate-200/60 divide-y divide-slate-200/60 text-sm">
-                    {booking.subtotal > 0 && (
-                      <div className="flex justify-between px-3 py-2">
-                        <span className="text-slate-600">Subtotal</span>
-                        <span className="font-medium text-slate-800">{formatCurrency(booking.subtotal, booking.currency)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between px-3 py-2">
-                      <span className="text-slate-600">Discount</span>
-                      <span className="font-medium text-red-600">
-                        −{formatCurrency(booking.discount, booking.currency)}
-                      </span>
-                    </div>
-                    {booking.offerName && (
-                      <div className="flex justify-between px-3 py-2">
-                        <span className="text-slate-500 text-xs">Applied offer</span>
-                        <span className="text-xs text-slate-600">
-                          {booking.offerName}
-                          {booking.offerDiscountType === 'PERCENTAGE' && booking.offerDiscountPct && (
-                            <span className="ml-1 text-red-600 font-medium">({booking.offerDiscountPct}% off)</span>
-                          )}
-                          {booking.offerDiscountType === 'FIXED' && booking.offerDiscountFix && (
-                            <span className="ml-1 text-red-600 font-medium">({formatCurrency(booking.offerDiscountFix, booking.currency)} off)</span>
-                          )}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex justify-between px-3 py-2 bg-white">
-                      <span className="font-semibold text-slate-800">Total paid</span>
-                      <span className="font-bold text-slate-900">{formatCurrency(booking.total, booking.currency)}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* ── Warning: past-date PENDING ── */}
               {booking.status === 'PENDING' && travelDatePassed && (
-                <div className="flex items-center gap-2.5 px-3 py-2.5 mt-3 rounded-lg bg-red-50 border border-red-200/60">
-                  <AlertTriangle size={15} className="text-red-500 shrink-0" />
+                <div className="mt-3 flex items-center gap-2.5 rounded-lg border border-red-200/60 bg-red-50 px-3 py-2.5">
+                  <AlertTriangle size={15} className="shrink-0 text-red-500" />
                   <p className="text-sm text-red-700">
                     Activity date has passed. This booking will be auto-cancelled if not confirmed soon.
                   </p>
                 </div>
               )}
 
-              {/* ── Section: Booking details ── */}
-              <div className="py-4 border-b border-slate-100">
-                <h4 className="text-sm font-bold text-slate-900 mb-3">
-                  Booking details
-                </h4>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div>
-                    <p className="text-xs text-slate-500 mb-0.5">Reference</p>
-                    <p className="text-sm font-medium text-slate-800 font-mono">
-                      {booking.bookingNumber}
-                    </p>
-                    <div className="mt-1">
-                      <SourceBadge source={booking.source} />
-                    </div>
+              {/* Money, the reservation, the people and the logistics used to
+                  be seven equally-weighted bands split by hairlines — a supplier
+                  scanning for one fact had to read all of them. They are cards
+                  now, two up on wide screens, with every figure about money kept
+                  inside the single Payment card. */}
+              {/* A spec sheet, not a board of cards. Cards inside this card
+                  gave every block its own border and left four icon tiles and
+                  a lot of dead space fighting the row above; two free columns
+                  left holes wherever one side was shorter. Full-width rows
+                  sharing one label column stay aligned whatever the content. */}
+              <div className="mt-1 divide-y divide-slate-100">
+                {/* ── Payment ── */}
+                <PanelSection label="Payment">
+                  <div className="flex flex-wrap items-start gap-x-10 gap-y-3">
+                    <PanelFact label="Status">
+                      <PaymentStatus paymentStatus={booking.paymentStatus} paymentTiming={booking.paymentTiming} />
+                    </PanelFact>
+                    {canSeeRevenue && (
+                      <PanelFact label="Total charged">
+                        <span className="text-base font-bold tabular-nums text-slate-900">
+                          {formatCurrency(booking.total, booking.currency)}
+                        </span>
+                      </PanelFact>
+                    )}
+                    {canSeeRevenue && booking.discount > 0 && (
+                      <>
+                        {booking.subtotal > 0 && (
+                          <PanelFact label="Subtotal">
+                            <span className="tabular-nums">{formatCurrency(booking.subtotal, booking.currency)}</span>
+                          </PanelFact>
+                        )}
+                        <PanelFact label="Discount">
+                          <span className="tabular-nums text-red-600">
+                            −{formatCurrency(booking.discount, booking.currency)}
+                          </span>
+                        </PanelFact>
+                        {booking.offerName && (
+                          <PanelFact label="Applied offer">
+                            <span className="text-xs text-slate-600">
+                              {booking.offerName}
+                              {booking.offerDiscountType === 'PERCENTAGE' && booking.offerDiscountPct && (
+                                <span className="ml-1 font-medium text-red-600">({booking.offerDiscountPct}% off)</span>
+                              )}
+                              {booking.offerDiscountType === 'FIXED' && booking.offerDiscountFix && (
+                                <span className="ml-1 font-medium text-red-600">({formatCurrency(booking.offerDiscountFix, booking.currency)} off)</span>
+                              )}
+                            </span>
+                          </PanelFact>
+                        )}
+                        <PanelFact label="Total paid">
+                          <span className="tabular-nums">{formatCurrency(booking.total, booking.currency)}</span>
+                        </PanelFact>
+                      </>
+                    )}
                   </div>
-                  <div>
-                    <p className="text-xs text-slate-500 mb-0.5">Purchased</p>
-                    <p className="text-sm font-medium text-slate-800">
-                      {formatDate(booking.bookingDate)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500 mb-0.5">
-                      Activity date
-                    </p>
-                    <p className="text-sm font-medium text-slate-800">
-                      {formatTravelDate(booking.travelDate)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500 mb-0.5">Travelers</p>
-                    <p className="text-sm font-medium text-slate-800">
+                </PanelSection>
+
+                {/* ── The reservation ── */}
+                <PanelSection label="Booking details">
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+                    <PanelFact label="Reference">
+                      <span className="break-all font-mono">{booking.bookingNumber}</span>
+                      <div className="mt-1">
+                        <SourceBadge source={booking.source} />
+                      </div>
+                    </PanelFact>
+                    <PanelFact label="Purchased">{formatDate(booking.bookingDate)}</PanelFact>
+                    <PanelFact label="Activity date">{formatTravelDate(booking.travelDate)}</PanelFact>
+                    <PanelFact label="Travelers">
                       {partySummary || `${guestCount} traveler${guestCount !== 1 ? "s" : ""}`}
-                    </p>
+                    </PanelFact>
                   </div>
-                </div>
-              </div>
 
-              {/* ── Section: Cancellation details (supplier) ── */}
-              {booking.status === 'CANCELLED' && (
-                <div className="py-4 border-b border-slate-100">
-                  <h4 className="text-sm font-bold text-red-700 mb-3 flex items-center gap-1.5">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                    Cancellation
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    {booking.cancellationReason && (
-                      <div className={booking.cancellationNote ? "sm:col-span-1" : "sm:col-span-2"}>
-                        <p className="text-xs text-slate-500 mb-0.5">Reason</p>
-                        <p className="text-sm text-slate-800">{booking.cancellationReason}</p>
+                  {booking.status === 'CANCELLED' && (
+                    <div className="mt-3 rounded-lg bg-red-50 px-3 py-2.5">
+                      <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-red-700">
+                        <Ban size={12} /> Cancellation
+                      </p>
+                      <div className="mt-2 grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-3">
+                        {booking.cancellationReason && (
+                          <div className={booking.cancellationNote ? "sm:col-span-1" : "sm:col-span-2"}>
+                            <p className="text-[11px] text-slate-500">Reason</p>
+                            <p className="text-sm text-slate-800">{booking.cancellationReason}</p>
+                          </div>
+                        )}
+                        {booking.cancellationNote && (
+                          <div className="sm:col-span-2">
+                            <p className="text-[11px] text-slate-500">Customer note</p>
+                            <p className="text-sm italic text-slate-800">{booking.cancellationNote}</p>
+                          </div>
+                        )}
+                        {booking.cancelledAt && (
+                          <div>
+                            <p className="text-[11px] text-slate-500">Cancelled on</p>
+                            <p className="text-sm text-slate-800">{formatDate(booking.cancelledAt)}</p>
+                          </div>
+                        )}
+                        {booking.refundStatus && booking.refundStatus !== 'NOT_APPLICABLE' && (
+                          <div>
+                            <p className="text-[11px] text-slate-500">Refund</p>
+                            <span className={`mt-0.5 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+                              booking.refundStatus === 'SUCCEEDED' ? 'bg-emerald-100 text-emerald-700' :
+                              booking.refundStatus === 'PENDING' ? 'bg-amber-100 text-amber-700' :
+                              booking.refundStatus === 'FAILED' ? 'bg-red-100 text-red-700' :
+                              'bg-slate-100 text-slate-700'
+                            }`}>
+                              {booking.refundStatus === 'SUCCEEDED' ? 'Processed' :
+                               booking.refundStatus === 'PENDING' ? 'Pending' :
+                               booking.refundStatus === 'FAILED' ? 'Failed' : booking.refundStatus}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {booking.cancellationNote && (
-                      <div className="sm:col-span-2">
-                        <p className="text-xs text-slate-500 mb-0.5">Customer note</p>
-                        <p className="text-sm text-slate-800 italic">{booking.cancellationNote}</p>
+                    </div>
+                  )}
+                </PanelSection>
+
+                {/* ── The people ── */}
+                <PanelSection label="Lead traveler">
+                  <div className="flex flex-wrap items-start gap-x-10 gap-y-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      {booking.customerPhoto ? (
+                        <OptimizedImage
+                          src={booking.customerPhoto}
+                          className="h-10 w-10 shrink-0 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-600">
+                          {(booking.leadTravelerName || "?").charAt(0)}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-slate-900">
+                          {booking.leadTravelerName}
+                        </p>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                          {booking.contactEmail && (
+                            <span className="truncate text-xs text-slate-500">{booking.contactEmail}</span>
+                          )}
+                          {booking.contactPhone && (
+                            <span className="text-xs text-slate-500">{booking.contactPhone}</span>
+                          )}
+                        </div>
+                        {showBooker && (
+                          <p className="mt-0.5 text-xs text-slate-400">Booked by {bookerName}</p>
+                        )}
                       </div>
-                    )}
-                    {booking.cancelledAt && (
-                      <div>
-                        <p className="text-xs text-slate-500 mb-0.5">Cancelled on</p>
-                        <p className="text-sm text-slate-800">{formatDate(booking.cancelledAt)}</p>
-                      </div>
-                    )}
-                    {booking.refundStatus && booking.refundStatus !== 'NOT_APPLICABLE' && (
-                      <div>
-                        <p className="text-xs text-slate-500 mb-0.5">Refund</p>
-                        <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium ${
-                          booking.refundStatus === 'SUCCEEDED' ? 'bg-green-100 text-green-700' :
-                          booking.refundStatus === 'PENDING' ? 'bg-amber-100 text-amber-700' :
-                          booking.refundStatus === 'FAILED' ? 'bg-red-100 text-red-700' :
-                          'bg-slate-100 text-slate-700'
-                        }`}>
-                          {booking.refundStatus === 'SUCCEEDED' ? 'Processed' :
-                           booking.refundStatus === 'PENDING' ? 'Pending' :
-                           booking.refundStatus === 'FAILED' ? 'Failed' : booking.refundStatus}
-                        </span>
+                    </div>
+
+                    {(otherTravelers.length > 0 || guestCount > 1) && (
+                      <div className="min-w-0">
+                        <p className="text-[11px] text-slate-400">
+                          Participants{guestCount > 1 ? ` · ${guestCount} travelers` : ""}
+                        </p>
+                        {otherTravelers.length > 0 ? (
+                          /* A one-column table of names was a table for no reason;
+                             chips read as a party and wrap on a phone. */
+                          <ul className="mt-1.5 flex flex-wrap gap-1.5">
+                            {otherTravelers.map((d, i) => (
+                              <li
+                                key={i}
+                                className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"
+                              >
+                                {d.name || `Traveler ${i + 1}`}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : guestCount > 1 ? (
+                          <p className="mt-1 text-xs text-slate-400">No other travelers named</p>
+                        ) : null}
                       </div>
                     )}
                   </div>
-                </div>
-              )}
+                </PanelSection>
 
-              {/* ── Section: Lead traveler ── */}
-              <div className="py-4 border-b border-slate-100">
-                <h4 className="text-sm font-bold text-slate-900 mb-3">
-                  Lead traveler
-                </h4>
-                <div className="flex items-center gap-3">
-                  {booking.customerPhoto ? (
-                    <OptimizedImage
-                      src={booking.customerPhoto}
-                      className="w-10 h-10 rounded-full object-cover"
-                    />
+                {/* ── Logistics ── */}
+                <PanelSection label="Pickup">
+                  {pickupDeferred ? (
+                    /* No amber fill: a full-width tinted block for one line of
+                       status read as an alert where there is nothing to fix
+                       urgently. An icon and a sentence, held to a reading
+                       width, say the same thing quietly. */
+                    <div className="flex items-start gap-2">
+                      <Clock size={14} className="mt-0.5 shrink-0 text-amber-500" />
+                      <div className="max-w-md">
+                        <p className="text-sm font-medium text-slate-800">Awaiting pickup details</p>
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          The customer chose to arrange pickup later. Set the time and location in the Pickup Planner.
+                        </p>
+                      </div>
+                    </div>
+                  ) : pickupInfo.hasLocation ? (
+                    <div className="space-y-1">
+                      <p className="flex items-center gap-1.5 text-sm text-slate-700">
+                        <MapPinned size={14} className="shrink-0 text-slate-400" />
+                        {pickupInfo.primary}
+                      </p>
+                      {pickupInfo.secondary && (
+                        <p className="flex items-start gap-1.5 pl-[22px] text-sm text-slate-500">
+                          {pickupInfo.secondary}
+                        </p>
+                      )}
+                      {pickupInfo.zone && pickupInfo.zone !== pickupInfo.primary && (
+                        <p className="flex items-start gap-1.5 pl-[22px] text-sm text-slate-500">
+                          Zone: {pickupInfo.zone}
+                        </p>
+                      )}
+                      {pickup.time && (
+                        <p className="flex items-center gap-1.5 pl-[22px] text-sm text-slate-500">
+                          Pickup time: {formatTime(pickup.time)}
+                        </p>
+                      )}
+                      {pickup.instructions && (
+                        <p className="flex items-start gap-1.5 pl-[22px] text-sm text-slate-500">
+                          {pickup.instructions}
+                        </p>
+                      )}
+                    </div>
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-sm font-semibold text-slate-600 shrink-0">
-                      {(booking.leadTravelerName || "?").charAt(0)}
-                    </div>
+                    <p className="text-sm italic text-slate-400">
+                      No pickup details provided
+                    </p>
                   )}
-                  <div>
-                    <p className="text-sm font-medium text-slate-900">
-                      {booking.leadTravelerName}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
-                      {booking.contactEmail && (
-                        <span className="text-xs text-slate-500">
-                          {booking.contactEmail}
-                        </span>
+                </PanelSection>
+
+                {/* ── What the customer asked for ── */}
+                {(booking.specialRequests || booking.supplierNotes) && (
+                  <PanelSection label="Requests & notes">
+                    <div className="grid gap-x-8 gap-y-3 sm:grid-cols-2">
+                      {booking.specialRequests && (
+                        <PanelFact label="Special requests">
+                          <span className="font-normal text-slate-600">{booking.specialRequests}</span>
+                        </PanelFact>
                       )}
-                      {booking.contactPhone && (
-                        <span className="text-xs text-slate-500">
-                          {booking.contactPhone}
-                        </span>
+                      {booking.supplierNotes && (
+                        <div className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2">
+                          <AlertTriangle size={13} className="mt-0.5 shrink-0 text-amber-600" />
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-700">
+                              Supplier note
+                            </p>
+                            <p className="mt-0.5 text-xs text-amber-800">{booking.supplierNotes}</p>
+                          </div>
+                        </div>
                       )}
                     </div>
-                    {booking.customerName && booking.customerName !== booking.leadTravelerName && (
-                      <p className="text-xs text-slate-400 mt-1">Booked by {booking.customerName}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* ── Section: Participants ── */}
-              {(travelerNames || guestCount) && (
-                <div className="py-4 border-b border-slate-100">
-                  <h4 className="text-sm font-bold text-slate-900 mb-3">
-                    Participants
-                  </h4>
-                  <p className="text-sm text-slate-500 mb-3">
-                    {guestCount} traveler{guestCount !== 1 ? "s" : ""}
-                  </p>
-                  {travelerDetails.length > 0 && (
-                    <div className="rounded-lg border border-slate-200 overflow-hidden">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="bg-slate-50 border-b border-slate-200">
-                            <th className="text-left px-3 py-2 text-xs font-medium text-slate-500">Name</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {travelerDetails.map((d, i) => (
-                            <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-slate-50/50"}>
-                              <td className="px-3 py-2 text-slate-700">{d.name || `Traveler ${i + 1}`}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* ── Section: Pickup details ── */}
-              <div className="py-4 border-b border-slate-100">
-                <h4 className="text-sm font-bold text-slate-900 mb-3">
-                  Pickup details
-                </h4>
-                {pickupDeferred ? (
-                  <div className="rounded-lg bg-amber-50 border border-amber-200/60 px-3 py-2.5">
-                    <p className="flex items-center gap-1.5 text-sm font-medium text-amber-800">
-                      <Clock size={14} className="shrink-0" />
-                      Awaiting pickup details
-                    </p>
-                    <p className="mt-1 text-xs text-amber-700">
-                      The customer chose to arrange pickup later — set the time and location in the Pickup Planner.
-                    </p>
-                  </div>
-                ) : pickupInfo.hasLocation ? (
-                  <div className="space-y-1.5">
-                    <p className="flex items-center gap-1.5 text-sm text-slate-700">
-                      <MapPinned size={14} className="text-slate-400 shrink-0" />
-                      {pickupInfo.primary}
-                    </p>
-                    {pickupInfo.secondary && (
-                      <p className="flex items-start gap-1.5 text-sm text-slate-500 pl-[22px]">
-                        {pickupInfo.secondary}
-                      </p>
-                    )}
-                    {pickupInfo.zone && pickupInfo.zone !== pickupInfo.primary && (
-                      <p className="flex items-start gap-1.5 text-sm text-slate-500 pl-[22px]">
-                        Zone: {pickupInfo.zone}
-                      </p>
-                    )}
-                    {pickup.time && (
-                      <p className="flex items-center gap-1.5 text-sm text-slate-500 pl-[22px]">
-                        Pickup time: {formatTime(pickup.time)}
-                      </p>
-                    )}
-                    {pickup.instructions && (
-                      <p className="flex items-start gap-1.5 text-sm text-slate-500 pl-[22px]">
-                        {pickup.instructions}
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-sm text-slate-400 italic">
-                    No pickup details provided
-                  </p>
+                  </PanelSection>
                 )}
               </div>
 
-              {/* ── Section: Special requests ── */}
-              {booking.specialRequests && (
-                <div className="py-4 border-b border-slate-100">
-                  <h4 className="text-sm font-bold text-slate-900 mb-2">
-                    Special requests
-                  </h4>
-                  <p className="text-sm text-slate-600">
-                    {booking.specialRequests}
-                  </p>
-                </div>
-              )}
-
-              {/* ── Supplier Notes ── */}
-              {booking.supplierNotes && (
-                <div className="py-3">
-                  <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 rounded-lg border border-amber-200/60">
-                    <AlertTriangle
-                      size={13}
-                      className="text-amber-600 shrink-0"
-                    />
-                    <p className="text-xs text-amber-700">
-                      {booking.supplierNotes}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* ── Actions ── */}
-              <div className="flex flex-wrap items-center gap-2 pt-4 border-t border-slate-100">
+              {/* ── Actions ──
+                  Status changes lead, on the left; the two things that leave
+                  this card (chat, full detail) sit opposite them. */}
+              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-200/70 pt-4">
                 {actions.map((action) => (
                   <button
                     key={action.value}
@@ -830,12 +840,12 @@ export default function BookingCard({
                     }}
                     disabled={isUpdating}
                     className={cn(
-                      "flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-50",
+                      "inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50",
                       action.variant === "primary"
-                        ? "bg-[#044b3b] text-white hover:bg-[#033629] shadow-sm"
+                        ? "bg-emerald-600 text-white shadow-sm hover:bg-emerald-700"
                         : action.variant === "danger"
-                          ? "text-slate-500 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200"
-                          : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                          ? "border border-slate-200 bg-white text-slate-600 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                          : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                     )}
                   >
                     {isUpdating && (
@@ -844,24 +854,26 @@ export default function BookingCard({
                     {action.label}
                   </button>
                 ))}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onMessageCustomer(booking);
-                  }}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-slate-500 hover:text-[#044b3b] hover:bg-emerald-50 border border-transparent hover:border-emerald-200 transition-all"
-                >
-                  <MessageCircle size={13} /> Message customer
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onOpenDetail?.(booking);
-                  }}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-[#044b3b] hover:bg-emerald-50 border border-emerald-200 transition-all"
-                >
-                  <Info size={13} /> View details
-                </button>
+                <div className="flex flex-1 flex-wrap items-center justify-start gap-2 sm:justify-end">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onMessageCustomer(booking);
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                  >
+                    <MessageCircle size={13} /> Message customer
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenDetail?.(booking);
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+                  >
+                    <Info size={13} /> View details
+                  </button>
+                </div>
               </div>
             </div>
           </motion.div>

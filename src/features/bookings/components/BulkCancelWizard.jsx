@@ -287,16 +287,16 @@ export default function BulkCancelWizard({ isOpen, onClose, onCompleted }) {
                       className={cn(
                         "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] font-medium",
                         i === stepIndex
-                          ? "bg-[#044b3b] text-white"
+                          ? "bg-emerald-600 text-white"
                           : i < stepIndex
-                            ? "bg-emerald-50 text-[#044b3b]"
+                            ? "bg-emerald-50 text-emerald-700"
                             : "bg-slate-100 text-slate-400"
                       )}
                     >
                       <span
                         className={cn(
                           "w-4 h-4 rounded-full text-[10px] flex items-center justify-center",
-                          i < stepIndex ? "bg-[#044b3b] text-white" : "bg-transparent"
+                          i < stepIndex ? "bg-emerald-600 text-white" : "bg-transparent"
                         )}
                       >
                         {i < stepIndex ? "✓" : i + 1}
@@ -407,7 +407,7 @@ export default function BulkCancelWizard({ isOpen, onClose, onCompleted }) {
                     type="time"
                     value={scope.time}
                     onChange={(e) => setScope((p) => ({ ...p, time: e.target.value }))}
-                    className="w-40 px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#044b3b]/20 focus:border-[#044b3b] transition-all"
+                    className="w-40 px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
                   />
                   <p className="mt-1 text-xs text-slate-400">
                     Leave empty to include every time slot on those dates.
@@ -432,7 +432,7 @@ export default function BulkCancelWizard({ isOpen, onClose, onCompleted }) {
                     type="button"
                     onClick={goToPreview}
                     disabled={!scope.tourId || !scope.dateFrom || !scope.dateTo}
-                    className="px-5 py-2.5 bg-[#044b3b] text-white rounded-lg text-sm font-medium hover:bg-[#033629] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-5 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Continue
                   </button>
@@ -502,7 +502,7 @@ export default function BulkCancelWizard({ isOpen, onClose, onCompleted }) {
                       type="checkbox"
                       checked={stopAcceptingBookings}
                       onChange={(e) => setStopAcceptingBookings(e.target.checked)}
-                      className="mt-0.5 w-4 h-4 shrink-0 rounded border-amber-400 accent-[#044b3b]"
+                      className="mt-0.5 w-4 h-4 shrink-0 rounded border-amber-400 accent-[#059669]"
                     />
                     <span className="text-sm font-medium text-amber-900">
                       Also stop accepting new bookings for these dates
@@ -531,7 +531,7 @@ export default function BulkCancelWizard({ isOpen, onClose, onCompleted }) {
                     disabled={
                       preview.loading || preview.error || preview.count === 0
                     }
-                    className="px-5 py-2.5 bg-[#044b3b] text-white rounded-lg text-sm font-medium hover:bg-[#033629] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-5 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Continue
                   </button>
@@ -609,7 +609,7 @@ export default function BulkCancelWizard({ isOpen, onClose, onCompleted }) {
                   <button
                     type="button"
                     onClick={close}
-                    className="px-5 py-2.5 bg-[#044b3b] text-white rounded-lg text-sm font-medium hover:bg-[#033629] transition-colors"
+                    className="px-5 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors"
                   >
                     Close
                   </button>

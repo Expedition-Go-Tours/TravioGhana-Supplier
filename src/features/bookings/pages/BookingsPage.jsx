@@ -26,6 +26,7 @@ import {
 } from "@/lib/constants";
 import { formatCurrency, cn } from "@/lib/utils";
 import DatePicker from "@/components/forms/DatePicker";
+import Select from "@/components/forms/Select";
 import {
   fetchSupplierBookings,
   fetchCommissionCover,
@@ -594,7 +595,7 @@ export default function BookingsPage() {
       title={coverTitle}
       aria-disabled={!coverReady}
       onClick={openCreateBooking}
-      className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-[#044b3b] px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#033629] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[#044b3b] sm:h-auto sm:py-2"
+      className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-emerald-600 sm:h-auto sm:py-2"
     >
       <Calendar size={14} /> Create booking
     </button>
@@ -631,7 +632,7 @@ export default function BookingsPage() {
               aria-pressed={view === "bookings"}
               className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
                 view === "bookings"
-                  ? "bg-slate-900 text-white"
+                  ? "bg-emerald-600 text-white"
                   : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
               }`}
             >
@@ -643,7 +644,7 @@ export default function BookingsPage() {
               aria-pressed={view === "requests"}
               className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
                 view === "requests"
-                  ? "bg-slate-900 text-white"
+                  ? "bg-emerald-600 text-white"
                   : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
               }`}
             >
@@ -910,7 +911,7 @@ export default function BookingsPage() {
           {hasFilters && (
             <button
               onClick={clearFilters}
-              className="text-xs font-medium text-[#044b3b] hover:underline"
+              className="text-xs font-medium text-emerald-700 hover:underline"
             >
               Clear filters
             </button>
@@ -957,19 +958,24 @@ export default function BookingsPage() {
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-slate-500">
             <span>Show</span>
-            <select
+            {/* The shared Select: the bare <select> had no focus indicator at
+                all (focus:outline-none with nothing to replace it) and wore
+                the OS's own arrow, which never matched the rest of the
+                toolbar. */}
+            <Select
               value={pageSize}
               onChange={(e) =>
                 updateFilters({ pageSize: Number(e.target.value), page: 0 })
               }
-              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-base text-slate-700 focus:outline-none sm:text-xs"
+              aria-label="Bookings per page"
+              className="h-7 w-auto cursor-pointer px-2.5 py-0 pr-7 text-xs font-medium text-slate-700"
             >
               {PAGE_SIZE_OPTIONS.map((n) => (
                 <option key={n} value={n}>
                   {n}
                 </option>
               ))}
-            </select>
+            </Select>
             <span>of {totalItems}</span>
           </div>
           <div className="flex items-center gap-1">
@@ -993,7 +999,7 @@ export default function BookingsPage() {
                     onClick={() => updateFilters({ page: p })}
                     className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors ${
                       page === p
-                        ? "bg-slate-900 text-white shadow-sm"
+                        ? "bg-emerald-600 text-white shadow-sm"
                         : "border border-slate-200 text-slate-600 hover:bg-slate-50"
                     }`}
                   >

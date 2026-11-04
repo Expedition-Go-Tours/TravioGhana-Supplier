@@ -500,7 +500,7 @@ export default function EditPickupModal({ booking, onClose, onSaved }) {
                       id="pickup-zone"
                       value={selectedPoint}
                       onChange={(event) => handleSavedPoint(event.target.value)}
-                      className="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm focus:border-[#044b3b] focus:outline-none focus:ring-2 focus:ring-[#044b3b]/15"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/15"
                     >
                       <option value="">Choose on the map instead</option>
                       {currentPointMissing && <option value={selectedPoint}>{selectedPoint}</option>}
@@ -584,7 +584,7 @@ export default function EditPickupModal({ booking, onClose, onSaved }) {
                   setPickupPlace(event.target.value);
                   setPlaceAutoCleared(false);
                 }}
-                className="w-full resize-vertical rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm transition-all focus:border-[#044b3b] focus:outline-none focus:ring-2 focus:ring-[#044b3b]/15"
+                className="w-full resize-vertical rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm transition-all focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/15"
                 placeholder="e.g. Main entrance, blue gate, Marriott Hotel"
               />
               <p className="mt-1.5 text-[11px] text-slate-500">
@@ -606,7 +606,7 @@ export default function EditPickupModal({ booking, onClose, onSaved }) {
                 maxLength={1000}
                 value={instructions}
                 onChange={(event) => setInstructions(event.target.value)}
-                className="w-full resize-vertical rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm transition-all focus:border-[#044b3b] focus:outline-none focus:ring-2 focus:ring-[#044b3b]/15"
+                className="w-full resize-vertical rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm transition-all focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/15"
                 placeholder="e.g. Look for the blue van with our logo at the south entrance"
               />
               <p className="mt-1.5 text-[11px] text-slate-500">
@@ -683,7 +683,7 @@ export default function EditPickupModal({ booking, onClose, onSaved }) {
             type="button"
             onClick={handleSave}
             disabled={!canSave}
-            className="inline-flex items-center gap-2 rounded-lg bg-[#044b3b] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#033629] disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving && <Loader2 size={15} className="animate-spin" />}
             {saving ? "Saving…" : "Save changes"}
@@ -724,7 +724,7 @@ export default function EditPickupModal({ booking, onClose, onSaved }) {
                 <button
                   type="button"
                   onClick={onClose}
-                  className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+                  className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700"
                 >
                   Discard
                 </button>

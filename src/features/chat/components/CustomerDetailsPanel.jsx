@@ -74,7 +74,7 @@ export default function CustomerDetailsPanel({ conversation, currentUserId, onCl
       className="flex h-full w-full lg:w-[420px] shrink-0 flex-col border-l border-gray-200 bg-white shadow-[-4px_0_16px_rgba(0,0,0,0.06)]"
     >
       {/* Header */}
-      <div className="bg-linear-to-r from-[#044b3b] to-emerald-700 px-5 h-16 flex items-center justify-between relative">
+      <div className="bg-linear-to-r from-[#059669] to-emerald-700 px-5 h-16 flex items-center justify-between relative">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-40" />
         <h3 className="relative text-sm font-semibold text-white/90">Customer Profile</h3>
         <button
@@ -89,7 +89,7 @@ export default function CustomerDetailsPanel({ conversation, currentUserId, onCl
       <div className="relative -mt-4 px-4">
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
           <div className="flex items-center gap-3">
-            <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-linear-to-br from-[#044b3b] to-emerald-500 text-xl font-bold text-white shadow-sm ring-2 ring-white/80">
+            <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-linear-to-br from-[#059669] to-emerald-500 text-xl font-bold text-white shadow-sm ring-2 ring-white/80">
               <span>{(cu.name || "?").charAt(0).toUpperCase()}</span>
               {cu.photoURL && (
                 <OptimizedImage

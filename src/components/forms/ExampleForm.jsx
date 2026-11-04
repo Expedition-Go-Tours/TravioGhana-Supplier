@@ -111,7 +111,7 @@ export default function ExampleForm({ schema, onSubmit, defaultValues = {} }) {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="flex items-center gap-2 px-4 py-2.5 bg-[#044b3b] text-white rounded-lg text-sm font-medium hover:bg-[#033629] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {isSubmitting && <ButtonSpinner />}
           {isSubmitting ? "Submitting..." : "Submit"}

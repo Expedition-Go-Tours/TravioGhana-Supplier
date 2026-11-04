@@ -160,7 +160,7 @@ function ActionButton({ action, busy, disabled, onClick, children }) {
       className={cn(
         "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
         isPrimary
-          ? "bg-[#044b3b] text-white hover:bg-[#033629]"
+          ? "bg-emerald-600 text-white hover:bg-emerald-700"
           : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50",
       )}
     >
@@ -374,7 +374,7 @@ export default function BookingAttentionPanel({
                 checked={sendInChat}
                 onChange={(e) => setSendInChat(e.target.checked)}
                 disabled={Boolean(busyAction)}
-                className="rounded border-slate-300 text-[#044b3b] focus:ring-emerald-500/30 disabled:opacity-50"
+                className="rounded border-slate-300 text-emerald-700 focus:ring-emerald-500/30 disabled:opacity-50"
               />
               <MessageCircle size={12} aria-hidden="true" />
               Also post the link in chat
@@ -391,7 +391,7 @@ export default function BookingAttentionPanel({
                   type="button"
                   onClick={() => run("REGENERATE_PAYMENT_LINK")}
                   disabled={Boolean(busyAction)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#044b3b] text-white hover:bg-[#033629] disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
                 >
                   {busyAction === "REGENERATE_PAYMENT_LINK" && <Loader2 size={12} className="animate-spin" />}
                   Yes, replace it

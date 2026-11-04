@@ -410,7 +410,7 @@ export default function ProductDetailPage() {
             <h2 className="text-lg font-semibold text-slate-800 mb-2">Failed to Load Product</h2>
             <p className="text-sm text-slate-500 mb-6">{error}</p>
             <div className="flex items-center justify-center gap-3">
-              <button onClick={() => window.location.reload()} className="px-4 py-2.5 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-900 transition-all shadow-sm">Try Again</button>
+              <button onClick={() => window.location.reload()} className="px-4 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-all shadow-sm">Try Again</button>
               <button onClick={() => navigate("/products")} className="px-4 py-2.5 border border-slate-200 text-slate-500 rounded-lg text-sm font-medium hover:bg-slate-50 transition-all">Back to Products</button>
             </div>
           </div>

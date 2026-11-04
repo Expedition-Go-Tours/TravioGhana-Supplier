@@ -9,10 +9,10 @@ export default function NotFoundPage() {
       <div className="max-w-md w-full text-center">
         {/* 404 Illustration */}
         <div className="mb-8">
-          <h1 className="text-9xl font-bold text-[#044b3b] opacity-20">404</h1>
+          <h1 className="text-9xl font-bold text-emerald-700 opacity-20">404</h1>
           <div className="relative -mt-16">
-            <div className="w-32 h-32 mx-auto bg-[#044b3b]/10 rounded-full flex items-center justify-center">
-              <Search size={64} className="text-[#044b3b]" strokeWidth={1.5} />
+            <div className="w-32 h-32 mx-auto bg-emerald-600/10 rounded-full flex items-center justify-center">
+              <Search size={64} className="text-emerald-700" strokeWidth={1.5} />
             </div>
           </div>
         </div>
@@ -37,7 +37,7 @@ export default function NotFoundPage() {
           </button>
           <button
             onClick={() => navigate('/')}
-            className="flex items-center justify-center gap-2 px-6 py-3 bg-[#044b3b] text-white rounded-lg text-sm font-medium hover:bg-[#033629] transition-colors"
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors"
           >
             <Home size={16} />
             Go Home
@@ -46,7 +46,7 @@ export default function NotFoundPage() {
 
         {/* Help Text */}
         <p className="mt-8 text-sm text-[#9e9e9e]">
-          Need help? <a href="/support" className="text-[#044b3b] hover:underline">Contact Support</a>
+          Need help? <a href="/support" className="text-emerald-700 hover:underline">Contact Support</a>
         </p>
       </div>
     </div>

@@ -1134,7 +1134,7 @@ export default function FinancePage() {
                     className={cn(
                       "h-8 rounded-full border px-3 text-xs font-medium transition-colors",
                       filterPill === pill.key
-                        ? "border-slate-900 bg-slate-900 text-white"
+                        ? "border-emerald-600 bg-emerald-600 text-white"
                         : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-800"
                     )}
                   >
@@ -1563,7 +1563,7 @@ export default function FinancePage() {
                     className={cn(
                       "h-8 rounded-full border px-3 text-xs font-medium transition-colors",
                       disputeStatusFilter === pill.key
-                        ? "border-slate-900 bg-slate-900 text-white"
+                        ? "border-emerald-600 bg-emerald-600 text-white"
                         : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-800"
                     )}
                   >

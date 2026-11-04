@@ -135,7 +135,7 @@ function highlightMatch(text, query) {
   return (
     <>
       {text.slice(0, idx)}
-      <mark className="bg-[#044b3b]/10 text-[#044b3b] dark:bg-[#00d67f]/20 dark:text-[#00d67f] rounded px-0.5">{text.slice(idx, idx + query.length)}</mark>
+      <mark className="bg-emerald-600/10 text-emerald-700 dark:bg-[#00d67f]/20 dark:text-[#00d67f] rounded px-0.5">{text.slice(idx, idx + query.length)}</mark>
       {text.slice(idx + query.length)}
     </>
   );
@@ -398,8 +398,8 @@ export default function SearchDropdown() {
           "flex h-9 items-center gap-2 rounded-xl text-sm transition-all duration-200",
           "border-0 bg-transparent px-1.5 sm:border sm:bg-white sm:px-3 sm:w-full",
           open
-            ? "text-[#044b3b] sm:border-[#044b3b]/40 sm:ring-2 sm:ring-[#044b3b]/10 sm:text-[#1e293b] sm:shadow"
-            : "text-[#64748b] sm:border-[#eaeaea] sm:hover:border-[#044b3b]/30 sm:hover:text-[#1e293b]",
+            ? "text-emerald-700 sm:border-emerald-600/40 sm:ring-2 sm:ring-emerald-500/10 sm:text-[#1e293b] sm:shadow"
+            : "text-[#64748b] sm:border-[#eaeaea] sm:hover:border-emerald-600/30 sm:hover:text-[#1e293b]",
         )}
         aria-label="Search pages, products and customers"
         aria-expanded={open}
@@ -514,11 +514,11 @@ export default function SearchDropdown() {
                               className={cn(
                                 "flex min-w-0 flex-1 items-center gap-3 rounded-xl px-2 py-2.5 text-left text-sm transition-colors",
                                 idx === highlight
-                                  ? "bg-[#044b3b]/5 text-[#044b3b]"
+                                  ? "bg-emerald-600/5 text-emerald-700"
                                   : "text-[#1e293b] hover:bg-[#f8fafc]",
                               )}
                             >
-                              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#eaeaea] bg-[#f8fafc] text-xs font-semibold text-[#044b3b]">
+                              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#eaeaea] bg-[#f8fafc] text-xs font-semibold text-emerald-700">
                                 {(item.label || "?").trim().charAt(0).toUpperCase()}
                               </span>
                               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -536,7 +536,7 @@ export default function SearchDropdown() {
                               aria-label={`Message ${item.label}`}
                               title="Message customer"
                               onClick={() => goToChat(item)}
-                              className="shrink-0 rounded-lg p-2 text-[#94a3a3] transition-colors hover:bg-[#f8fafc] hover:text-[#044b3b]"
+                              className="shrink-0 rounded-lg p-2 text-[#94a3a3] transition-colors hover:bg-[#f8fafc] hover:text-emerald-700"
                             >
                               <MessageCircle className="h-4 w-4" />
                             </button>
@@ -548,7 +548,7 @@ export default function SearchDropdown() {
                           className={cn(
                             "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors",
                             idx === highlight
-                              ? "bg-[#044b3b]/5 text-[#044b3b]"
+                              ? "bg-emerald-600/5 text-emerald-700"
                               : "text-[#1e293b] hover:bg-[#f8fafc]",
                           )}
                         >

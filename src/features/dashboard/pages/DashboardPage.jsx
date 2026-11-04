@@ -404,7 +404,7 @@ export default function DashboardPage() {
                       width={44}
                     />
                     <Tooltip content={<CustomTooltip labelFormatter={monthLabel} />} cursor={{ fill: "#f0fdf4" }} />
-                    <Bar dataKey="revenue" fill="#044b3b" radius={[4, 4, 0, 0]} maxBarSize={34} />
+                    <Bar dataKey="revenue" fill="#059669" radius={[4, 4, 0, 0]} maxBarSize={34} />
                   </BarChart>
                 </ResponsiveContainer>
                 </div>

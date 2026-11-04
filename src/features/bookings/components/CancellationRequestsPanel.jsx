@@ -113,7 +113,7 @@ function RequestRow({ request, onWithdraw }) {
             href={payload.evidenceUrl}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 text-[#044b3b] hover:underline"
+            className="inline-flex items-center gap-1 text-emerald-700 hover:underline"
           >
             Evidence <ExternalLink size={11} />
           </a>
@@ -261,7 +261,7 @@ export default function CancellationRequestsPanel({ onWithdrawn }) {
             onClick={() => setStatus(tab.key)}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
               status === tab.key
-                ? "bg-[#044b3b] text-white shadow-sm"
+                ? "bg-emerald-600 text-white shadow-sm"
                 : "text-slate-500 hover:text-slate-700 hover:bg-emerald-50/40"
             }`}
           >
