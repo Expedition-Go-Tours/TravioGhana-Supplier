@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Search, Grid3X3, List, Plus, Eye, Edit, Trash2,
-  AlertCircle, RefreshCw, Package, Star, TrendingUp, Percent,
+  AlertCircle, RefreshCw, Package, Star, Percent, Clock, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -227,36 +227,40 @@ export default function ProductsListPage() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-1 h-10 bg-linear-to-b from-emerald-500 to-emerald-300 rounded-full" />
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+            <Package size={18} />
+          </span>
           <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-xl md:text-2xl font-bold text-slate-800">Products</h1>
-              {!isLoading && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-slate-900 md:text-2xl">Products</h1>
+              {!isLoading && stats.total > 0 && (
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
                   {stats.total}
                 </span>
               )}
             </div>
-            <p className="text-sm text-slate-500 mt-0.5">Manage your tour products and experiences</p>
+            <p className="mt-0.5 text-sm text-slate-500">
+              Your tours, drafts and anything waiting on review.
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => refetch()}
             disabled={isRefetching}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all disabled:opacity-40 shadow-sm"
+            className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-800 disabled:opacity-40"
           >
             <RefreshCw size={14} className={isRefetching ? "animate-spin" : ""} />
             <span className="hidden sm:inline">Refresh</span>
           </button>
           <button
             onClick={() => navigate("/products/build/new/type")}
-            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 transition-all"
+            className="flex h-9 items-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
           >
             <Plus size={15} />
-            <span>Create Product</span>
+            <span>Create product</span>
           </button>
         </div>
       </div>
@@ -266,56 +270,52 @@ export default function ProductsListPage() {
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="grid grid-cols-2 sm:grid-cols-4 gap-3"
+          className="grid grid-cols-2 gap-3 sm:grid-cols-4"
         >
           {[
-            { label: "Active", value: stats.active, icon: Package, accent: "emerald" },
-            { label: "Pending Approval", value: stats.pending, icon: TrendingUp, accent: "amber" },
-            { label: "Pending Edits", value: stats.pendingEdits, icon: Edit, accent: "amber" },
-            { label: "Drafts", value: stats.draft, icon: Edit, accent: "emerald" },
-          ].map((s) => {
-            const accentMap = {
-              emerald: "bg-emerald-50 text-emerald-600 border-emerald-200/50",
-              amber: "bg-amber-50 text-amber-600 border-amber-200/50",
-              rose: "bg-rose-50 text-rose-600 border-rose-200/50",
-            };
-            return (
-              <div key={s.label} className="bg-white border border-slate-100 rounded-xl p-4 hover:shadow-sm hover:border-slate-200 transition-all">
-                <div className="flex items-center justify-between mb-2.5">
-                  <div className={`w-9 h-9 rounded-lg ${accentMap[s.accent]} border flex items-center justify-center`}>
-                    <s.icon size={16} />
-                  </div>
-                </div>
-                <p className="text-lg font-bold text-slate-800">{s.value}</p>
-                <p className="text-[11px] font-medium text-slate-500 mt-0.5">{s.label}</p>
+            { label: "Live", value: stats.active, icon: Package, tint: "bg-emerald-50 text-emerald-600", hint: "Bookable right now" },
+            { label: "Awaiting review", value: stats.pending, icon: Clock, tint: "bg-amber-50 text-amber-600", hint: "Submitted to the platform" },
+            { label: "Pending edits", value: stats.pendingEdits, icon: Edit, tint: "bg-sky-50 text-sky-600", hint: "Live version stays on sale" },
+            { label: "Drafts", value: stats.draft, icon: Edit, tint: "bg-slate-50 text-slate-500", hint: "Not submitted yet" },
+          ].map((s) => (
+            <div key={s.label} className="rounded-xl border border-slate-200/80 bg-white p-4">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-xs font-medium leading-tight text-slate-500">{s.label}</p>
+                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${s.tint}`}>
+                  <s.icon size={14} />
+                </span>
               </div>
-            );
-          })}
+              <p className="mt-1.5 text-xl font-bold tabular-nums leading-tight tracking-tight text-slate-900 sm:text-2xl">
+                {s.value}
+              </p>
+              <p className="mt-0.5 text-[11px] leading-tight text-slate-400">{s.hint}</p>
+            </div>
+          ))}
         </motion.div>
       )}
 
       {/* Filters + View Toggle */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1 min-w-0">
-          <div className="relative flex-1 min-w-0">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-1 flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+          <div className="relative min-w-0 flex-1">
+            <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Search products..."
+              placeholder="Search products…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 placeholder:text-slate-400 focus-ring transition-all"
+              className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-9 text-sm text-slate-700 placeholder:text-slate-400 transition-colors focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
             />
             {search && (
-              <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600" aria-label="Clear search">
+                <X size={14} />
               </button>
             )}
           </div>
 
           <div className="flex items-center gap-2">
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="flex-1 sm:flex-none sm:w-[160px]">
+              <SelectTrigger className="h-9 flex-1 border-slate-200 bg-white text-xs font-medium text-slate-600 sm:w-[160px] sm:flex-none">
                 <SelectValue placeholder="All Categories" />
               </SelectTrigger>
             <SelectContent>
@@ -326,7 +326,7 @@ export default function ProductsListPage() {
           </Select>
 
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="flex-1 sm:flex-none sm:w-[160px]">
+              <SelectTrigger className="h-9 flex-1 border-slate-200 bg-white text-xs font-medium text-slate-600 sm:w-[160px] sm:flex-none">
                 <SelectValue placeholder="All Statuses" />
               </SelectTrigger>
             <SelectContent>
@@ -341,36 +341,38 @@ export default function ProductsListPage() {
           {hasFilters && (
             <button
               onClick={handleClearFilters}
-              className="text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:underline whitespace-nowrap"
+              className="h-9 whitespace-nowrap rounded-lg px-2.5 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
             >
               Clear filters
             </button>
           )}
         </div>
 
-        <div className="flex items-center bg-slate-100/80 rounded-xl p-1">
+        <div className="flex items-center gap-0.5 self-start rounded-lg border border-slate-200 bg-white p-0.5">
           {[
-            { key: "grid", icon: Grid3X3 },
-            { key: "table", icon: List },
+            { key: "grid", icon: Grid3X3, label: "Grid view" },
+            { key: "table", icon: List, label: "List view" },
           ].map((v) => {
             const Icon = v.icon;
             return (
               <button
                 key={v.key}
                 onClick={() => setViewMode(v.key)}
+                aria-label={v.label}
+                aria-pressed={viewMode === v.key}
                 className={cn(
-                  "relative p-2 rounded-lg transition-colors",
+                  "relative rounded-md p-1.5 transition-colors",
                   viewMode === v.key ? "text-white" : "text-slate-400 hover:text-slate-600"
                 )}
               >
                 {viewMode === v.key && (
                   <motion.span
                     layoutId="viewTab"
-                    className="absolute inset-0 rounded-lg bg-emerald-600"
+                    className="absolute inset-0 rounded-md bg-emerald-600"
                     transition={{ type: "spring", stiffness: 380, damping: 30 }}
                   />
                 )}
-                <span className="relative z-10"><Icon size={17} /></span>
+                <span className="relative z-10"><Icon size={16} /></span>
               </button>
             );
           })}
@@ -389,11 +391,11 @@ export default function ProductsListPage() {
       )}
 
       {/* Results count */}
-      {!isLoading && !isError && (
-        <p className="text-xs text-slate-500">
+      {!isLoading && !isError && products.length > 0 && (
+        <p className="text-xs font-medium text-slate-500">
           Showing {filteredProducts.length} of {products.length} product{products.length !== 1 ? "s" : ""}
           {hasFilters && filteredProducts.length !== products.length && (
-            <button onClick={handleClearFilters} className="ml-2 text-emerald-600 hover:underline font-medium">
+            <button onClick={handleClearFilters} className="ml-2 font-medium text-emerald-700 hover:underline">
               Clear filters
             </button>
           )}
@@ -402,13 +404,13 @@ export default function ProductsListPage() {
 
       {/* Error */}
       {isError && !isLoading && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-24 text-center bg-white border border-red-200/60 rounded-xl">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center rounded-xl border border-dashed border-rose-200 bg-white px-6 py-20 text-center">
           <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center mb-4 ring-1 ring-red-100/60">
             <AlertCircle size={28} className="text-red-400" />
           </div>
           <h3 className="text-base font-semibold text-slate-800 mb-1">Failed to load products</h3>
           <p className="text-sm text-slate-500 mb-5 max-w-xs">{error?.response?.data?.message || error?.message || "Something went wrong."}</p>
-          <button onClick={() => refetch()} className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 transition-all shadow-sm">
+          <button onClick={() => refetch()} className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700">
             <RefreshCw size={14} /> Try Again
           </button>
         </motion.div>
@@ -425,7 +427,7 @@ export default function ProductsListPage() {
 
       {/* Content */}
       <AnimatePresence mode="wait">
-        {!isLoading && !isError && viewMode === "grid" && (
+        {!isLoading && !isError && viewMode === "grid" && filteredProducts.length > 0 && (
           <motion.div
             key="grid"
             variants={STAGGER}
@@ -447,21 +449,21 @@ export default function ProductsListPage() {
                   key={product.id}
                   variants={FADE_UP}
                   layout
-                  className="group bg-white border border-slate-100 rounded-lg sm:rounded-xl overflow-hidden hover:border-slate-200 hover:shadow-md hover:shadow-slate-900/5 transition-all duration-200 w-full"
+                  className="group flex flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white transition-colors hover:border-slate-300 hover:shadow-sm"
                 >
                   {/* Image */}
                   <div
-                    className="bg-slate-50 relative cursor-pointer overflow-hidden aspect-[4/3]"
+                    className="relative aspect-[4/3] cursor-pointer overflow-hidden bg-slate-100"
                     onClick={() => navigate(`/products/${product.id}`)}
                   >
                     {src ? (
                       <>
-                        {showSkeleton && <div className="absolute inset-0 bg-slate-100 animate-pulse" />}
+                        {showSkeleton && <div className="absolute inset-0 animate-pulse bg-slate-100" />}
                         <OptimizedImage
-                          src={product.coverPhoto || product.photos?.find(p => p)}
+                          src={src}
                           width={560}
                           alt={product.title}
-                          className={`absolute inset-0 w-full h-full object-cover transition-all duration-500 group-hover:scale-105 ${imgLoaded[pid] ? "opacity-100" : "opacity-0"}`}
+                          className={`absolute inset-0 h-full w-full object-cover transition-all duration-500 group-hover:scale-[1.03] ${imgLoaded[pid] ? "opacity-100" : "opacity-0"}`}
                           onLoad={() => setImgLoaded((prev) => ({ ...prev, [pid]: true }))}
                           onError={() => {
                             setImgErrors((prev) => ({ ...prev, [pid]: true }));
@@ -470,73 +472,82 @@ export default function ProductsListPage() {
                       </>
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center">
-                          <Package size={24} className="text-slate-300" />
-                        </div>
+                        <Package size={24} className="text-slate-300" />
                       </div>
                     )}
 
-                    {/* Category pill */}
-                    {category && (
-                      <span className="absolute top-3 right-3 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/90 text-slate-700 backdrop-blur-sm border border-white/60 shadow-sm">
-                        {category}
-                      </span>
-                    )}
                     {product.storefront && product.storefront !== "GHANA" && (
-                      <span className="absolute top-3 left-3 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-600/90 text-white backdrop-blur-sm border border-white/20 shadow-sm">
+                      <span className="absolute left-2.5 top-2.5 rounded-full bg-slate-900/80 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
                         {product.storefront === "BOTH" ? "Both storefronts" : "Expedition"}
                       </span>
                     )}
+                    {category && (
+                      <span className="absolute right-2.5 top-2.5 rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-medium text-slate-700 shadow-sm backdrop-blur-sm">
+                        {category}
+                      </span>
+                    )}
+                    <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-center gap-1.5 bg-gradient-to-t from-slate-900/70 via-slate-900/20 to-transparent px-2.5 pb-2.5 pt-8">
+                      <span className="rounded-md bg-white/95 px-1.5 py-0.5 shadow-sm">
+                        <StatusBadge status={product.status} label={PRODUCT_STATUSES[product.status]?.label} size="sm" />
+                      </span>
+                      <DraftStatusBadge product={product} />
+                    </div>
                   </div>
 
                   {/* Body */}
-                  <div className="p-3 sm:p-4">
+                  <div className="flex flex-1 flex-col p-3 sm:p-4">
                     <h3
-                      className="text-sm font-semibold text-slate-800 line-clamp-1 cursor-pointer hover:text-emerald-700 transition-colors"
+                      className="line-clamp-2 cursor-pointer text-sm font-semibold leading-snug text-slate-900 transition-colors hover:text-emerald-700"
                       title={product.title}
                       onClick={() => navigate(`/products/${product.id}`)}
                     >
                       {product.title}
                     </h3>
-                    <p className="text-xs text-slate-500 mt-1">{getSupplierLabel(product)}</p>
+                    {/* The supplier's own name on every card in their own
+                        catalogue is noise; keep it only when browsing tours
+                        that are not theirs. */}
+                    {!usingSupplierEndpoint && (
+                      <p className="mt-1 truncate text-xs text-slate-500">{getSupplierLabel(product)}</p>
+                    )}
 
-                    {/* Price + Status */}
-                    <div className="mt-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-2">
+                    <div className="mt-auto flex items-end justify-between gap-2 pt-3">
                       {price !== null ? (
-                        <div className="flex items-baseline gap-1.5 min-w-0">
-                          <span className="text-lg font-bold text-emerald-700">
+                        <div className="flex min-w-0 items-baseline gap-1">
+                          <span className="text-base font-bold tabular-nums text-slate-900 sm:text-lg">
                             {formatCurrency(price, currency)}
                           </span>
-                          <span className="text-[11px] text-slate-400 font-medium">/ person</span>
+                          <span className="hidden text-[11px] text-slate-400 sm:inline">/ person</span>
                         </div>
                       ) : (
-                        <span className="text-sm text-slate-400 italic">Price not set</span>
+                        <span className="text-xs italic text-slate-400">Price not set</span>
                       )}
-                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
-                        <StatusBadge status={product.status} label={PRODUCT_STATUSES[product.status]?.label} size="sm" />
-                        <DraftStatusBadge product={product} />
+                      <div className="flex shrink-0 items-center gap-2 text-[11px] font-medium text-slate-500">
+                        <span className="tabular-nums">{product.bookings ?? 0} booked</span>
+                        {product.averageRating > 0 && (
+                          <span className="flex items-center gap-0.5 text-amber-600">
+                            <Star size={11} className="fill-amber-400 text-amber-400" />
+                            <span className="tabular-nums">{product.averageRating}</span>
+                          </span>
+                        )}
                       </div>
                     </div>
 
                     {/* Footer */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 mt-3 pt-3 border-t border-slate-100">
-                      <div className="flex items-center gap-3 text-xs text-slate-500">
-                        <span className="font-medium">{product.bookings ?? 0} bookings</span>
-                        {product.averageRating > 0 && (
-                          <span className="flex items-center gap-1 font-medium text-emerald-600">
-                            <Star size={12} className="fill-emerald-400 text-emerald-400" />
-                            {product.averageRating}
-                          </span>
-                        )}
-                        {product.reviewCount > 0 && (
-                          <span className="hidden sm:inline font-medium">({product.reviewCount} reviews)</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1 opacity-100 transition-opacity">
+                    <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-slate-100 pt-2">
+                      {/* The date is the first thing a 160px card can lose, and
+                          the last thing a supplier needs. Keep it as a tooltip
+                          hint rather than an ellipsis in the footer. */}
+                      <span
+                        className="hidden min-w-0 truncate text-[11px] text-slate-400 sm:inline"
+                        title={`Updated ${formatDate(product.updatedAt)}`}
+                      >
+                        {formatDate(product.updatedAt)}
+                      </span>
+                      <div className="flex shrink-0 items-center gap-0.5">
                         {(product.status === "ACTIVE" || product.status === "PAUSED") && product.storefront !== "EXPEDITION" && (
                           <button
                             onClick={() => navigate(`/special-offers/build/new/products?productId=${product.id}`)}
-                            className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                            className="rounded-md p-1 text-slate-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600 sm:p-1.5"
                             title="Create special offer"
                           >
                             <Percent size={14} />
@@ -544,7 +555,7 @@ export default function ProductsListPage() {
                         )}
                         <button
                           onClick={() => navigate(`/products/${product.id}`)}
-                          className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                          className="rounded-md p-1 text-slate-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600 sm:p-1.5"
                           title="View"
                         >
                           <Eye size={14} />
@@ -554,7 +565,7 @@ export default function ProductsListPage() {
                           <>
                             <button
                               onClick={() => navigate(`/products/build/${product.id}/type`)}
-                              className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                              className="rounded-md p-1 text-slate-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600 sm:p-1.5"
                               title="Edit"
                             >
                               <Edit size={14} />
@@ -563,10 +574,10 @@ export default function ProductsListPage() {
                               <button
                                 onClick={() => setDeleteTarget(product)}
                                 disabled={!canDelete}
-                                className={`p-1.5 rounded-lg transition-colors ${
+                                className={`rounded-md p-1 transition-colors sm:p-1.5 ${
                                   canDelete
-                                    ? "text-slate-400 hover:text-red-500 hover:bg-red-50"
-                                    : "text-slate-300 cursor-not-allowed"
+                                    ? "text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                                    : "cursor-not-allowed text-slate-300"
                                 }`}
                                 title="Delete"
                               >
@@ -581,23 +592,38 @@ export default function ProductsListPage() {
                 </motion.div>
               );
             })}
+
+            {usingSupplierEndpoint && (
+              <button
+                onClick={() => navigate("/products/build/new/type")}
+                className="flex min-h-[220px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-4 text-center transition-colors hover:border-emerald-400 hover:bg-emerald-50/40"
+              >
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-emerald-600 shadow-sm">
+                  <Plus size={18} />
+                </span>
+                <span className="text-sm font-medium text-slate-700">Create a product</span>
+                <span className="max-w-[170px] text-xs leading-relaxed text-slate-400">
+                  Add another tour or experience to your catalogue.
+                </span>
+              </button>
+            )}
           </motion.div>
         )}
 
-        {!isLoading && !isError && viewMode === "table" && (
+        {!isLoading && !isError && viewMode === "table" && filteredProducts.length > 0 && (
           <motion.div
             key="table"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="bg-white border border-slate-100 rounded-xl overflow-hidden hover:border-slate-200 transition-all"
+            className="overflow-hidden rounded-xl border border-slate-200/80 bg-white"
           >
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/50">
+                  <tr className="border-b border-slate-200 bg-slate-50/70">
                     {["Product", "Category", "Status", "Price", "Bookings", "Rating", "Updated", ""].map((h) => (
-                      <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{h}</th>
+                      <th key={h} className="whitespace-nowrap px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -608,7 +634,7 @@ export default function ProductsListPage() {
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.02 }}
-                      className="border-b border-slate-50 last:border-0 hover:bg-emerald-50/30 transition-colors"
+                      className="border-b border-slate-100 last:border-0 transition-colors hover:bg-slate-50"
                     >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3 min-w-0">
@@ -694,9 +720,9 @@ export default function ProductsListPage() {
               description="Create your first product to start selling tours and experiences."
               action={
                 <button onClick={() => navigate("/products/build/new/type")}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 transition-all "
+                  className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
                 >
-                  <Plus size={16} /> Create Product
+                  <Plus size={16} /> Create product
                 </button>
               }
             />

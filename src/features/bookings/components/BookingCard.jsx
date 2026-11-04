@@ -15,6 +15,7 @@ import {
   Tag,
   Info,
   RefreshCw,
+  Package,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -210,6 +211,14 @@ export default function BookingCard({
   const travelerNames = formatTravelerDetails(booking.travelersRaw);
   const travelerDetails = getTravelerDetails(booking.travelersRaw);
   const guestCount = booking.travelers;
+  // One compact payment cue for the collapsed row. The expanded panel explains
+  // the state in full; this only flags the two states a supplier must not miss.
+  const paymentChip =
+    booking.paymentStatus === "FAILED"
+      ? { label: "Payment failed", className: "border-red-200 bg-red-50 text-red-700" }
+      : payLaterUnpaid
+        ? { label: "Payment unconfirmed", className: "border-amber-200 bg-amber-50 text-amber-700" }
+        : null;
 
   const toggleExpand = useCallback(() => {
     setIsExpanded((prev) => !prev);
@@ -241,7 +250,7 @@ export default function BookingCard({
         tabIndex={0}
         onClick={toggleExpand}
         onKeyDown={handleKeyDown}
-        className="block sm:hidden px-4 py-3.5 cursor-pointer select-none"
+        className="block cursor-pointer select-none px-4 py-3.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/30 sm:hidden"
         aria-expanded={isExpanded}
       >
         {/* Row 1: thumbnail + title/party + status */}
@@ -253,8 +262,8 @@ export default function BookingCard({
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-xl text-slate-300">
-                🏰
+              <div className="flex h-full w-full items-center justify-center text-slate-300">
+                <Package size={20} />
               </div>
             )}
           </div>
@@ -344,7 +353,7 @@ export default function BookingCard({
         tabIndex={0}
         onClick={toggleExpand}
         onKeyDown={handleKeyDown}
-        className="hidden sm:flex items-center gap-4 px-4 sm:px-5 py-3.5 cursor-pointer select-none"
+        className="hidden cursor-pointer select-none items-center gap-4 px-4 py-3.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/30 sm:flex sm:px-5"
         aria-expanded={isExpanded}
       >
         {/* Tour cover photo */}
@@ -355,8 +364,8 @@ export default function BookingCard({
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-2xl text-slate-300">
-              🏰
+            <div className="flex h-full w-full items-center justify-center text-slate-300">
+              <Package size={24} />
             </div>
           )}
         </div>
@@ -405,18 +414,32 @@ export default function BookingCard({
         </div>
 
         {/* Right column: status + price + chevron */}
-        <div className="flex flex-col items-end gap-1.5 shrink-0 ml-1">
-          <StatusBadge
-            status={booking.status}
-            label={BOOKING_STATUSES[booking.status]?.label || booking.status}
-            size="sm"
-          />
-          <AttentionBadge attention={booking.attention} />
-          {canSeeRevenue && (
-            <p className="text-base font-bold text-slate-900 whitespace-nowrap">
-              {formatCurrency(booking.total, booking.currency)}
-            </p>
-          )}
+        <div className="ml-1 flex shrink-0 flex-col items-end gap-1.5">
+          <div className="flex items-center gap-1.5">
+            <AttentionBadge attention={booking.attention} />
+            <StatusBadge
+              status={booking.status}
+              label={BOOKING_STATUSES[booking.status]?.label || booking.status}
+              size="sm"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            {paymentChip && (
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium",
+                  paymentChip.className
+                )}
+              >
+                {paymentChip.label}
+              </span>
+            )}
+            {canSeeRevenue && (
+              <p className="text-base font-bold tabular-nums text-slate-900">
+                {formatCurrency(booking.total, booking.currency)}
+              </p>
+            )}
+          </div>
           {canSeeRevenue && booking.discount > 0 && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 border border-red-200/60 text-[11px] font-semibold text-red-700 whitespace-nowrap">
               <Tag size={10} />

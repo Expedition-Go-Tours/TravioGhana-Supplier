@@ -416,7 +416,7 @@ describe('PayoutScheduleSummary — invoice flow copy', () => {
   it('spells out the cadence, both dates and the earnings period', () => {
     renderInvoiceCard();
 
-    expect(screen.getByText('Payout Schedule')).toBeInTheDocument();
+    expect(screen.getByText('Payout schedule')).toBeInTheDocument();
     // The fixture's `runDays` is "The 1st & 15th" — the sentence is built from
     // the payload, so this assertion follows the payload, not a hardcoded string.
     expect(

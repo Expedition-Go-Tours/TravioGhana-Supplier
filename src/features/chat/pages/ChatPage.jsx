@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
+import { Search, Users, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import { useAuthStore } from "@/stores/authStore";
@@ -33,6 +34,7 @@ export default function ChatPage() {
   const tourTitleParam = searchParams.get("tourTitle");
 
   const [activeTab, setActiveTab] = useState(tabParam);
+  const [convSearch, setConvSearch] = useState("");
   const [loadingMore, setLoadingMore] = useState(false);
   const [sending, setSending] = useState(false);
   const [showDetailsPanel, setShowDetailsPanel] = useState(false);
@@ -343,9 +345,18 @@ export default function ChatPage() {
 
   // Customer conversations only — admin chats go in the floating bubble
   const customerConversations = conversations.filter((c) => c.type === "SUPPLIER_CUSTOMER");
-  const filteredConversations = activeTab === "unread"
-    ? customerConversations.filter((c) => (c.unreadCount ?? 0) > 0)
-    : customerConversations;
+  const unreadConversations = customerConversations.filter((c) => (c.unreadCount ?? 0) > 0);
+  const searchTerm = convSearch.trim().toLowerCase();
+  const filteredConversations = (activeTab === "unread" ? unreadConversations : customerConversations)
+    .filter((conv) => {
+      if (!searchTerm) return true;
+      const other = conv.customerUserId
+        ? conv.participants?.find((p) => p.userId === conv.customerUserId)
+        : conv.participants?.find((p) => p.userId !== currentUserId);
+      const name = other?.user?.name || conv.title || "";
+      const preview = conv.messages?.[0]?.content || "";
+      return `${name} ${preview}`.toLowerCase().includes(searchTerm);
+    });
 
   const otherParticipant = (selectedConv?.customerUserId
     ? selectedConv.participants?.find((p) => p.userId === selectedConv.customerUserId)
@@ -357,28 +368,60 @@ export default function ChatPage() {
 
   const convListPanel = (
     <>
-      <div className="px-3 pt-3 pb-2 sm:px-4 sm:pt-4 sm:pb-3">
-        <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
+      <div className="border-b border-slate-200 px-3 pb-3 pt-3 sm:px-4 sm:pt-4">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+            <Users size={15} />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-slate-900">Customers</h2>
+            <p className="text-[11px] leading-tight text-slate-400">
+              {customerConversations.length} conversation{customerConversations.length !== 1 ? "s" : ""}
+              {unreadConversations.length > 0 && ` · ${unreadConversations.length} unread`}
+            </p>
+          </div>
+        </div>
+
+        <div className="relative mt-3">
+          <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="search"
+            value={convSearch}
+            onChange={(e) => setConvSearch(e.target.value)}
+            aria-label="Search customers"
+            placeholder="Search customers…"
+            className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-8 pr-8 text-sm text-slate-700 placeholder:text-slate-400 transition-colors focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+          />
+          {convSearch && (
+            <button
+              onClick={() => setConvSearch("")}
+              aria-label="Clear customer search"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 transition-colors hover:text-slate-600"
+            >
+              <X size={13} />
+            </button>
+          )}
+        </div>
+
+        <div className="mt-2 flex items-center gap-0.5 rounded-lg bg-slate-100 p-0.5">
           {TABS.map((tab) => {
             const isActive = activeTab === tab.key;
-            const unreadCount = conversations.filter((c) => c.type === "SUPPLIER_CUSTOMER" && (c.unreadCount ?? 0) > 0).length;
+            const unreadCount = unreadConversations.length;
             return (
               <button
                 key={tab.key}
                 onClick={() => handleTabChange(tab.key)}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-all duration-200 ${
+                className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                   isActive
-                    ? "bg-white text-emerald-700 shadow-sm border border-slate-200"
-                    : "text-slate-500 hover:text-slate-700 border border-transparent"
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
                 }`}
-                style={{ outline: "none", WebkitTapHighlightColor: "transparent" }}
+                style={{ WebkitTapHighlightColor: "transparent" }}
               >
                 {tab.label}
                 {tab.key === "unread" && unreadCount > 0 && (
-                  <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full px-1.5 text-[10px] font-bold ${
-                    isActive
-                      ? "bg-emerald-600 text-white"
-                      : "bg-slate-200 text-slate-600"
+                  <span className={`inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${
+                    isActive ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-600"
                   }`}>
                     {unreadCount}
                   </span>
@@ -388,7 +431,7 @@ export default function ChatPage() {
           })}
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto pt-2">
+      <div className="flex-1 overflow-y-auto py-2">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
@@ -404,7 +447,13 @@ export default function ChatPage() {
               onDelete={handleDeleteConversation}
               loading={loadingConvs}
               currentUserId={currentUserId}
-              emptyMessage={activeTab === "unread" ? "No unread messages" : "No conversations yet"}
+              emptyMessage={
+                searchTerm
+                  ? "No customers match that search."
+                  : activeTab === "unread"
+                    ? "You are caught up — no unread messages."
+                    : "Customer conversations will appear here."
+              }
             />
           </motion.div>
         </AnimatePresence>

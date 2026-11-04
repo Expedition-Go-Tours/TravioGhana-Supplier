@@ -126,11 +126,11 @@ const statGrid = () => screen.getByText("Total Bookings").closest(".grid");
  * filters below it carry the same words ("Pending", "Confirmed", "Completed").
  */
 const valueFor = (label) => {
-  const cardLabel = [...statGrid().children]
-    .map((el) => el.querySelector("p"))
-    .find((el) => el?.textContent === label);
-  // The value sits in the row above the label; the icon beside it holds no text.
-  return cardLabel?.previousElementSibling?.textContent;
+  const card = [...statGrid().children].find((el) =>
+    [...el.querySelectorAll("p")].some((p) => p.textContent === label),
+  );
+  // Each card is label + icon on one line, then the value on its own.
+  return card?.querySelectorAll("p")[1]?.textContent;
 };
 
 describe("the bookings stat row", () => {

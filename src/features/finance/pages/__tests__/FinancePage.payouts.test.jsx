@@ -328,7 +328,10 @@ describe('FinancePage — while a payout is in flight', () => {
     // "Pending clearance" is both the stat card's label and a filter pill, so
     // anchor on the label element rather than the text.
     const label = await screen.findByText('Pending clearance', { selector: 'p' });
-    const pendingCard = label.closest('div').parentElement;
+    // The card, not its internals: the detail line sits under the value row
+    // rather than inside it, so the assertion follows the panel border.
+    const pendingCard = label.closest('div[class*="rounded-xl"]');
+    expect(pendingCard).not.toBeNull();
     expect(within(pendingCard).getByText('$433.50')).toBeInTheDocument();
     expect(within(pendingCard).getByText(/next clears/i)).toBeInTheDocument();
   });

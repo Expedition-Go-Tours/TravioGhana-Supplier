@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   TrendingUp,
   ClipboardList,
+  Ticket,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTeamRole } from "@/hooks/useTeamRole";
@@ -23,7 +24,7 @@ import {
   DEFAULT_PAGE_SIZE,
   PAGE_SIZE_OPTIONS,
 } from "@/lib/constants";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, cn } from "@/lib/utils";
 import DatePicker from "@/components/forms/DatePicker";
 import {
   fetchSupplierBookings,
@@ -517,12 +518,12 @@ export default function BookingsPage() {
   const canExport = hasPermission("bookings.export");
   const canManageBookings = hasPermission("bookings.manage");
   const bookingKpis = [
-    { key: "total", label: "Total Bookings", value: stats.total, icon: ShoppingCart, color: "text-slate-900", bar: "bg-slate-200" },
-    { key: "pending", label: "Pending", value: stats.pending, icon: Clock, color: "text-amber-600", bar: "bg-amber-400" },
-    { key: "confirmed", label: "Confirmed", value: stats.confirmed, icon: CheckCircle2, color: "text-blue-600", bar: "bg-blue-400" },
-    { key: "completed", label: "Completed", value: stats.completed, icon: BadgeCheck, color: "text-green-700", bar: "bg-green-500" },
-    { key: "cancellations", label: "Cancellations", value: stats.cancelled, icon: AlertTriangle, color: "text-red-600", bar: "bg-red-400" },
-    { key: "revenue", label: "Revenue", value: formatCurrency(stats.revenue), icon: TrendingUp, color: "text-[#044b3b]", bar: "bg-[#044b3b]" },
+    { key: "total", label: "Total Bookings", value: stats.total, icon: ShoppingCart, tint: "bg-slate-50 text-slate-500" },
+    { key: "pending", label: "Pending", value: stats.pending, icon: Clock, tint: "bg-amber-50 text-amber-600" },
+    { key: "confirmed", label: "Confirmed", value: stats.confirmed, icon: CheckCircle2, tint: "bg-blue-50 text-blue-600" },
+    { key: "completed", label: "Completed", value: stats.completed, icon: BadgeCheck, tint: "bg-emerald-50 text-emerald-600" },
+    { key: "cancellations", label: "Cancellations", value: stats.cancelled, icon: AlertTriangle, tint: "bg-rose-50 text-rose-600" },
+    { key: "revenue", label: "Revenue", value: formatCurrency(stats.revenue), icon: TrendingUp, tint: "bg-emerald-50 text-emerald-700" },
   ].filter((card) => {
     if (card.key === "revenue" && !canSeeRevenue) return false;
     const kpis = uiPreferences?.bookings?.kpis;
@@ -540,6 +541,15 @@ export default function BookingsPage() {
   const totalItems = pagination?.totalCount ?? filteredData.length;
   const totalPages =
     pagination?.totalPages ?? (Math.ceil(filteredData.length / pageSize) || 1);
+  // The tab row doubles as the summary: a count beside each status beats a
+  // second set of numbers that says the same thing.
+  const tabCounts = {
+    ALL: stats.total,
+    PENDING: stats.pending,
+    CONFIRMED: stats.confirmed,
+    COMPLETED: stats.completed,
+    CANCELLED: stats.cancelled,
+  };
 
   // Supplier-created bookings: the server decides whether this supplier may
   // create one, and the platform's own balance decides whether commission can
@@ -596,27 +606,33 @@ export default function BookingsPage() {
       {/* On phones the primary action sits beside the page title. A toggle, a
           CTA and a refresh sharing one row needed 432px, which widened the
           layout viewport on every phone and made the drawers overflow with it. */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
         <div className="flex items-start justify-between gap-3 sm:block">
-          <div className="min-w-0">
-            <h1 className="text-xl font-bold text-slate-900">Bookings</h1>
-            <p className="text-sm text-slate-500 mt-0.5">
-              Manage and track all customer reservations
-            </p>
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+              <Ticket size={18} />
+            </span>
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold text-slate-900 md:text-2xl">Bookings</h1>
+              <p className="mt-0.5 text-sm text-slate-500">
+                Every reservation across your tours.
+              </p>
+            </div>
           </div>
           {!isDesktop && view === "bookings" && createBookingButton && (
             <div className="shrink-0">{createBookingButton}</div>
           )}
         </div>
-        <div className="flex items-center justify-between gap-2 sm:justify-end">
-          <div className="flex items-center gap-1 p-1 bg-white border border-emerald-100/60 rounded-xl shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
+          <div className="flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white p-0.5">
             <button
               type="button"
               onClick={() => setView("bookings")}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              aria-pressed={view === "bookings"}
+              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
                 view === "bookings"
-                  ? "bg-[#044b3b] text-white shadow-sm"
-                  : "text-slate-500 hover:text-slate-700 hover:bg-emerald-50/40"
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
               }`}
             >
               <ShoppingCart size={13} /> Bookings
@@ -624,10 +640,11 @@ export default function BookingsPage() {
             <button
               type="button"
               onClick={() => setView("requests")}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              aria-pressed={view === "requests"}
+              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
                 view === "requests"
-                  ? "bg-[#044b3b] text-white shadow-sm"
-                  : "text-slate-500 hover:text-slate-700 hover:bg-emerald-50/40"
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
               }`}
             >
               <ClipboardList size={13} />
@@ -646,7 +663,7 @@ export default function BookingsPage() {
                 onClick={loadBookings}
                 disabled={loading}
                 aria-label="Refresh bookings"
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-emerald-100/60 bg-white text-sm font-medium text-slate-600 shadow-sm transition-all hover:bg-emerald-50/40 hover:text-slate-800 disabled:opacity-50 sm:h-auto sm:w-auto sm:gap-1.5 sm:px-4 sm:py-2"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 sm:w-auto sm:gap-1.5 sm:px-3"
               >
                 {loading ? (
                   <Loader2 size={14} className="animate-spin" />
@@ -667,120 +684,137 @@ export default function BookingsPage() {
       ) : (
         <>
       {/* ====== STATS ====== */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 lg:gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {bookingKpis.map((s) => (
           <div
-            key={s.label}
-            className="bg-white rounded-xl border border-emerald-100/60 p-3 sm:p-4 lg:p-2 xl:p-4 hover:shadow-md transition-shadow"
+            key={s.key}
+            className="rounded-xl border border-slate-200/80 bg-white p-4"
           >
-            <div className="flex items-center justify-between gap-1 mb-2">
-              <div className="w-8 h-8 sm:w-9 sm:h-9 lg:w-6 lg:h-6 xl:w-9 xl:h-9 rounded-lg bg-emerald-50/40 border border-emerald-100/60 flex items-center justify-center shrink-0">
-                <s.icon size={14} className={`${s.color} lg:w-3 lg:h-3`} />
-              </div>
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-xs font-medium leading-tight text-slate-500">
+                {s.label}
+              </p>
               <span
-                className={`text-base sm:text-lg lg:text-xs xl:text-sm 2xl:text-lg font-bold ${s.color} text-right truncate min-w-0`}
+                className={cn(
+                  "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
+                  s.tint
+                )}
               >
-                {s.value}
+                <s.icon size={14} />
               </span>
             </div>
-            <p className="text-[10px] sm:text-[11px] text-slate-500">
-              {s.label}
+            <p className="mt-1.5 text-xl font-bold tabular-nums leading-tight tracking-tight text-slate-900 sm:text-2xl">
+              {s.value}
             </p>
-            <div
-              className={`mt-2 h-0.5 w-full rounded-full ${s.bar} opacity-30`}
-            />
           </div>
         ))}
       </div>
 
       {/* ====== TOOLBAR ====== */}
-      <div className="bg-white rounded-xl border border-emerald-100/60 shadow-sm">
-        {/* Quick filters */}
-        <div className="flex items-center gap-1 px-4 pt-3 pb-2 overflow-x-auto scrollbar-none">
-          {QUICK_FILTERS.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => handleTabClick(tab.key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
-                activeTab === tab.key
-                  ? "bg-[#044b3b] text-white shadow-sm"
-                  : "text-slate-500 hover:text-slate-700 hover:bg-emerald-50/40"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+      <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white">
+        {/* Quick filters: the counts are the summary, so the KPI row above has
+            nothing to repeat. */}
+        <div className="flex items-center gap-1 overflow-x-auto border-b border-slate-200 px-2 scrollbar-none">
+          {QUICK_FILTERS.map((tab) => {
+            const isActive = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => handleTabClick(tab.key)}
+                aria-pressed={isActive}
+                className={cn(
+                  "-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-2.5 py-2.5 text-sm font-medium transition-colors",
+                  isActive
+                    ? "border-emerald-600 text-emerald-700"
+                    : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
+                )}
+              >
+                {tab.label}
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 text-[11px] font-semibold tabular-nums",
+                    isActive
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "bg-slate-100 text-slate-500"
+                  )}
+                >
+                  {tabCounts[tab.key] ?? 0}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Search + advanced filters */}
-        <div className="px-4 pb-3 pt-1 flex flex-wrap items-center gap-2.5">
-          <div className="relative flex-1 min-w-[200px]">
+        <div className="flex flex-wrap items-center gap-2 p-3">
+          <div className="relative min-w-[200px] flex-1">
             <Search
-              size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
+              size={15}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
             />
             <input
               type="search"
               aria-label="Search bookings by traveller, customer, reference or tour"
-              placeholder="Search traveller, customer, reference or tour..."
+              placeholder="Search traveller, customer, reference or tour…"
               value={localSearch}
               onChange={(e) => setLocalSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-emerald-50/40 border border-emerald-100/60 rounded-lg text-base sm:text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#044b3b]/20 focus:border-[#044b3b] focus:bg-white transition-all"
+              className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-base text-slate-900 placeholder:text-slate-400 transition-colors focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 sm:text-sm"
             />
           </div>
 
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium transition-all ${
+            className={cn(
+              "flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition-colors",
               showFilters || hasFilters
-                ? "border-[#044b3b] bg-emerald-50 text-[#044b3b]"
-                : "border-emerald-100/60 bg-white text-slate-500 hover:bg-emerald-50/40"
-            }`}
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+            )}
           >
-            <Calendar size={13} /> Filters{" "}
+            <Calendar size={14} /> Filters
             {hasFilters && (
-              <span className="w-1.5 h-1.5 rounded-full bg-[#044b3b]" />
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
             )}
           </button>
 
           {hasFilters && (
             <button
               onClick={clearFilters}
-              className="flex items-center gap-1 px-2.5 py-2 text-xs text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              className="flex h-9 items-center gap-1 rounded-lg px-2.5 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
             >
-              <X size={12} /> Clear
+              <X size={13} /> Clear
             </button>
           )}
 
           {canExport && (
-          <button
-            type="button"
-            onClick={handleExport}
-            disabled={exporting || loading}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-emerald-100/60 bg-white text-xs font-medium text-slate-600 hover:bg-emerald-50/40 hover:text-slate-800 transition-all disabled:opacity-50 ml-auto"
-          >
-            {exporting ? (
-              <Loader2 size={13} className="animate-spin" />
-            ) : (
-              <Download size={13} />
-            )}
-            Export CSV
-          </button>
+            <button
+              type="button"
+              onClick={handleExport}
+              disabled={exporting || loading}
+              className="flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 sm:ml-auto"
+            >
+              {exporting ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <Download size={13} />
+              )}
+              Export CSV
+            </button>
           )}
 
           {canManageBookings && (
             <button
               onClick={() => setShowBulkCancel(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-red-200/70 bg-white text-xs font-medium text-red-600 hover:bg-red-50 hover:border-red-300 transition-all"
+              className="flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition-colors hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
             >
-              <CalendarX2 size={13} /> Cancel multiple bookings
+              <CalendarX2 size={13} /> Cancel multiple
             </button>
           )}
         </div>
 
         {/* Expandable date filters */}
         {showFilters && (
-          <div className="px-4 pb-4 border-t border-emerald-100/40 pt-3 flex flex-wrap items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4 border-t border-slate-200 px-3 py-3">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-slate-500">
               <ShoppingCart size={12} />
               <span>Purchased</span>
@@ -840,25 +874,25 @@ export default function BookingsPage() {
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="bg-white rounded-xl border border-emerald-100/60 p-4"
+              className="rounded-xl border border-slate-200/80 bg-white p-4"
             >
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg bg-emerald-100/40 animate-pulse" />
+                <div className="h-14 w-14 animate-pulse rounded-lg bg-slate-100 sm:h-16 sm:w-16" />
                 <div className="flex-1 space-y-2">
-                  <div className="h-4 w-48 bg-emerald-100/40 rounded animate-pulse" />
-                  <div className="h-3 w-32 bg-emerald-100/40 rounded animate-pulse" />
-                  <div className="h-2 w-20 bg-emerald-100/40 rounded animate-pulse" />
+                  <div className="h-4 w-48 animate-pulse rounded bg-slate-100" />
+                  <div className="h-3 w-32 animate-pulse rounded bg-slate-100" />
+                  <div className="h-2 w-20 animate-pulse rounded bg-slate-100" />
                 </div>
-                <div className="h-6 w-16 bg-emerald-100/40 rounded-full animate-pulse" />
-                <div className="h-4 w-16 bg-emerald-100/40 rounded animate-pulse" />
-                <div className="h-5 w-5 bg-emerald-100/40 rounded animate-pulse" />
+                <div className="h-6 w-16 animate-pulse rounded-full bg-slate-100" />
+                <div className="h-4 w-16 animate-pulse rounded bg-slate-100" />
+                <div className="h-5 w-5 animate-pulse rounded bg-slate-100" />
               </div>
             </div>
           ))}
         </div>
       ) : filteredData.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-24 text-center bg-white rounded-xl border border-emerald-100/60">
-          <div className="w-14 h-14 rounded-full bg-emerald-50/40 flex items-center justify-center mb-4">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white px-6 py-20 text-center">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50">
             <ShoppingCart
               size={24}
               className="text-slate-300"
@@ -884,10 +918,17 @@ export default function BookingsPage() {
         </div>
       ) : (
         <>
-          <p className="text-xs text-slate-500">
-            {totalItems} booking{totalItems !== 1 ? "s" : ""}
-            {hasFilters ? " match your filters" : ""}
-          </p>
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="text-xs font-medium text-slate-500">
+              {totalItems} booking{totalItems !== 1 ? "s" : ""}
+              {hasFilters ? " match your filters" : ""}
+            </p>
+            {activeTab !== "ALL" && (
+              <p className="text-[11px] text-slate-400">
+                {QUICK_FILTERS.find((t) => t.key === activeTab)?.label}
+              </p>
+            )}
+          </div>
           <div className="space-y-3">
             {filteredData.map((booking) => (
               <BookingCard
@@ -913,7 +954,7 @@ export default function BookingsPage() {
 
       {/* ====== PAGINATION ====== */}
       {totalPages > 1 && !loading && (
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-emerald-100/60">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-slate-500">
             <span>Show</span>
             <select
@@ -921,7 +962,7 @@ export default function BookingsPage() {
               onChange={(e) =>
                 updateFilters({ pageSize: Number(e.target.value), page: 0 })
               }
-              className="px-2 py-1 border border-emerald-100/60 rounded-lg text-base sm:text-xs text-slate-700 bg-white focus:outline-none"
+              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-base text-slate-700 focus:outline-none sm:text-xs"
             >
               {PAGE_SIZE_OPTIONS.map((n) => (
                 <option key={n} value={n}>
@@ -935,7 +976,7 @@ export default function BookingsPage() {
             <button
               disabled={page === 0}
               onClick={() => updateFilters({ page: page - 1 })}
-              className="px-2.5 py-1.5 border border-emerald-100/60 rounded-lg text-xs font-medium text-slate-600 hover:bg-emerald-50/40 disabled:opacity-30 disabled:cursor-default transition-colors"
+              className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-default disabled:opacity-40"
             >
               Prev
             </button>
@@ -952,8 +993,8 @@ export default function BookingsPage() {
                     onClick={() => updateFilters({ page: p })}
                     className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors ${
                       page === p
-                        ? "bg-[#044b3b] text-white shadow-sm"
-                        : "text-slate-600 hover:bg-emerald-50/40 border border-emerald-100/60"
+                        ? "bg-slate-900 text-white shadow-sm"
+                        : "border border-slate-200 text-slate-600 hover:bg-slate-50"
                     }`}
                   >
                     {p + 1}
@@ -967,7 +1008,7 @@ export default function BookingsPage() {
             <button
               disabled={page >= totalPages - 1}
               onClick={() => updateFilters({ page: page + 1 })}
-              className="px-2.5 py-1.5 border border-emerald-100/60 rounded-lg text-xs font-medium text-slate-600 hover:bg-emerald-50/40 disabled:opacity-30 disabled:cursor-default transition-colors"
+              className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-default disabled:opacity-40"
             >
               Next
             </button>

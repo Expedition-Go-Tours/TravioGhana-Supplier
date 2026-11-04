@@ -7,7 +7,7 @@ import {
   DollarSign, Wallet, CreditCard, Loader2, RefreshCw, Plus, Trash2,
   TrendingUp, Landmark, Smartphone, Eye, EyeOff, FileText,
   CheckCircle2, AlertTriangle, X, ChevronDown, ChevronLeft, ChevronRight, Banknote,
-  Calendar, Info, Search, Lock, XCircle, Undo2,
+  Calendar, Info, Search, Lock, XCircle, Undo2, ClipboardList,
   ListFilter as FilterIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -35,7 +35,7 @@ const TABS = [
   { key: "payouts", label: "Payouts", icon: Banknote },
   { key: "invoices", label: "Invoices", icon: FileText },
   { key: "refunds", label: "Refunds", icon: Undo2 },
-  { key: "claims", label: "Refund Requests", icon: Undo2 },
+  { key: "claims", label: "Refund Requests", icon: ClipboardList },
   { key: "methods", label: "Payout Methods", icon: CreditCard },
 ];
 
@@ -140,43 +140,43 @@ function BookingCombobox({ options, value, onChange }) {
         onClick={() => { setOpen((o) => !o); setQuery(""); }}
         className={cn(
           "w-full flex items-center justify-between gap-2 px-3.5 py-2.5 border rounded-lg text-sm bg-white text-left transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400",
-          selected ? "border-gray-200" : "border-gray-200 text-gray-400"
+          selected ? "border-slate-200" : "border-slate-200 text-slate-400"
         )}
       >
         {selected ? (
           <span className="min-w-0">
-            <span className="block font-medium text-gray-900 truncate">{selected.bookingNumber}</span>
-            <span className="block text-xs text-gray-500 truncate">
+            <span className="block font-medium text-slate-900 truncate">{selected.bookingNumber}</span>
+            <span className="block text-xs text-slate-500 truncate">
               {selected.tour} · {formatCurrency(selected.grossAmount, selected.currency)}
             </span>
           </span>
         ) : (
           <span>Select a booking…</span>
         )}
-        <ChevronDown size={16} className={cn("text-gray-500 shrink-0 transition-transform", open && "rotate-180")} />
+        <ChevronDown size={16} className={cn("text-slate-500 shrink-0 transition-transform", open && "rotate-180")} />
       </button>
 
       {open && createPortal(
         <div
           ref={panelRef}
           style={style}
-          className="bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden flex flex-col z-[60]"
+          className="bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden flex flex-col z-[60]"
         >
-          <div className="p-2 border-b border-gray-100 shrink-0">
+          <div className="p-2 border-b border-slate-100 shrink-0">
             <div className="relative">
-              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500" />
+              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
               <input
                 autoFocus
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search booking #, tour or customer…"
-                className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-md text-sm text-gray-700 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+                className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-md text-sm text-slate-700 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
               />
             </div>
           </div>
           <div className="overflow-y-auto">
             {filtered.length === 0 ? (
-              <p className="px-3 py-6 text-center text-sm text-gray-500">No bookings match “{query.trim()}”</p>
+              <p className="px-3 py-6 text-center text-sm text-slate-500">No bookings match “{query.trim()}”</p>
             ) : (
               filtered.map((b) => (
                 <button
@@ -184,17 +184,17 @@ function BookingCombobox({ options, value, onChange }) {
                   type="button"
                   onClick={() => { onChange(b.id); setOpen(false); setQuery(""); }}
                   className={cn(
-                    "w-full px-3 py-2.5 text-left hover:bg-gray-50 transition-colors",
+                    "w-full px-3 py-2.5 text-left hover:bg-slate-50 transition-colors",
                     value === b.id && "bg-emerald-50"
                   )}
                 >
                   <span className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium text-gray-900">{b.bookingNumber}</span>
-                    <span className="text-sm font-semibold text-gray-700 shrink-0 tabular-nums">
+                    <span className="text-sm font-medium text-slate-900">{b.bookingNumber}</span>
+                    <span className="text-sm font-semibold text-slate-700 shrink-0 tabular-nums">
                       {formatCurrency(b.grossAmount, b.currency)}
                     </span>
                   </span>
-                  <span className="block text-xs text-gray-500 truncate">
+                  <span className="block text-xs text-slate-500 truncate">
                     {b.tour}{b.travelDate ? ` · ${formatDate(b.travelDate)}` : ""}{b.customer ? ` · ${b.customer}` : ""}
                   </span>
                 </button>
@@ -212,26 +212,50 @@ function TablePagination({ pagination, page, onPageChange }) {
   if (!pagination || !pagination.totalPages || pagination.totalPages <= 1) return null;
   const current = pagination.currentPage || page;
   return (
-    <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-gray-100 bg-gray-50/60">
-      <p className="text-xs text-gray-500">
+    <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-slate-100 bg-slate-50/60">
+      <p className="text-xs text-slate-500">
         Page {current} of {pagination.totalPages} · {pagination.totalCount ?? "?"} record(s)
       </p>
       <div className="flex items-center gap-2">
         <button
           disabled={current <= 1}
           onClick={() => onPageChange(current - 1)}
-          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition-colors"
         >
           <ChevronLeft size={13} /> Previous
         </button>
         <button
           disabled={current >= pagination.totalPages}
           onClick={() => onPageChange(current + 1)}
-          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition-colors"
         >
           Next <ChevronRight size={13} />
         </button>
       </div>
+    </div>
+  );
+}
+
+// Shared shape for the money cards: label and muted icon on one line, the
+// figure on its own, then whatever context the card needs. The old cards put a
+// coloured strip along the bottom, which read as a chart that wasn't there.
+function SummaryCard({ label, value, icon: Icon, tint = "bg-slate-50 text-slate-500", children }) {
+  return (
+    <div className="rounded-xl border border-slate-200/80 bg-white p-4 sm:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-medium leading-tight text-slate-500">{label}</p>
+          <p className="mt-1.5 text-xl font-bold leading-tight tracking-tight tabular-nums text-slate-900 sm:text-2xl">
+            {value}
+          </p>
+        </div>
+        <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg", tint)}>
+          <Icon size={14} />
+        </span>
+      </div>
+      {/* Detail sits under the header row: inside the label column a payout
+          window had roughly 120px on a phone and wrapped into four lines. */}
+      {children}
     </div>
   );
 }
@@ -586,58 +610,50 @@ export default function FinancePage() {
   // ── Stat cards. v3 (balance / next payout) for enrolled suppliers; the v2
   // cards stay for legacy accounts. ──
   const inReviewCard = (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 relative overflow-hidden">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm text-gray-500">In review</p>
-          <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{money(moneyLine(summary?.inReview))}</p>
-          {summary?.inReview?.requestCount > 0 && (
-            // gray-600 when this is the request reference: it is the number a
-            // supplier quotes to support, and gray-400 sits at 2.60:1.
-            <p className={cn("text-xs mt-0.5", inFlightRequest?.reference ? "text-gray-600 tabular-nums" : "text-gray-500")}>
-              {inFlightRequest?.reference || `${summary.inReview.requestCount} request(s)`}
-            </p>
-          )}
-        </div>
-        <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
-          <TrendingUp size={20} className="text-emerald-500" />
-        </div>
-      </div>
-      <div className="absolute bottom-0 left-0 right-0 h-1 bg-amber-500" />
-    </div>
+    <SummaryCard
+      label="In review"
+      value={money(moneyLine(summary?.inReview))}
+      icon={TrendingUp}
+      tint="bg-amber-50 text-amber-600"
+    >
+      {summary?.inReview?.requestCount > 0 && (
+        // slate-600 when this is the request reference: it is the number a
+        // supplier quotes to support, and slate-400 sits at 2.60:1.
+        <p className={cn("mt-1 text-[11px] leading-tight", inFlightRequest?.reference ? "tabular-nums text-slate-600" : "text-slate-500")}>
+          {inFlightRequest?.reference || `${summary.inReview.requestCount} request(s)`}
+        </p>
+      )}
+    </SummaryCard>
   );
 
   const paidOutCard = (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 relative overflow-hidden">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm text-gray-500">Paid out</p>
-          <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{money(moneyLine(summary?.paidOut))}</p>
-        </div>
-        <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
-          <CheckCircle2 size={20} className="text-emerald-500" />
-        </div>
-      </div>
-      <div className="absolute bottom-0 left-0 right-0 h-1 bg-sky-500" />
-    </div>
+    <SummaryCard
+      label="Paid out"
+      value={money(moneyLine(summary?.paidOut))}
+      icon={CheckCircle2}
+      tint="bg-emerald-50 text-emerald-600"
+    />
   );
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-4">
-          <div className="w-1 h-9 bg-emerald-500 rounded-full" />
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+            <Wallet size={18} />
+          </span>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Finance</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Track earnings, your payout schedule, and payment methods</p>
+            <h1 className="text-xl font-bold text-slate-900 md:text-2xl">Finance</h1>
+            <p className="mt-0.5 text-sm text-slate-500">Earnings, invoices and payouts in one place.</p>
           </div>
         </div>
         <button onClick={() => { loadData(); loadCharges(); }} disabled={loading}
-          className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all disabled:opacity-40"
+          aria-label="Refresh finance"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-800 disabled:opacity-40 sm:w-auto sm:gap-2 sm:px-3"
         >
-          {loading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-          Refresh
+          {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+          <span className="hidden sm:inline">Refresh</span>
         </button>
       </div>
 
@@ -660,121 +676,95 @@ export default function FinancePage() {
       )}
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 sm:gap-4">
         {isEnrolled ? (
           <>
-            {/* Your balance — the sum of unpaid invoices (v3) */}
-            <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 relative overflow-hidden">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Your balance</p>
-                  <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">
-                    {money(moneyLine({
-                      byCurrency: balanceRows,
-                      // Empty rows mean the summary loaded and found nothing:
-                      // a real 0.00, not an unknown amount.
-                      amount: balanceRows.length <= 1 ? balanceTotal : null,
-                      currency: balanceRows[0]?.currency || "USD",
-                    }))}
-                  </p>
-                  {(summary?.balance?.openInvoiceCount || 0) > 0 && (
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {summary.balance.openInvoiceCount} unpaid invoice{summary.balance.openInvoiceCount === 1 ? "" : "s"}
-                    </p>
-                  )}
-                </div>
-                <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
-                  <DollarSign size={20} className="text-emerald-500" />
-                </div>
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500" />
-            </div>
+            <SummaryCard
+              label="Your balance"
+              value={money(moneyLine({
+                byCurrency: balanceRows,
+                // Empty rows mean the summary loaded and found nothing:
+                // a real 0.00, not an unknown amount.
+                amount: balanceRows.length <= 1 ? balanceTotal : null,
+                currency: balanceRows[0]?.currency || "USD",
+              }))}
+              icon={DollarSign}
+              tint="bg-emerald-50 text-emerald-600"
+            >
+              {(summary?.balance?.openInvoiceCount || 0) > 0 && (
+                <p className="mt-1 text-[11px] leading-tight text-slate-500">
+                  {summary.balance.openInvoiceCount} unpaid invoice{summary.balance.openInvoiceCount === 1 ? "" : "s"}
+                </p>
+              )}
+            </SummaryCard>
 
-            {/* Next payout — pending-window projection, exact dates shown */}
-            <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 relative overflow-hidden">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Next payout</p>
-                  <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">
-                    {nextPayout?.window ? formatCurrency(nextPayout.netTotal) : "—"}
+            <SummaryCard
+              label="Next payout"
+              value={nextPayout?.window ? formatCurrency(nextPayout.netTotal) : "—"}
+              icon={Calendar}
+              tint="bg-sky-50 text-sky-600"
+            >
+              {nextPayout?.window ? (
+                <>
+                  <p className="mt-1 text-[11px] leading-tight text-slate-500">
+                    Bookings {formatDate(nextPayout.window.start)} – {formatDate(nextPayout.window.end)}
                   </p>
-                  {nextPayout?.window ? (
-                    <>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        Bookings {formatDate(nextPayout.window.start)} – {formatDate(nextPayout.window.end)}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        Invoiced {formatDate(nextPayout.window.invoicedOn)} · paid {formatDate(nextPayout.window.paidOn)}
-                      </p>
-                    </>
-                  ) : (
-                    <p className="text-xs text-gray-500 mt-0.5">No pending payout window yet</p>
-                  )}
-                  {/* Money whose payment succeeded but that has not cleared
-                      into a window yet. On the enrolled flow this state sits
-                      between "balance" and "next payout" and used to be visible
-                      nowhere — a supplier could reconcile every card and still
-                      be missing money they had earned. */}
-                  {clearingAmount > 0 && (
-                    <p className="text-xs text-amber-700 mt-1">
-                      Plus {moneyLine(summary?.pendingClearance)} still clearing
-                      {summary?.pendingClearance?.bookingCount
-                        ? ` (${summary.pendingClearance.bookingCount} booking${summary.pendingClearance.bookingCount === 1 ? "" : "s"})`
-                        : ""} — not in a window yet
-                    </p>
-                  )}
-                </div>
-                <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
-                  <Calendar size={20} className="text-emerald-500" />
-                </div>
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 h-1 bg-sky-500" />
-            </div>
+                  <p className="mt-0.5 text-[11px] leading-tight text-slate-400">
+                    Invoiced {formatDate(nextPayout.window.invoicedOn)} · paid {formatDate(nextPayout.window.paidOn)}
+                  </p>
+                </>
+              ) : (
+                <p className="mt-1 text-[11px] leading-tight text-slate-500">No pending payout window yet</p>
+              )}
+              {/* Money whose payment succeeded but that has not cleared into a
+                  window yet. On the enrolled flow this state sits between
+                  "balance" and "next payout" and used to be visible nowhere — a
+                  supplier could reconcile every card and still be missing money
+                  they had earned. */}
+              {clearingAmount > 0 && (
+                <p className="mt-1.5 text-[11px] leading-tight text-amber-700">
+                  Plus {moneyLine(summary?.pendingClearance)} still clearing
+                  {summary?.pendingClearance?.bookingCount
+                    ? ` (${summary.pendingClearance.bookingCount} booking${summary.pendingClearance.bookingCount === 1 ? "" : "s"})`
+                    : ""} — not in a window yet
+                </p>
+              )}
+            </SummaryCard>
           </>
         ) : (
           <>
-            {/* Available for payout */}
-            <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 relative overflow-hidden">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Available for payout</p>
-                  <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{money(moneyLine(summary?.availableBalance))}</p>
-                  {summary?.availableBalance?.bookingCount > 0 && (
-                    <p className="text-xs text-gray-500 mt-0.5">{summary.availableBalance.bookingCount} booking(s)</p>
-                  )}
-                </div>
-                <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
-                  <DollarSign size={20} className="text-emerald-500" />
-                </div>
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500" />
-            </div>
+            <SummaryCard
+              label="Available for payout"
+              value={money(moneyLine(summary?.availableBalance))}
+              icon={DollarSign}
+              tint="bg-emerald-50 text-emerald-600"
+            >
+              {summary?.availableBalance?.bookingCount > 0 && (
+                <p className="mt-1 text-[11px] leading-tight text-slate-500">
+                  {summary.availableBalance.bookingCount} booking(s)
+                </p>
+              )}
+            </SummaryCard>
 
-            {/* Pending clearance */}
-            <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 relative overflow-hidden">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Pending clearance</p>
-                  <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{money(moneyLine(summary?.pendingClearance))}</p>
-                  {stats.pendingTotal > 0 && summary?.nextEligibleAt && (
-                    // gray-400 is the house muted colour and lands at 2.60:1 on white,
-                    // below AA. gray-500 clears 4.5:1 at the same visual weight.
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      Next clears {formatDate(summary.nextEligibleAt)}
-                    </p>
-                  )}
-                  {summary?.pendingClearance?.bookingCount > 0 && (
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {summary.pendingClearance.bookingCount} booking(s) after their travel date
-                    </p>
-                  )}
-                </div>
-                <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
-                  <Loader2 size={20} className="text-emerald-500" />
-                </div>
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500" />
-            </div>
+            <SummaryCard
+              label="Pending clearance"
+              value={money(moneyLine(summary?.pendingClearance))}
+              icon={Loader2}
+              tint="bg-slate-100 text-slate-500"
+            >
+              {stats.pendingTotal > 0 && summary?.nextEligibleAt && (
+                // slate-400 is the house muted colour and lands at 2.60:1 on white,
+                // below AA. slate-500 clears 4.5:1 at the same visual weight.
+                <p className="mt-1 text-[11px] leading-tight text-slate-500">
+                  Next clears {formatDate(summary.nextEligibleAt)}
+                </p>
+              )}
+              {summary?.pendingClearance?.bookingCount > 0 && (
+                <p className="mt-0.5 text-[11px] leading-tight text-slate-500">
+                  {summary.pendingClearance.bookingCount} booking(s) after their travel date
+                </p>
+              )}
+            </SummaryCard>
           </>
         )}
 
@@ -803,48 +793,50 @@ export default function FinancePage() {
         ) : (
         <>
         {/* Current Payout Cycle */}
-        <div className="lg:col-span-2 bg-white border border-gray-200 rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0">
-            <div className="w-12 h-12 rounded-full border-2 border-emerald-500 flex items-center justify-center bg-white shrink-0">
-              <Calendar size={24} className="text-emerald-500" />
-            </div>
+        <div className="flex flex-col justify-between gap-4 rounded-xl border border-slate-200/80 bg-white p-4 sm:p-5 lg:col-span-2 lg:flex-row lg:items-center">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+              <Calendar size={18} />
+            </span>
             <div className="min-w-0">
-              <p className="text-sm font-medium text-gray-700">Current payout cycle</p>
-              <p className="text-xl font-bold text-gray-900">{cycleInfo.current || "—"}</p>
-              <div className="flex flex-wrap items-center gap-2 mt-1">
+              <p className="text-xs font-medium text-slate-500">Current payout cycle</p>
+              <p className="mt-0.5 text-lg font-bold text-slate-900">{cycleInfo.current || "—"}</p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2">
                 {windowOpen ? (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700">
+                  <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
                     Withdrawal window open until {formatDate(windowInfo.closesAt)}
                   </span>
                 ) : (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-600">
+                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-500">
                     Window closed · opens {cycleInfo.requestWindow || "soon"}
                   </span>
                 )}
               </div>
-              <p className="text-xs text-gray-500 mt-1.5">Only completed bookings past their travel date are eligible.</p>
+              <p className="mt-1.5 text-[11px] leading-tight text-slate-400">
+                Only completed bookings past their travel date are eligible.
+              </p>
             </div>
           </div>
-          <div className="flex flex-col items-end gap-1.5 shrink-0">
+          <div className="flex flex-col items-start gap-1.5 lg:items-end">
             <button
-            onClick={() => setShowRequestModal(true)}
-            disabled={!canRequestPayout}
-            className={cn(
-              "flex items-center justify-center gap-2 px-5 sm:px-6 py-3 sm:py-3.5 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap",
-              canRequestPayout
-                ? "bg-emerald-700 text-white hover:bg-emerald-800"
-                : "bg-gray-100 text-gray-400 cursor-not-allowed"
-            )}
-          >
-            {!canRequestPayout && <Lock size={15} />}
-            {canRequestPayout
-              ? `Request payout · ${money(moneyLine(summary?.availableBalance))}`
-              : "Request payout"}
-          </button>
+              onClick={() => setShowRequestModal(true)}
+              disabled={!canRequestPayout}
+              className={cn(
+                "flex h-10 w-full items-center justify-center gap-2 rounded-lg px-5 text-sm font-medium transition-colors lg:w-auto",
+                canRequestPayout
+                  ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                  : "cursor-not-allowed bg-slate-100 text-slate-400"
+              )}
+            >
+              {!canRequestPayout && <Lock size={15} />}
+              {canRequestPayout
+                ? `Request payout · ${money(moneyLine(summary?.availableBalance))}`
+                : "Request payout"}
+            </button>
             {/* Visible, not a tooltip: a disabled button emits no pointer events,
                 so a `title` never reaches the supplier. */}
             {requestBlockedReason && (
-              <p className="text-xs text-gray-500 text-right max-w-[240px]">{requestBlockedReason}</p>
+              <p className="max-w-[240px] text-[11px] leading-tight text-slate-500 lg:text-right">{requestBlockedReason}</p>
             )}
           </div>
         </div>
@@ -852,16 +844,13 @@ export default function FinancePage() {
         )}
 
         {/* Next Cycle */}
-        <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 flex items-center gap-3 sm:gap-4">
-          <div className="w-12 h-12 rounded-full border-2 border-emerald-500 flex items-center justify-center bg-white shrink-0">
-            <div className="relative">
-              <Calendar size={24} className="text-emerald-500" />
-              <ChevronRight size={14} className="text-emerald-500 absolute -right-1 -bottom-0.5" />
-            </div>
-          </div>
+        <div className="flex items-center gap-3 rounded-xl border border-slate-200/80 bg-white p-4 sm:p-5">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
+            <Calendar size={18} />
+          </span>
           <div className="min-w-0">
-            <p className="text-base font-semibold text-gray-900">Accumulating</p>
-            <p className="text-sm text-gray-500 mt-0.5">
+            <p className="text-sm font-semibold text-slate-900">Accumulating</p>
+            <p className="text-sm text-slate-500 mt-0.5">
               {isEnrolled ? (
                 nextPayout?.window ? (
                   <>
@@ -929,33 +918,33 @@ export default function FinancePage() {
                   <Banknote size={22} className="text-emerald-600" />
                 </div>
                 <button ref={requestDialog.closeRef} aria-label="Close" onClick={() => setShowRequestModal(false)} disabled={submittingRequest}
-                  className="-m-1.5 p-1.5 text-gray-500 hover:text-gray-600 transition-colors">
+                  className="-m-1.5 p-1.5 text-slate-500 hover:text-slate-600 transition-colors">
                   <X size={18} />
                 </button>
               </div>
-              <h3 id="payout-request-dialog-title" className="text-lg font-bold text-gray-900">
+              <h3 id="payout-request-dialog-title" className="text-lg font-bold text-slate-900">
                 Request payout
               </h3>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-slate-500 mt-1">
                 This bundles all your eligible bookings into a withdrawal request for review.
               </p>
-              <div className="mt-4 space-y-2.5 bg-gray-50 rounded-xl p-4">
+              <div className="mt-4 space-y-2.5 bg-slate-50 rounded-xl p-4">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Amount</span>
-                  <span className="font-bold text-gray-900">{money(moneyLine(summary?.availableBalance))}</span>
+                  <span className="text-slate-500">Amount</span>
+                  <span className="font-bold text-slate-900">{money(moneyLine(summary?.availableBalance))}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Bookings included</span>
-                  <span className="font-medium text-gray-700">{summary?.availableBalance?.bookingCount || 0}</span>
+                  <span className="text-slate-500">Bookings included</span>
+                  <span className="font-medium text-slate-700">{summary?.availableBalance?.bookingCount || 0}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Cycle</span>
-                  <span className="font-medium text-gray-700">{windowInfo?.cycleLabel || "—"}</span>
+                  <span className="text-slate-500">Cycle</span>
+                  <span className="font-medium text-slate-700">{windowInfo?.cycleLabel || "—"}</span>
                 </div>
               </div>
               <div className="flex gap-3 mt-5">
                 <button onClick={() => setShowRequestModal(false)} disabled={submittingRequest}
-                  className="flex-1 py-2.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 transition-colors">
+                  className="flex-1 py-2.5 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40 transition-colors">
                   Cancel
                 </button>
                 <button onClick={handleRequestPayout} disabled={submittingRequest}
@@ -1001,20 +990,20 @@ export default function FinancePage() {
                     <Undo2 size={22} className="text-emerald-600" />
                   </div>
                   <button type="button" onClick={() => setShowRefundModal(false)} disabled={submittingRefund}
-                    className="-m-1.5 p-1.5 text-gray-500 hover:text-gray-600 transition-colors">
+                    className="-m-1.5 p-1.5 text-slate-500 hover:text-slate-600 transition-colors">
                     <X size={18} />
                   </button>
                 </div>
-                <h3 id="refund-request-dialog-title" className="text-lg font-bold text-gray-900">Request a refund</h3>
-                <p className="text-sm text-gray-500 mt-1">
+                <h3 id="refund-request-dialog-title" className="text-lg font-bold text-slate-900">Request a refund</h3>
+                <p className="text-sm text-slate-500 mt-1">
                   An admin will review your request. While it is open, the booking's funds are on hold.
                 </p>
 
                 <div className="mt-5 space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Booking</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Booking</label>
                     {loadingEligible ? (
-                      <div className="flex items-center gap-2 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500">
+                      <div className="flex items-center gap-2 p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-500">
                         <Loader2 size={15} className="animate-spin shrink-0" />
                         Loading eligible bookings…
                       </div>
@@ -1033,7 +1022,7 @@ export default function FinancePage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Reason</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Reason</label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {REFUND_REASONS.map((r) => (
                         <button
@@ -1044,36 +1033,36 @@ export default function FinancePage() {
                             "p-3 rounded-xl border-2 text-left transition-all",
                             refundForm.reason === r.value
                               ? "border-emerald-500 bg-emerald-50"
-                              : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
+                              : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
                           )}
                         >
                           <p className={cn(
                             "text-sm font-semibold",
-                            refundForm.reason === r.value ? "text-emerald-800" : "text-gray-700"
+                            refundForm.reason === r.value ? "text-emerald-800" : "text-slate-700"
                           )}>{r.label}</p>
-                          <p className="text-xs text-gray-500 mt-0.5 leading-snug">{r.desc}</p>
+                          <p className="text-xs text-slate-500 mt-0.5 leading-snug">{r.desc}</p>
                         </button>
                       ))}
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Explanation <span className="font-normal text-gray-500">(optional)</span>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                      Explanation <span className="font-normal text-slate-500">(optional)</span>
                     </label>
                     <textarea
                       rows={3}
                       placeholder="Add context that helps the reviewer decide: what happened, what the customer asked for…"
                       value={refundForm.description}
                       onChange={(e) => setRefundForm((p) => ({ ...p, description: e.target.value }))}
-                      className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all resize-none"
+                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-700 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all resize-none"
                     />
                   </div>
                 </div>
 
                 <div className="flex gap-3 mt-5">
                   <button type="button" onClick={() => setShowRefundModal(false)} disabled={submittingRefund}
-                    className="flex-1 py-2.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 transition-colors">
+                    className="flex-1 py-2.5 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40 transition-colors">
                     Cancel
                   </button>
                   <button type="submit" disabled={submittingRefund || !refundForm.bookingId || !refundForm.reason}
@@ -1091,7 +1080,7 @@ export default function FinancePage() {
       )}
 
       {/* Tabs */}
-      <div className="flex items-center gap-5 sm:gap-6 border-b border-gray-200 overflow-x-auto scrollbar-none">
+      <div className="flex items-center gap-1 overflow-x-auto border-b border-slate-200 scrollbar-none">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.key;
@@ -1099,14 +1088,15 @@ export default function FinancePage() {
             <button
               key={tab.key}
               onClick={() => setSearchParams((prev) => ({ ...Object.fromEntries(prev), tab: tab.key }))}
+              aria-pressed={isActive}
               className={cn(
-                "flex items-center gap-2 pb-3 pt-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0",
+                "-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-2.5 py-2.5 text-sm font-medium transition-colors",
                 isActive
                   ? "border-emerald-600 text-emerald-700"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
+                  : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
               )}
             >
-              <Icon size={16} />
+              <Icon size={15} />
               {tab.label}
             </button>
           );
@@ -1142,15 +1132,15 @@ export default function FinancePage() {
                     key={pill.key}
                     onClick={() => setFilterPill(pill.key)}
                     className={cn(
-                      "px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors",
+                      "h-8 rounded-full border px-3 text-xs font-medium transition-colors",
                       filterPill === pill.key
-                        ? "bg-emerald-700 text-white"
-                        : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
+                        ? "border-slate-900 bg-slate-900 text-white"
+                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-800"
                     )}
                   >
                     {pill.label}
                     {pill.key && (payoutCounts[pill.key] || 0) > 0 && (
-                      <span className={cn("ml-1.5 tabular-nums", filterPill === pill.key ? "text-emerald-100" : "text-gray-500")}>
+                      <span className={cn("ml-1.5 tabular-nums", filterPill === pill.key ? "text-white/70" : "text-slate-400")}>
                         {payoutCounts[pill.key]}
                       </span>
                     )}
@@ -1159,9 +1149,9 @@ export default function FinancePage() {
             </div>
 
             {/* Info Banner */}
-            <div className="flex items-center gap-2.5 p-3 bg-teal-50 rounded-lg">
-              <Info size={16} className="text-teal-600 shrink-0" />
-              <p className="text-sm text-teal-700">
+            <div className="flex items-start gap-2.5 rounded-xl border border-slate-200/80 bg-slate-50 p-3">
+              <Info size={15} className="mt-0.5 shrink-0 text-slate-400" />
+              <p className="text-xs leading-relaxed text-slate-600">
                 {isEnrolled
                   ? (nextPayout?.window
                       ? `Earnings for ${nextPayout.window.label} are invoiced automatically — issued ${formatDate(nextPayout.window.invoicedOn)}, paid ${formatDate(nextPayout.window.paidOn)}.`
@@ -1184,13 +1174,13 @@ export default function FinancePage() {
 
             {/* Table */}
             {loading ? (
-              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white">
                 <div className="p-5 space-y-4">
                   {[1,2,3,4,5].map(i => (
                     <div key={i} className="flex items-center gap-4 animate-pulse">
-                      <div className="h-3 w-20 bg-gray-100 rounded" />
-                      <div className="h-3 w-32 bg-gray-100 rounded" />
-                      <div className="h-3 w-16 bg-gray-100 rounded ml-auto" />
+                      <div className="h-3 w-20 bg-slate-100 rounded" />
+                      <div className="h-3 w-32 bg-slate-100 rounded" />
+                      <div className="h-3 w-16 bg-slate-100 rounded ml-auto" />
                     </div>
                   ))}
                 </div>
@@ -1201,22 +1191,22 @@ export default function FinancePage() {
               // default, a supplier whose money had already gone into a payout
               // request saw this and was told they had no earnings at all.
               totalBookings === 0 ? (
-                <div className="flex flex-col items-center justify-center py-24 text-center bg-white border border-gray-200 rounded-xl">
-                  <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center mb-4">
+                <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white px-6 py-20 text-center">
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50">
                     <DollarSign size={26} className="text-emerald-300" />
                   </div>
-                  <h3 className="text-base font-semibold text-gray-700 mb-1">No earnings yet</h3>
-                  <p className="text-sm text-gray-500 max-w-[220px]">Earnings will appear once bookings start coming in.</p>
+                  <h3 className="text-base font-semibold text-slate-700 mb-1">No earnings yet</h3>
+                  <p className="text-sm text-slate-500 max-w-[220px]">Earnings will appear once bookings start coming in.</p>
                 </div>
               ) : (
-                <div data-testid="earnings-empty-state" className="flex flex-col items-center justify-center py-16 text-center bg-white border border-gray-200 rounded-xl">
-                  <div className="w-14 h-14 rounded-2xl bg-amber-50 flex items-center justify-center mb-4">
+                <div data-testid="earnings-empty-state" className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white px-6 py-16 text-center">
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-50">
                     <FilterIcon size={24} className="text-amber-400" />
                   </div>
-                  <h3 className="text-base font-semibold text-gray-700 mb-1">
+                  <h3 className="text-base font-semibold text-slate-700 mb-1">
                     Nothing {activePillLabel.toLowerCase()} yet
                   </h3>
-                  <p className="text-sm text-gray-500 max-w-[340px]">
+                  <p className="text-sm text-slate-500 max-w-[340px]">
                     You have {totalBookings} booking{totalBookings === 1 ? "" : "s"} in total — none in this
                     filter. They are here:
                   </p>
@@ -1235,18 +1225,18 @@ export default function FinancePage() {
                 </div>
               )
             ) : (
-              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white">
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-gray-200 bg-gray-50">
-                        <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Booking</th>
-                        <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Tour</th>
-                        <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Travel Date</th>
-                        <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Supplier Payout</th>
-                        <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Commission</th>
-                        <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</th>
+                      <tr className="border-b border-slate-200 bg-slate-50/70">
+                        <th className="whitespace-nowrap px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">Booking</th>
+                        <th className="hidden whitespace-nowrap px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400 sm:table-cell">Tour</th>
+                        <th className="hidden whitespace-nowrap px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400 sm:table-cell">Travel date</th>
+                        <th className="whitespace-nowrap px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">Status</th>
+                        <th className="hidden whitespace-nowrap px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-400 sm:table-cell">Supplier payout</th>
+                        <th className="hidden whitespace-nowrap px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-400 sm:table-cell">Commission</th>
+                        <th className="whitespace-nowrap px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-400">Total</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1256,30 +1246,30 @@ export default function FinancePage() {
                           initial={{ opacity: 0, y: 8 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: i * 0.03 }}
-                          className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors"
+                          className="border-b border-slate-100 last:border-0 transition-colors hover:bg-slate-50"
                         >
                           <td className="py-3 px-4">
-                            <span className="text-sm font-medium text-emerald-700">{e.bookingNumber}</span>
+                            <span className="whitespace-nowrap text-sm font-medium text-emerald-700">{e.bookingNumber}</span>
                           </td>
-                          <td className="py-3 px-4 text-sm text-gray-700">{e.tour}</td>
-                          <td className="py-3 px-4 text-sm text-gray-500">{formatDate(e.travelDate)}</td>
+                          <td className="hidden py-3 px-4 text-sm text-slate-700 sm:table-cell">{e.tour}</td>
+                          <td className="hidden py-3 px-4 text-sm text-slate-500 sm:table-cell">{formatDate(e.travelDate)}</td>
                           <td className="py-3 px-4">
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex flex-wrap items-center gap-1.5">
                               <EarningStatusBadge status={e.payoutStatus} />
                               {e.openDispute && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-red-50 text-red-700" title={`Refund request ${e.openDispute.disputeNumber}`}>
+                                <span className="inline-flex items-center whitespace-nowrap rounded-md bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700" title={`Refund request ${e.openDispute.disputeNumber}`}>
                                   <AlertTriangle size={11} className="mr-1" /> Refund hold
                                 </span>
                               )}
                             </div>
                           </td>
-                          <td className="py-3 px-4 text-right text-sm text-gray-500 tabular-nums">
+                          <td className="hidden py-3 px-4 text-right text-sm text-slate-500 tabular-nums sm:table-cell">
                             {e.supplierPayout ? formatCurrency(e.supplierPayout, e.currency) : "—"}
                           </td>
-                          <td className="py-3 px-4 text-right text-sm text-gray-500 tabular-nums">
+                          <td className="hidden py-3 px-4 text-right text-sm text-slate-500 tabular-nums sm:table-cell">
                             {formatCurrency(e.commissionAmount, e.currency)}
                           </td>
-                          <td className="py-3 px-4 text-right text-sm font-bold text-gray-900 tabular-nums">
+                          <td className="py-3 px-4 text-right text-sm font-bold text-slate-900 tabular-nums">
                             {formatCurrency(e.grossAmount, e.currency)}
                           </td>
                         </motion.tr>
@@ -1297,14 +1287,14 @@ export default function FinancePage() {
         {activeTab === "payouts" && (
           <motion.div key="payouts" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }} className="space-y-4">
             {/* Platform charges — commission on offline money + cancellation fees */}
-            <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 space-y-4">
+            <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 space-y-4">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
                   <XCircle size={20} className="text-amber-500" />
                 </div>
                 <div>
-                  <h3 className="text-base font-semibold text-gray-900">Platform charges</h3>
-                  <p className="text-sm text-gray-500 mt-0.5">
+                  <h3 className="text-base font-semibold text-slate-900">Platform charges</h3>
+                  <p className="text-sm text-slate-500 mt-0.5">
                     Commission on money you collected offline, and cancellation fees. Open charges are
                     deducted automatically from your next {isEnrolled ? "invoice" : "payout request"}.
                   </p>
@@ -1330,7 +1320,7 @@ export default function FinancePage() {
                       </span>
                     ))}
                   </div>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
                     {(charges.openByReason?.SUPPLIER_COMMISSION || []).filter((t) => t.amount !== 0).map((t) => (
                       <span key={`comm-${t.currency}`}>
                         Commission on collected money: {t.currency} {formatCurrency(t.amount, t.currency)}
@@ -1349,9 +1339,9 @@ export default function FinancePage() {
                 <div className="space-y-3">
                   {[1, 2, 3].map((i) => (
                     <div key={i} className="flex items-center gap-4 animate-pulse">
-                      <div className="h-3 w-24 bg-gray-100 rounded" />
-                      <div className="h-3 w-32 bg-gray-100 rounded" />
-                      <div className="h-3 w-16 bg-gray-100 rounded ml-auto" />
+                      <div className="h-3 w-24 bg-slate-100 rounded" />
+                      <div className="h-3 w-32 bg-slate-100 rounded" />
+                      <div className="h-3 w-16 bg-slate-100 rounded ml-auto" />
                     </div>
                   ))}
                 </div>
@@ -1360,31 +1350,31 @@ export default function FinancePage() {
                   <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center mb-3">
                     <CheckCircle2 size={22} className="text-emerald-400" />
                   </div>
-                  <h4 className="text-sm font-semibold text-gray-700 mb-1">No platform charges yet</h4>
-                  <p className="text-sm text-gray-500 max-w-[420px]">
+                  <h4 className="text-sm font-semibold text-slate-700 mb-1">No platform charges yet</h4>
+                  <p className="text-sm text-slate-500 max-w-[420px]">
                     When you record money collected for a booking, commission is charged on that money.
                     Cancellation fees are recorded here too. Both settle automatically from your next{" "}
                     {isEnrolled ? "invoice" : "payout request"}.
                   </p>
                 </div>
               ) : (
-                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <div className="overflow-hidden rounded-lg border border-slate-200/80">
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
-                        <tr className="border-b border-gray-200 bg-gray-50">
-                          <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                          <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Booking number</th>
-                          <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
-                          <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Reason</th>
-                          <th className="py-3 px-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                          <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Settled against</th>
+                        <tr className="border-b border-slate-200 bg-slate-50/70">
+                          <th className="whitespace-nowrap px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">Date</th>
+                          <th className="whitespace-nowrap px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">Booking number</th>
+                          <th className="whitespace-nowrap px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-400">Amount</th>
+                          <th className="whitespace-nowrap px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">Reason</th>
+                          <th className="whitespace-nowrap px-4 py-2.5 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-400">Status</th>
+                          <th className="whitespace-nowrap px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">Settled against</th>
                         </tr>
                       </thead>
                       <tbody>
                         {charges.rows.map((charge) => (
-                          <tr key={charge.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
-                            <td className="py-3 px-4 text-sm text-gray-500 whitespace-nowrap">{formatDate(charge.createdAt)}</td>
+                          <tr key={charge.id} className="border-b border-slate-100 last:border-0 transition-colors hover:bg-slate-50">
+                            <td className="py-3 px-4 text-sm text-slate-500 whitespace-nowrap">{formatDate(charge.createdAt)}</td>
                             <td className="py-3 px-4">
                               <span className="font-mono text-xs font-medium text-emerald-700">{charge.bookingNumber}</span>
                             </td>
@@ -1393,16 +1383,16 @@ export default function FinancePage() {
                             }`}>
                               {charge.isCredit ? "+" : "-"}{formatCurrency(Math.abs(charge.amount), charge.currency)}
                             </td>
-                            <td className="py-3 px-4 text-sm text-gray-700 max-w-[240px]">
+                            <td className="py-3 px-4 text-sm text-slate-700 max-w-[240px]">
                               <span className="block truncate" title={charge.notes || charge.label}>
                                 {charge.label || "—"}
                               </span>
                               {charge.reversalOfId && (
-                                <span className="block text-[11px] text-gray-400">Credit for an earlier charge</span>
+                                <span className="block text-[11px] text-slate-400">Credit for an earlier charge</span>
                               )}
                             </td>
                             <td className="py-3 px-4 text-center"><ChargeStatusBadge status={charge.status} /></td>
-                            <td className="py-3 px-4 text-sm text-gray-500">
+                            <td className="py-3 px-4 text-sm text-slate-500">
                               {charge.invoiceNumber ? (
                                 <span className="font-mono text-xs">{charge.invoiceNumber}</span>
                               ) : charge.payoutRequestNumber ? (
@@ -1410,7 +1400,7 @@ export default function FinancePage() {
                               ) : charge.status === "WAIVED" ? (
                                 "Waived"
                               ) : (
-                                <span className="text-gray-500">—</span>
+                                <span className="text-slate-500">—</span>
                               )}
                             </td>
                           </tr>
@@ -1438,13 +1428,13 @@ export default function FinancePage() {
             )}
 
             {loading && !isEnrolled ? (
-              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white">
                 <div className="p-5 space-y-4">
                   {[1,2,3,4,5].map(i => (
                     <div key={i} className="flex items-center gap-4 animate-pulse">
-                      <div className="h-3 w-16 bg-gray-100 rounded" />
-                      <div className="h-3 w-24 bg-gray-100 rounded" />
-                      <div className="h-3 w-14 bg-gray-100 rounded ml-auto" />
+                      <div className="h-3 w-16 bg-slate-100 rounded" />
+                      <div className="h-3 w-24 bg-slate-100 rounded" />
+                      <div className="h-3 w-14 bg-slate-100 rounded ml-auto" />
                     </div>
                   ))}
                 </div>
@@ -1453,12 +1443,12 @@ export default function FinancePage() {
               // Enrolled suppliers are paid via invoices — the empty legacy
               // request table would say nothing true about where their money is.
               isEnrolled ? null : (
-              <div className="flex flex-col items-center justify-center py-24 text-center bg-white border border-gray-200 rounded-xl">
-                <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center mb-4">
+              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white px-6 py-20 text-center">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50">
                   <Banknote size={26} className="text-emerald-300" />
                 </div>
-                <h3 className="text-base font-semibold text-gray-700 mb-1">No payout requests yet</h3>
-                <p className="text-sm text-gray-500 max-w-[260px]">
+                <h3 className="text-base font-semibold text-slate-700 mb-1">No payout requests yet</h3>
+                <p className="text-sm text-slate-500 max-w-[260px]">
                   {showSchedule
                     ? "Payouts are generated automatically on your schedule — your next run will appear here."
                     : "Submit a request during an open withdrawal window to receive your earnings."}
@@ -1468,25 +1458,25 @@ export default function FinancePage() {
             ) : (
               <>
               {isEnrolled && (
-                <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 bg-white border border-gray-200 rounded-xl">
+                <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 bg-white border border-slate-200 rounded-xl">
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-900">Legacy payout requests</h3>
-                    <p className="text-xs text-gray-500 mt-0.5">Pre-invoice history — read only. New payouts arrive as invoices.</p>
+                    <h3 className="text-sm font-semibold text-slate-900">Legacy payout requests</h3>
+                    <p className="text-xs text-slate-500 mt-0.5">Pre-invoice history — read only. New payouts arrive as invoices.</p>
                   </div>
                 </div>
               )}
-              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white">
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-gray-200 bg-gray-50">
-                        <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Request</th>
-                        <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Cycle</th>
-                        <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Bookings</th>
-                        <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
-                        <th className="py-3 px-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                        <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                      <tr className="border-b border-slate-200 bg-slate-50/70">
+                        <th className="whitespace-nowrap px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">Request</th>
+                        <th className="whitespace-nowrap px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">Cycle</th>
+                        <th className="whitespace-nowrap px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-400">Bookings</th>
+                        <th className="whitespace-nowrap px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-400">Amount</th>
+                        <th className="whitespace-nowrap px-4 py-2.5 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-400">Status</th>
+                        <th className="whitespace-nowrap px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">Date</th>
+                        <th className="whitespace-nowrap px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-400">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1496,7 +1486,7 @@ export default function FinancePage() {
                           initial={{ opacity: 0, y: 8 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: i * 0.03 }}
-                          className="border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors"
+                          className="border-b border-slate-100 last:border-0 transition-colors hover:bg-slate-50"
                         >
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-2">
@@ -1508,14 +1498,14 @@ export default function FinancePage() {
                               )}
                             </div>
                             {r.reference && (
-                              <p className="text-[11px] text-gray-500 mt-0.5">Ref: {r.reference}</p>
+                              <p className="text-[11px] text-slate-500 mt-0.5">Ref: {r.reference}</p>
                             )}
                           </td>
-                          <td className="py-3 px-4 text-sm text-gray-700">{r.cycleLabel}</td>
-                          <td className="py-3 px-4 text-right text-sm text-gray-700 tabular-nums">{r.bookingCount}</td>
-                          <td className="py-3 px-4 text-right text-sm font-semibold text-gray-900 tabular-nums">{formatCurrency(r.amount, r.currency)}</td>
+                          <td className="py-3 px-4 text-sm text-slate-700">{r.cycleLabel}</td>
+                          <td className="py-3 px-4 text-right text-sm text-slate-700 tabular-nums">{r.bookingCount}</td>
+                          <td className="py-3 px-4 text-right text-sm font-semibold text-slate-900 tabular-nums">{formatCurrency(r.amount, r.currency)}</td>
                           <td className="py-3 px-4 text-center"><StatusBadge status={r.status} label={r.status?.replace(/_/g, " ")} size="sm" /></td>
-                          <td className="py-3 px-4 text-sm text-gray-500">{formatDate(r.completedAt || r.createdAt)}</td>
+                          <td className="py-3 px-4 text-sm text-slate-500">{formatDate(r.completedAt || r.createdAt)}</td>
                           <td className="py-3 px-4 text-right">
                             {r.status === "PROCESSING" && (
                               <button
@@ -1528,7 +1518,7 @@ export default function FinancePage() {
                               </button>
                             )}
                             {r.status === "REJECTED" && r.rejectedReason && (
-                              <span title={r.rejectedReason} className="text-xs text-gray-500 underline decoration-dotted">Reason</span>
+                              <span title={r.rejectedReason} className="text-xs text-slate-500 underline decoration-dotted">Reason</span>
                             )}
                           </td>
                         </motion.tr>
@@ -1571,10 +1561,10 @@ export default function FinancePage() {
                     key={pill.key}
                     onClick={() => setDisputeStatusFilter(pill.key)}
                     className={cn(
-                      "px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors",
+                      "h-8 rounded-full border px-3 text-xs font-medium transition-colors",
                       disputeStatusFilter === pill.key
-                        ? "bg-emerald-700 text-white"
-                        : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
+                        ? "border-slate-900 bg-slate-900 text-white"
+                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-800"
                     )}
                   >
                     {pill.label}
@@ -1583,54 +1573,54 @@ export default function FinancePage() {
               </div>
               <button
                 onClick={openRefundModal}
-                className="flex items-center gap-2 px-4 py-2.5 bg-emerald-700 text-white rounded-lg text-sm font-semibold hover:bg-emerald-800 transition-colors"
+                className="flex h-9 items-center gap-2 rounded-lg bg-emerald-600 px-3.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
               >
                 <Plus size={16} />
                 Request refund
               </button>
             </div>
 
-            <div className="flex items-center gap-2.5 p-3 bg-teal-50 rounded-lg">
-              <Info size={16} className="text-teal-600 shrink-0" />
-              <p className="text-sm text-teal-700">
+            <div className="flex items-start gap-2.5 rounded-xl border border-slate-200/80 bg-slate-50 p-3">
+              <Info size={15} className="mt-0.5 shrink-0 text-slate-400" />
+              <p className="text-xs leading-relaxed text-slate-600">
                 If a customer's money should go back (cancellations, force majeure, or a direct request), file a refund request.
                 An admin reviews it: approved means the customer is refunded; denied returns the funds to your eligible balance.
               </p>
             </div>
 
             {loading ? (
-              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white">
                 <div className="p-5 space-y-4">
                   {[1,2,3,4].map(i => (
                     <div key={i} className="flex items-center gap-4 animate-pulse">
-                      <div className="h-3 w-24 bg-gray-100 rounded" />
-                      <div className="h-3 w-36 bg-gray-100 rounded" />
-                      <div className="h-3 w-16 bg-gray-100 rounded ml-auto" />
+                      <div className="h-3 w-24 bg-slate-100 rounded" />
+                      <div className="h-3 w-36 bg-slate-100 rounded" />
+                      <div className="h-3 w-16 bg-slate-100 rounded ml-auto" />
                     </div>
                   ))}
                 </div>
               </div>
             ) : disputes.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 text-center bg-white border border-gray-200 rounded-xl">
-                <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center mb-4">
+              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white px-6 py-20 text-center">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50">
                   <Undo2 size={26} className="text-emerald-300" />
                 </div>
-                <h3 className="text-base font-semibold text-gray-700 mb-1">No refund requests</h3>
-                <p className="text-sm text-gray-500 max-w-[280px]">Requests you file will appear here while they await review.</p>
+                <h3 className="text-base font-semibold text-slate-700 mb-1">No refund requests</h3>
+                <p className="text-sm text-slate-500 max-w-[280px]">Requests you file will appear here while they await review.</p>
               </div>
             ) : (
-              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white">
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-gray-200 bg-gray-50">
-                        <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Request</th>
-                        <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Booking</th>
-                        <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Reason</th>
-                        <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Refunded</th>
-                        <th className="py-3 px-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Filed</th>
-                        <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                      <tr className="border-b border-slate-200 bg-slate-50/70">
+                        <th className="whitespace-nowrap px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">Request</th>
+                        <th className="whitespace-nowrap px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">Booking</th>
+                        <th className="whitespace-nowrap px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">Reason</th>
+                        <th className="whitespace-nowrap px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-400">Refunded</th>
+                        <th className="whitespace-nowrap px-4 py-2.5 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-400">Status</th>
+                        <th className="whitespace-nowrap px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">Filed</th>
+                        <th className="whitespace-nowrap px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-400">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1646,16 +1636,16 @@ export default function FinancePage() {
                               transition={{ delay: i * 0.03 }}
                               onClick={() => setExpandedDispute(isExpanded ? null : d.id)}
                               className={cn(
-                                "border-b border-gray-100 last:border-0 cursor-pointer transition-colors",
-                                isExpanded ? "bg-emerald-50/40" : "hover:bg-gray-50"
+                                "border-b border-slate-100 last:border-0 cursor-pointer transition-colors",
+                                isExpanded ? "bg-emerald-50/40" : "hover:bg-slate-50"
                               )}
                             >
                               <td className="py-3 px-4">
                                 <span className="font-mono text-xs font-medium text-emerald-700">{d.disputeNumber}</span>
                               </td>
                               <td className="py-3 px-4">
-                                <p className="text-sm font-medium text-gray-700">{d.bookingNumber}</p>
-                                <p className="text-xs text-gray-500 mt-0.5">{d.tourTitle}</p>
+                                <p className="text-sm font-medium text-slate-700">{d.bookingNumber}</p>
+                                <p className="text-xs text-slate-500 mt-0.5">{d.tourTitle}</p>
                               </td>
                               <td className="py-3 px-4">
                                 <RefundReasonBadge reason={d.reason} />
@@ -1664,11 +1654,11 @@ export default function FinancePage() {
                                 {d.refundAmount != null ? (
                                   <span className="font-semibold text-red-600">-{formatCurrency(d.refundAmount, d.currency)}</span>
                                 ) : (
-                                  <span className="text-gray-500">—</span>
+                                  <span className="text-slate-500">—</span>
                                 )}
                               </td>
                               <td className="py-3 px-4 text-center"><RefundStatusBadge status={d.status} /></td>
-                              <td className="py-3 px-4 text-sm text-gray-500">{formatDate(d.createdAt)}</td>
+                              <td className="py-3 px-4 text-sm text-slate-500">{formatDate(d.createdAt)}</td>
                               <td className="py-3 px-4 text-right">
                                 {isOpen && (
                                   <button
@@ -1683,31 +1673,31 @@ export default function FinancePage() {
                               </td>
                             </motion.tr>
                             {isExpanded && (
-                              <tr className="border-b border-gray-100 last:border-0 bg-emerald-50/30">
+                              <tr className="border-b border-slate-100 last:border-0 bg-emerald-50/30">
                                 <td colSpan={7} className="px-4 pb-4 pt-1">
                                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
-                                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Travel date</p>
-                                      <p className="text-sm font-medium text-gray-700 mt-1">{formatDate(d.travelDate)}</p>
+                                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Travel date</p>
+                                      <p className="text-sm font-medium text-slate-700 mt-1">{formatDate(d.travelDate)}</p>
                                     </div>
                                     <div>
-                                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Booking total</p>
-                                      <p className="text-sm font-medium text-gray-700 mt-1">{formatCurrency(d.grossAmount, d.currency)}</p>
+                                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Booking total</p>
+                                      <p className="text-sm font-medium text-slate-700 mt-1">{formatCurrency(d.grossAmount, d.currency)}</p>
                                     </div>
                                     <div>
-                                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Resolved</p>
-                                      <p className="text-sm font-medium text-gray-700 mt-1">{d.resolvedAt ? formatDate(d.resolvedAt) : "Awaiting review"}</p>
+                                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Resolved</p>
+                                      <p className="text-sm font-medium text-slate-700 mt-1">{d.resolvedAt ? formatDate(d.resolvedAt) : "Awaiting review"}</p>
                                     </div>
                                     {d.description && (
                                       <div className="md:col-span-3">
-                                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Your explanation</p>
-                                        <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">{d.description}</p>
+                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Your explanation</p>
+                                        <p className="text-sm text-slate-700 mt-1 whitespace-pre-wrap">{d.description}</p>
                                       </div>
                                     )}
                                     {d.resolution && (
                                       <div className="md:col-span-3">
-                                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Admin decision</p>
-                                        <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">{d.resolution}</p>
+                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Admin decision</p>
+                                        <p className="text-sm text-slate-700 mt-1 whitespace-pre-wrap">{d.resolution}</p>
                                       </div>
                                     )}
                                   </div>
@@ -1736,16 +1726,23 @@ export default function FinancePage() {
         {activeTab === "methods" && (
           <motion.div key="methods" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
             <div className="space-y-4">
-              {/* Add Method Button */}
-              <div className="flex items-center justify-end">
+              {/* Section header + add method */}
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-900">Payout methods</h2>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Where we send your earnings. Add one method per currency.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => setShowMethodForm((v) => !v)}
                   disabled={!canManageMethods}
                   className={cn(
-                    "flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all",
+                    "flex h-9 items-center gap-2 rounded-lg px-3.5 text-sm font-medium transition-colors",
                     canManageMethods
-                      ? "bg-emerald-700 text-white hover:bg-emerald-800"
-                      : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                      ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                      : "cursor-not-allowed bg-slate-100 text-slate-400"
                   )}
                 >
                   <Plus size={16} />
@@ -1754,8 +1751,9 @@ export default function FinancePage() {
                 {/* Visible, not a tooltip: a disabled button emits no pointer
                     events, so the reason has to be on the page. */}
                 {!canManageMethods && (
-                  <p className="ml-3 text-xs text-gray-500 max-w-[260px]">{DENIED_ACTION_REASON}</p>
+                  <p className="max-w-[260px] text-xs text-slate-500">{DENIED_ACTION_REASON}</p>
                 )}
+                </div>
               </div>
 
               <PayoutMethodFormSheet
@@ -1773,24 +1771,24 @@ export default function FinancePage() {
               {loading ? (
                 <div className="space-y-3">
                   {[1,2,3].map(i => (
-                    <div key={i} className="bg-white border border-gray-200 rounded-xl p-5 animate-pulse">
+                    <div key={i} className="bg-white border border-slate-200 rounded-xl p-5 animate-pulse">
                       <div className="flex items-center gap-4">
-                        <div className="w-11 h-11 rounded-xl bg-gray-100" />
+                        <div className="w-11 h-11 rounded-xl bg-slate-100" />
                         <div className="flex-1 space-y-2">
-                          <div className="h-4 w-28 bg-gray-100 rounded" />
-                          <div className="h-3 w-44 bg-gray-100 rounded" />
+                          <div className="h-4 w-28 bg-slate-100 rounded" />
+                          <div className="h-3 w-44 bg-slate-100 rounded" />
                         </div>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : methods.length === 0 && !showMethodForm ? (
-                <div className="flex flex-col items-center justify-center py-24 text-center bg-white border border-gray-200 rounded-xl">
-                  <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center mb-4">
+                <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white px-6 py-20 text-center">
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50">
                     <CreditCard size={26} className="text-emerald-300" />
                   </div>
-                  <h3 className="text-base font-semibold text-gray-700 mb-1">No payout methods</h3>
-                  <p className="text-sm text-gray-500 max-w-[220px]">Add a payout method to start receiving payments.</p>
+                  <h3 className="text-base font-semibold text-slate-700 mb-1">No payout methods</h3>
+                  <p className="text-sm text-slate-500 max-w-[220px]">Add a payout method to start receiving payments.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -1802,7 +1800,7 @@ export default function FinancePage() {
                         layout
                         className={cn(
                           "bg-white border rounded-xl transition-all cursor-pointer overflow-hidden",
-                          isExpanded ? "border-emerald-300 shadow-md" : "border-gray-200 hover:border-gray-300 hover:shadow-sm"
+                          isExpanded ? "border-slate-300 shadow-sm" : "border-slate-200/80 hover:border-slate-300"
                         )}
                       >
                         <div className="p-5" onClick={() => setExpandedMethod(isExpanded ? null : method.id)}>
@@ -1820,9 +1818,9 @@ export default function FinancePage() {
                               </div>
                               <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <p className="text-sm font-semibold text-gray-900 truncate">
+                                  <p className="text-sm font-semibold text-slate-900 truncate">
                                     {payoutTypeLabel(method.type)}
-                                    <span className="font-normal text-gray-500"> · {method.currency || "USD"}</span>
+                                    <span className="font-normal text-slate-500"> · {method.currency || "USD"}</span>
                                   </p>
                                   {method.isDefault && (
                                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -1830,7 +1828,7 @@ export default function FinancePage() {
                                     </span>
                                   )}
                                 </div>
-                                <p className="text-sm text-gray-500 mt-0.5 truncate">
+                                <p className="text-sm text-slate-500 mt-0.5 truncate">
                                   {method.accountName || method.paypalEmail || method.mobileProvider || "—"}
                                   {methodIdentifier(method) && (
                                     <span className="font-mono text-xs"> {methodIdentifier(method)}</span>
@@ -1846,7 +1844,7 @@ export default function FinancePage() {
                                 <span className={cn("w-1.5 h-1.5 rounded-full", method.verified ? "bg-emerald-500" : "bg-amber-500")} />
                                 {method.verified ? "Verified" : "Pending"}
                               </div>
-                              <ChevronDown size={16} className={cn("text-gray-500 transition-transform duration-200", isExpanded && "rotate-180")} />
+                              <ChevronDown size={16} className={cn("text-slate-500 transition-transform duration-200", isExpanded && "rotate-180")} />
                             </div>
                           </div>
                         </div>
@@ -1860,7 +1858,7 @@ export default function FinancePage() {
                               transition={{ duration: 0.25, ease: "easeInOut" }}
                               className="overflow-hidden"
                             >
-                              <div className="border-t border-gray-100 mx-5">
+                              <div className="border-t border-slate-100 mx-5">
                                 <div className="pt-4 pb-5 grid grid-cols-2 gap-y-4 gap-x-6">
                                   {method.type === "BANK_TRANSFER" && (
                                     <>
@@ -1893,7 +1891,7 @@ export default function FinancePage() {
                                   {method.createdAt && (
                                     <DetailRow label="Added" value={formatDate(method.createdAt)} />
                                   )}
-                                  <div className="col-span-2 flex justify-end pt-2 border-t border-gray-100">
+                                  <div className="col-span-2 flex justify-end pt-2 border-t border-slate-100">
                                     {/* The span keeps the hover alive: a
                                         disabled button swallows pointer events,
                                         so `title` on the button itself would
@@ -1906,7 +1904,7 @@ export default function FinancePage() {
                                           "flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors",
                                           canManageMethods
                                             ? "text-red-600 hover:bg-red-50"
-                                            : "text-gray-400 cursor-not-allowed"
+                                            : "text-slate-400 cursor-not-allowed"
                                         )}
                                       >
                                         <Trash2 size={14} />
@@ -1967,19 +1965,19 @@ function DetailRow({ label, value, mono, masked }) {
 
   return (
     <div className="min-w-0">
-      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{label}</p>
+      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{label}</p>
       {masked ? (
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); setRevealed((v) => !v); }}
           aria-label={revealed ? `Hide ${label}` : `Show full ${label}`}
-          className="mt-1 flex items-center gap-1.5 text-left font-mono text-sm font-medium text-gray-700 hover:text-emerald-700"
+          className="mt-1 flex items-center gap-1.5 text-left font-mono text-sm font-medium text-slate-700 hover:text-emerald-700"
         >
           <span className="truncate">{display}</span>
-          {revealed ? <EyeOff size={13} className="shrink-0 text-gray-500" /> : <Eye size={13} className="shrink-0 text-gray-500" />}
+          {revealed ? <EyeOff size={13} className="shrink-0 text-slate-500" /> : <Eye size={13} className="shrink-0 text-slate-500" />}
         </button>
       ) : (
-        <p className={cn("mt-1 truncate text-sm font-medium text-gray-700", mono && "font-mono")}>{value}</p>
+        <p className={cn("mt-1 truncate text-sm font-medium text-slate-700", mono && "font-mono")}>{value}</p>
       )}
     </div>
   );
@@ -1993,14 +1991,14 @@ function EarningStatusBadge({ status }) {
     "REQUESTED": { bg: "bg-sky-50", text: "text-sky-700", label: "Requested" },
     "PAID": { bg: "bg-emerald-50", text: "text-emerald-700", label: "Paid" },
     "DISPUTED": { bg: "bg-red-50", text: "text-red-700", label: "On hold" },
-    "CANCELLED": { bg: "bg-gray-100", text: "text-gray-600", label: "Cancelled" },
+    "CANCELLED": { bg: "bg-slate-100", text: "text-slate-600", label: "Cancelled" },
     "FAILED": { bg: "bg-red-50", text: "text-red-700", label: "Failed" },
   };
 
   const style = styles[status] || styles["PENDING"];
 
   return (
-    <span className={cn("inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium", style.bg, style.text)}>
+    <span className={cn("inline-flex items-center whitespace-nowrap rounded-md px-2.5 py-0.5 text-xs font-medium", style.bg, style.text)}>
       {style.label}
     </span>
   );
@@ -2011,7 +2009,7 @@ function ChargeStatusBadge({ status }) {
   const styles = {
     "OPEN": { bg: "bg-amber-50", text: "text-amber-700", label: "Open" },
     "SETTLED": { bg: "bg-emerald-50", text: "text-emerald-700", label: "Settled" },
-    "WAIVED": { bg: "bg-gray-100", text: "text-gray-500", label: "Waived" },
+    "WAIVED": { bg: "bg-slate-100", text: "text-slate-500", label: "Waived" },
   };
 
   const style = styles[status] || styles["OPEN"];
@@ -2030,7 +2028,7 @@ function RefundStatusBadge({ status }) {
     "UNDER_REVIEW": { bg: "bg-sky-50", text: "text-sky-700", label: "Under review" },
     "RESOLVED_CUSTOMER": { bg: "bg-red-50", text: "text-red-700", label: "Refunded" },
     "RESOLVED_SUPPLIER": { bg: "bg-emerald-50", text: "text-emerald-700", label: "Denied" },
-    "WITHDRAWN": { bg: "bg-gray-100", text: "text-gray-500", label: "Withdrawn" },
+    "WITHDRAWN": { bg: "bg-slate-100", text: "text-slate-500", label: "Withdrawn" },
   };
 
   const style = styles[status] || styles["OPEN"];
@@ -2051,7 +2049,7 @@ function RefundReasonBadge({ reason }) {
   };
 
   return (
-    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-600 whitespace-nowrap">
+    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-600 whitespace-nowrap">
       {labels[reason] || reason}
     </span>
   );

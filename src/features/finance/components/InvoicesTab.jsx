@@ -26,7 +26,7 @@ const STATUS_FILTERS = [
 const STATUS_PILLS = {
   PAID: "bg-emerald-50 text-emerald-700",
   APPROVED: "bg-sky-50 text-sky-700",
-  CANCELLED: "bg-gray-100 text-gray-500",
+  CANCELLED: "bg-slate-100 text-slate-500",
   INVOICED: "bg-amber-50 text-amber-700",
 };
 
@@ -42,7 +42,7 @@ function statusLabel(status) {
 }
 
 function statusPill(status) {
-  return STATUS_PILLS[status] || "bg-gray-100 text-gray-600";
+  return STATUS_PILLS[status] || "bg-slate-100 text-slate-600";
 }
 
 /**
@@ -84,22 +84,22 @@ function downloadBlob(csv, filename) {
 function TablePagination({ pagination, page, onPageChange }) {
   if (!pagination || pagination.totalPages <= 1) return null;
   return (
-    <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-gray-100">
-      <p className="text-xs text-gray-500">
+    <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-slate-100">
+      <p className="text-xs text-slate-500">
         Page {page} of {pagination.totalPages} · {pagination.totalCount} invoice{pagination.totalCount === 1 ? "" : "s"}
       </p>
       <div className="flex items-center gap-2">
         <button
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
-          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition-colors"
         >
           <ChevronLeft size={13} /> Previous
         </button>
         <button
           disabled={page >= pagination.totalPages}
           onClick={() => onPageChange(page + 1)}
-          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none transition-colors"
         >
           Next <ChevronRight size={13} />
         </button>
@@ -189,13 +189,13 @@ function InvoiceDetailDrawer({ invoiceId, open, onClose }) {
             transition={{ type: "tween", duration: 0.22 }}
             className="relative w-full max-w-lg h-full bg-white shadow-2xl flex flex-col outline-none"
           >
-            <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-gray-200">
+            <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-slate-200">
               <div>
-                <h2 id="invoice-drawer-title" className="text-base font-semibold text-gray-900 font-mono">
+                <h2 id="invoice-drawer-title" className="text-base font-semibold text-slate-900 font-mono">
                   {detail?.invoiceNumber || "Invoice"}
                 </h2>
                 {detail && (
-                  <p className="text-sm text-gray-500 mt-0.5">
+                  <p className="text-sm text-slate-500 mt-0.5">
                     {detail.cycleStartDate && detail.cycleEndDate
                       ? `${formatDate(detail.cycleStartDate)} – ${formatDate(detail.cycleEndDate)}`
                       : detail.cycleLabel}
@@ -204,7 +204,7 @@ function InvoiceDetailDrawer({ invoiceId, open, onClose }) {
               </div>
               <button
                 ref={closeRef} onClick={onClose} aria-label="Close"
-                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors shrink-0"
+                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors shrink-0"
               >
                 <X size={18} />
               </button>
@@ -214,7 +214,7 @@ function InvoiceDetailDrawer({ invoiceId, open, onClose }) {
               {loading ? (
                 <div className="p-5 space-y-4">
                   {[1, 2, 3].map((i) => (
-                    <div key={i} className="h-3 bg-gray-100 rounded animate-pulse" style={{ width: `${80 - i * 12}%` }} />
+                    <div key={i} className="h-3 bg-slate-100 rounded animate-pulse" style={{ width: `${80 - i * 12}%` }} />
                   ))}
                 </div>
               ) : error ? (
@@ -231,7 +231,7 @@ function InvoiceDetailDrawer({ invoiceId, open, onClose }) {
                       {statusLabel(detail.status)}
                     </span>
                     {detail.reference && (
-                      <span className="text-[11px] font-mono text-gray-500">Ref: {detail.reference}</span>
+                      <span className="text-[11px] font-mono text-slate-500">Ref: {detail.reference}</span>
                     )}
                   </div>
 
@@ -241,9 +241,9 @@ function InvoiceDetailDrawer({ invoiceId, open, onClose }) {
                       { label: "Commission", value: formatCurrency(detail.commissionTotal, detail.currency) },
                       { label: "Net payout", value: formatCurrency(detail.netTotal, detail.currency), strong: true },
                     ].map((m) => (
-                      <div key={m.label} className="p-3 bg-gray-50 rounded-xl border border-gray-100">
-                        <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-0.5">{m.label}</p>
-                        <p className={cn("text-sm tabular-nums", m.strong ? "font-semibold text-gray-900" : "text-gray-700")}>{m.value}</p>
+                      <div key={m.label} className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-0.5">{m.label}</p>
+                        <p className={cn("text-sm tabular-nums", m.strong ? "font-semibold text-slate-900" : "text-slate-700")}>{m.value}</p>
                       </div>
                     ))}
                   </div>
@@ -256,30 +256,30 @@ function InvoiceDetailDrawer({ invoiceId, open, onClose }) {
                       ["Pays to", detail.destination || null],
                     ].filter(([, v]) => v).map(([k, v]) => (
                       <div key={k} className="flex items-baseline justify-between gap-4">
-                        <dt className="text-gray-500 shrink-0">{k}</dt>
-                        <dd className="text-gray-800 text-right">{v}</dd>
+                        <dt className="text-slate-500 shrink-0">{k}</dt>
+                        <dd className="text-slate-800 text-right">{v}</dd>
                       </div>
                     ))}
                   </dl>
 
                   <div>
-                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                    <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
                       Bookings ({detail.items.length})
                     </h3>
                     {detail.items.length === 0 ? (
-                      <p className="text-sm text-gray-500">No line items on this invoice.</p>
+                      <p className="text-sm text-slate-500">No line items on this invoice.</p>
                     ) : (
-                      <ul className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden">
+                      <ul className="divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden">
                         {detail.items.map((it) => (
                           <li key={it.id} className="flex items-start justify-between gap-3 px-3 py-2.5">
                             <div className="min-w-0">
-                              <p className="text-sm font-medium text-gray-800 font-mono truncate">{it.booking?.bookingNumber || "—"}</p>
-                              <p className="text-xs text-gray-500 truncate">
+                              <p className="text-sm font-medium text-slate-800 font-mono truncate">{it.booking?.bookingNumber || "—"}</p>
+                              <p className="text-xs text-slate-500 truncate">
                                 {it.booking?.tour?.title || "—"}
                                 {it.booking?.travelDate ? ` · ${formatDate(it.booking.travelDate)}` : ""}
                               </p>
                             </div>
-                            <p className="text-sm font-medium text-gray-900 tabular-nums shrink-0">
+                            <p className="text-sm font-medium text-slate-900 tabular-nums shrink-0">
                               {formatCurrency(it.supplierPayout, it.currency)}
                             </p>
                           </li>
@@ -291,7 +291,7 @@ function InvoiceDetailDrawer({ invoiceId, open, onClose }) {
               ) : null}
             </div>
 
-            <div className="flex items-center gap-2 px-5 py-4 border-t border-gray-200">
+            <div className="flex items-center gap-2 px-5 py-4 border-t border-slate-200">
               <button
                 onClick={handlePdf}
                 disabled={!detail || downloading}
@@ -303,7 +303,7 @@ function InvoiceDetailDrawer({ invoiceId, open, onClose }) {
               <button
                 onClick={handleCsv}
                 disabled={!detail || detail.items.length === 0}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-sm font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none"
               >
                 <FileText size={15} /> Booking list
               </button>
@@ -359,12 +359,12 @@ export default function InvoicesTab({ invoices, pagination, loading, error, page
   // still exists so the nav never shows a dead link, but it explains itself.
   if (!isEnrolled) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 text-center bg-white border border-gray-200 rounded-xl">
-        <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center mb-4">
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white px-6 py-20 text-center">
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50">
           <FileText size={26} className="text-emerald-300" />
         </div>
-        <h3 className="text-base font-semibold text-gray-700 mb-1">Invoices are not available on your plan</h3>
-        <p className="text-sm text-gray-500 max-w-[320px]">
+        <h3 className="text-base font-semibold text-slate-700 mb-1">Invoices are not available on your plan</h3>
+        <p className="text-sm text-slate-500 max-w-[320px]">
           Once you are enrolled in automatic payouts, every payout window is issued as an invoice here — downloadable as a PDF with its booking list.
         </p>
       </div>
@@ -373,14 +373,10 @@ export default function InvoicesTab({ invoices, pagination, loading, error, page
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold text-gray-900">Invoices</h2>
-          <p className="text-sm text-gray-500 mt-0.5">
-            One invoice per payout window, generated on your schedule. Payment is due a few days after invoicing — your bank may credit it later.
-          </p>
-        </div>
-      </div>
+      <p className="max-w-2xl text-xs leading-relaxed text-slate-500">
+        One invoice per payout window, generated on your schedule. Payment is due a few days
+        after invoicing — your bank may credit it later.
+      </p>
 
       {/* Status pills */}
       <div className="flex flex-wrap items-center gap-2">
@@ -389,10 +385,10 @@ export default function InvoicesTab({ invoices, pagination, loading, error, page
             key={f.key}
             onClick={() => onStatusFilterChange(f.key)}
             className={cn(
-              "px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors",
+              "h-8 rounded-full border px-3 text-xs font-medium transition-colors",
               activeFilter === f.key
-                ? "bg-emerald-700 text-white"
-                : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
+                ? "border-slate-900 bg-slate-900 text-white"
+                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-800"
             )}
           >
             {f.label}
@@ -407,14 +403,14 @@ export default function InvoicesTab({ invoices, pagination, loading, error, page
         </div>
       )}
 
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white">
         {loading ? (
           <div className="p-5 space-y-4">
             {[1, 2, 3].map((i) => (
               <div key={i} className="flex items-center gap-4 animate-pulse">
-                <div className="h-3 w-24 bg-gray-100 rounded" />
-                <div className="h-3 w-32 bg-gray-100 rounded" />
-                <div className="h-3 w-16 bg-gray-100 rounded ml-auto" />
+                <div className="h-3 w-24 bg-slate-100 rounded" />
+                <div className="h-3 w-32 bg-slate-100 rounded" />
+                <div className="h-3 w-16 bg-slate-100 rounded ml-auto" />
               </div>
             ))}
           </div>
@@ -423,10 +419,10 @@ export default function InvoicesTab({ invoices, pagination, loading, error, page
             <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center mb-3">
               <CheckCircle2 size={22} className="text-emerald-400" />
             </div>
-            <h4 className="text-sm font-semibold text-gray-700 mb-1">
+            <h4 className="text-sm font-semibold text-slate-700 mb-1">
               {activeFilter ? `No ${statusLabel(activeFilter).toLowerCase()} invoices` : "No invoices yet"}
             </h4>
-            <p className="text-sm text-gray-500 max-w-[380px]">
+            <p className="text-sm text-slate-500 max-w-[380px]">
               {activeFilter
                 ? "Try another status, or clear the filter to see your full invoice history."
                 : "Your first invoice is generated automatically on your schedule, once bookings in the payout window have cleared."}
@@ -444,20 +440,20 @@ export default function InvoicesTab({ invoices, pagination, loading, error, page
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Invoice</th>
-                  <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Activity dates</th>
-                  <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Bookings</th>
-                  <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Commission</th>
-                  <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Net</th>
-                  <th className="py-3 px-4 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Paid</th>
-                  <th className="py-3 px-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                <tr className="border-b border-slate-200 bg-slate-50/70">
+                  <th className="whitespace-nowrap px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">Invoice</th>
+                  <th className="whitespace-nowrap px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">Activity dates</th>
+                  <th className="whitespace-nowrap px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-400">Bookings</th>
+                  <th className="whitespace-nowrap px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-400">Commission</th>
+                  <th className="whitespace-nowrap px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-400">Net</th>
+                  <th className="whitespace-nowrap px-4 py-2.5 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-400">Status</th>
+                  <th className="whitespace-nowrap px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">Paid</th>
+                  <th className="whitespace-nowrap px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-400">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {invoices.map((inv) => (
-                  <tr key={inv.id} className="group border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
+                  <tr key={inv.id} className="group border-b border-slate-100 last:border-0 hover:bg-slate-50 transition-colors">
                     <td className="py-3 px-4">
                       <button
                         onClick={() => setOpenInvoiceId(inv.id)}
@@ -465,29 +461,29 @@ export default function InvoicesTab({ invoices, pagination, loading, error, page
                       >
                         {inv.invoiceNumber}
                       </button>
-                      <p className="text-[11px] text-gray-500 mt-0.5">
+                      <p className="text-[11px] text-slate-500 mt-0.5">
                         Invoiced {inv.invoicedAt ? formatDate(inv.invoicedAt) : "—"} · due {inv.paymentScheduledAt ? formatDate(inv.paymentScheduledAt) : "—"}
                       </p>
                     </td>
-                    <td className="py-3 px-4 text-sm text-gray-700 whitespace-nowrap">
+                    <td className="py-3 px-4 text-sm text-slate-700 whitespace-nowrap">
                       {inv.cycleStartDate && inv.cycleEndDate
                         ? `${formatDate(inv.cycleStartDate)} – ${formatDate(inv.cycleEndDate)}`
                         : inv.cycleLabel || "—"}
                     </td>
-                    <td className="py-3 px-4 text-right text-sm text-gray-700 tabular-nums">{inv.bookingCount}</td>
-                    <td className="py-3 px-4 text-right text-sm text-gray-700 tabular-nums">{formatCurrency(inv.commissionTotal, inv.currency)}</td>
-                    <td className="py-3 px-4 text-right text-sm font-semibold text-gray-900 tabular-nums">{formatCurrency(inv.netTotal, inv.currency)}</td>
+                    <td className="py-3 px-4 text-right text-sm text-slate-700 tabular-nums">{inv.bookingCount}</td>
+                    <td className="py-3 px-4 text-right text-sm text-slate-700 tabular-nums">{formatCurrency(inv.commissionTotal, inv.currency)}</td>
+                    <td className="py-3 px-4 text-right text-sm font-semibold text-slate-900 tabular-nums">{formatCurrency(inv.netTotal, inv.currency)}</td>
                     <td className="py-3 px-4 text-center">
                       <span className={cn("inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium", statusPill(inv.status))}>
                         {statusLabel(inv.status)}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-sm text-gray-500">
+                    <td className="py-3 px-4 text-sm text-slate-500">
                       {inv.status === "PAID" ? (
                         <>
                           <span>{inv.paidAt ? formatDate(inv.paidAt) : "—"}</span>
                           {inv.reference && (
-                            <p className="text-[11px] text-gray-500 mt-0.5 font-mono">Ref: {inv.reference}</p>
+                            <p className="text-[11px] text-slate-500 mt-0.5 font-mono">Ref: {inv.reference}</p>
                           )}
                         </>
                       ) : (
@@ -499,9 +495,9 @@ export default function InvoicesTab({ invoices, pagination, loading, error, page
                         <DropdownMenuTrigger asChild>
                           <button
                             aria-label={`Actions for ${inv.invoiceNumber}`}
-                            className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors opacity-50 group-hover:opacity-100 focus:opacity-100"
+                            className="p-1.5 rounded-lg hover:bg-slate-200 transition-colors opacity-50 group-hover:opacity-100 focus:opacity-100"
                           >
-                            <MoreVertical size={15} className="text-gray-500" />
+                            <MoreVertical size={15} className="text-slate-500" />
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-52">

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useContext } from "react";
-import { Send, ChevronDown, ChevronLeft, Paperclip } from "lucide-react";
+import { Send, ChevronDown, ChevronLeft, Paperclip, PanelRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import MessageBubble from "./MessageBubble";
@@ -243,12 +243,14 @@ export default function ChatWindow({ conversation, messages, messageStatuses, on
 
   if (!conversation) {
     return (
-      <div className="flex h-full flex-col items-center justify-center bg-slate-50/50 text-center px-4">
-        <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-white shadow-sm shadow-slate-900/5 ring-1 ring-slate-200/50">
-          <Send className="h-6 w-6 text-emerald-600" />
+      <div className="flex h-full flex-col items-center justify-center bg-slate-50/60 px-6 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-emerald-600 shadow-sm ring-1 ring-slate-200/60">
+          <Send className="h-5 w-5" />
         </div>
-        <p className="mt-4 text-sm font-medium text-slate-600">Select a conversation</p>
-        <p className="mt-1 text-xs text-slate-400">Choose a conversation to start chatting</p>
+        <p className="mt-3 text-sm font-medium text-slate-700">No conversation selected</p>
+        <p className="mt-1 max-w-[240px] text-xs leading-relaxed text-slate-400">
+          Pick a customer from the list to read their messages and reply.
+        </p>
       </div>
     );
   }
@@ -256,16 +258,17 @@ export default function ChatWindow({ conversation, messages, messageStatuses, on
   return (
     <div className="flex h-full w-full flex-col">
       <style>{`@keyframes chatSlideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }`}</style>
-      <div className="flex items-center gap-2 sm:gap-3 border-b border-slate-200 bg-white px-3 py-2.5 sm:px-5 sm:py-3">
+      <div className="flex items-center gap-2.5 border-b border-slate-200 bg-white px-3 py-2.5 sm:gap-3 sm:px-5 sm:py-3">
         {showBackButton && (
           <button
             onClick={onBack}
-            className="shrink-0 flex items-center justify-center rounded-lg p-1.5 -ml-1.5 text-slate-500 hover:bg-slate-100 transition-colors md:hidden"
+            aria-label="Back to customers"
+            className="-ml-1.5 flex shrink-0 items-center justify-center rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 md:hidden"
           >
             <ChevronLeft size={20} />
           </button>
         )}
-        <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-emerald-600 text-sm font-bold text-white shadow-sm">
+        <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-emerald-700 text-sm font-bold text-white">
           <span>{headerName.charAt(0).toUpperCase()}</span>
           {otherParticipant?.photoURL && (
             <OptimizedImage
@@ -277,15 +280,21 @@ export default function ChatWindow({ conversation, messages, messageStatuses, on
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-slate-800">{headerName}</p>
-          <p className="text-xs text-slate-400">{formatLastSeen(otherParticipant?.lastLoginAt)}</p>
+          <p className="truncate text-sm font-semibold text-slate-900">{headerName}</p>
+          <p className="flex items-center gap-1.5 text-[11px] text-slate-400">
+            {formatLastSeen(otherParticipant?.lastLoginAt) === "online" && (
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+            )}
+            {formatLastSeen(otherParticipant?.lastLoginAt) || "Customer"}
+          </p>
         </div>
         {showDetailsButton && (
           <button
             onClick={onOpenDetails}
-            className="shrink-0 flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-all"
+            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-800"
           >
-            Details
+            <PanelRight size={13} />
+            <span className="hidden sm:inline">Details</span>
           </button>
         )}
       </div>
