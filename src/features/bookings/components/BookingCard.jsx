@@ -830,7 +830,7 @@ export default function BookingCard({
               {/* ── Actions ──
                   Status changes lead, on the left; the two things that leave
                   this card (chat, full detail) sit opposite them. */}
-              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-200/70 pt-4">
+              <div className="mt-4 flex flex-col gap-2 border-t border-slate-200/70 pt-4 sm:flex-row sm:flex-wrap sm:items-center">
                 {actions.map((action) => (
                   <button
                     key={action.value}
@@ -840,7 +840,9 @@ export default function BookingCard({
                     }}
                     disabled={isUpdating}
                     className={cn(
-                      "inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50",
+                      // A full-width target on a phone; compact in the row on
+                      // desktop, where these sit beside the secondary actions.
+                      "inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 sm:w-auto sm:py-2",
                       action.variant === "primary"
                         ? "bg-emerald-600 text-white shadow-sm hover:bg-emerald-700"
                         : action.variant === "danger"
@@ -854,13 +856,13 @@ export default function BookingCard({
                     {action.label}
                   </button>
                 ))}
-                <div className="flex flex-1 flex-wrap items-center justify-start gap-2 sm:justify-end">
+                <div className="grid grid-cols-2 gap-2 sm:ml-auto sm:flex sm:items-center">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       onMessageCustomer(booking);
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[13px] font-semibold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 sm:px-4 sm:py-2 sm:text-sm"
                   >
                     <MessageCircle size={13} /> Message customer
                   </button>
@@ -869,7 +871,7 @@ export default function BookingCard({
                       e.stopPropagation();
                       onOpenDetail?.(booking);
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[13px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 sm:px-4 sm:py-2 sm:text-sm"
                   >
                     <Info size={13} /> View details
                   </button>
