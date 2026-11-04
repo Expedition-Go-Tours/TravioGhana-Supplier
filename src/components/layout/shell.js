@@ -10,8 +10,11 @@
  *
  * Rules for pages (enforced by __tests__/pageAlignment.test.js):
  *   - never declare your own horizontal gutter — PageContainer owns it
- *   - a narrower reading measure must centre itself (`max-w-4xl mx-auto`),
- *     otherwise it hugs the left of an already-centred column
+ *   - never centre a page root with `mx-auto` — the column is already centred,
+ *     so a second centring moves that page's title off the logo rail by a
+ *     different amount on every width and sidebar state
+ *   - a narrower reading measure (`max-w-4xl`) is fine: it stays left-aligned
+ *     on the column edge, exactly like the full-width pages
  *
  * SHELL_GUTTER and SHELL_MEASURE must stay in sync with the fixed Header,
  * which is what the measured alignment in scripts/check-alignment.mjs compares

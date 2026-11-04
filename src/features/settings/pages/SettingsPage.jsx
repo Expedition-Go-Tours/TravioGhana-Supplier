@@ -96,7 +96,7 @@ export default function SettingsPage() {
     : (filteredTabs[0]?.key || "security");
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-5xl">
       {/* Header */}
       <div className="flex items-center gap-4 mb-6">
         <div className="w-1 h-10 bg-linear-to-b from-emerald-500 to-emerald-300 rounded-full" />

@@ -193,7 +193,7 @@ export default function NotificationsPage() {
   const isMessageType = (n) => n.backendType === "NEW_MESSAGE" && n.data?.conversationId;
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl">
       {/* Header */}
       <div className="relative flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6 pb-5 border-b border-emerald-100/60">
         <div className="relative">

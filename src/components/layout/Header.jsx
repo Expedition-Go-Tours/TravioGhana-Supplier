@@ -50,12 +50,14 @@ export default function Header() {
     >
       {/* The header's inner column uses the same measure as PageContainer, so
           the logo always sits on the page column's left edge. From xl the three
-          tracks are [1fr, auto, 1fr]: the two equal side tracks put the search
-          exactly on the header's centre line, whatever the logo or the profile
-          block happen to be measuring. Below xl it stays a flex row so the
-          search can shrink instead of colliding with the profile block. */}
+          tracks are [1fr, fixed search, 1fr]: the two equal side tracks put the
+          search exactly on the header's centre line, whatever the logo or the
+          profile block happen to be measuring, and the middle track gives the
+          search a real width instead of letting it collapse to its label.
+          Below xl it stays a flex row so the search can shrink instead of
+          colliding with the profile block. */}
       <div
-        className={`flex h-full w-full items-center gap-2 ${SHELL_MEASURE} ${SHELL_GUTTER} xl:grid xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] xl:gap-4`}
+        className={`flex h-full w-full items-center gap-2 ${SHELL_MEASURE} ${SHELL_GUTTER} xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(240px,380px)_minmax(0,1fr)] xl:gap-4`}
       >
         {/* Left: menu (mobile) + logo, starting on the page column's edge */}
         <div className="flex min-w-0 items-center gap-2">

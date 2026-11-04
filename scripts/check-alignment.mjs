@@ -2,12 +2,13 @@
 /**
  * Verifies the dashboard alignment invariant.
  *
- * Two things must hold at every width (see src/components/layout/shell.js):
+ * Two things must hold at every width and sidebar state (see shell.js):
  *
  *   1. the page column is CENTRED in the space right of the sidebar — equal
  *      whitespace on both sides, the way the admin dashboard already works;
  *   2. the header's logo and every page's content start on that column's left
- *      edge, so the two can never drift apart.
+ *      edge, so the two can never drift apart. Narrow pages still start there;
+ *      only their right edge stops short.
  *
  *   BASE_URL=http://localhost:5173 \
  *   SUPPLIER_EMAIL=you@example.com SUPPLIER_PASSWORD=secret \
@@ -15,7 +16,7 @@
  *
  * Optional: WIDTHS=1440,1920,2560
  *
- * Routes that legitimately cover the viewport (product builder) or centre
+ * Routes that legitimately cover the viewport (product builder, chat) or centre
  * themselves (404) are reported as skipped.
  */
 import { chromium } from "@playwright/test";
@@ -53,10 +54,16 @@ const ROUTES = [
   { path: "/cancellation-rate", name: "Cancellation rate" },
   { path: "/special-offers", name: "Special offers" },
   { path: "/special-offers/build/new", name: "Special offer builder" },
-  { path: "/chat", name: "Chat" },
+  { path: "/chat", name: "Chat", skip: "full-height takeover, owns its gutter" },
   { path: "PRODUCT_DETAIL", name: "Product detail", probe: DETAIL_ROOT },
   { path: "/products/build/new", name: "Product builder", skip: "full-screen takeover, covers the header" },
   { path: "/this-route-does-not-exist", name: "404", skip: "intentionally centred full-screen" },
+];
+
+/** The title of the sidebar toggle that puts the shell into this state. */
+const SIDEBAR_STATES = [
+  { state: "expanded", toggle: "Collapse sidebar" },
+  { state: "collapsed", toggle: "Expand sidebar" },
 ];
 
 const failures = [];
@@ -112,10 +119,10 @@ try {
       if (!main) return { error: "main not found" };
 
       const column = header.firstElementChild;
-      const columnStyle = column ? getComputedStyle(column) : null;
-      const referenceLeft = column
-        ? column.getBoundingClientRect().left + (parseFloat(columnStyle.paddingLeft) || 0)
-        : null;
+      if (!column) return { error: "header column not found" };
+      const columnRect = column.getBoundingClientRect();
+      const columnStyle = getComputedStyle(column);
+      const referenceLeft = columnRect.left + (parseFloat(columnStyle.paddingLeft) || 0);
 
       const logo = document.querySelector('header img[alt="Travio Ghana"]');
       const logoLeft = logo ? Math.round(logo.getBoundingClientRect().left) : null;
@@ -126,67 +133,109 @@ try {
       const rect = element.getBoundingClientRect();
       const pad = (parseFloat(style.borderLeftWidth) || 0) + (parseFloat(style.paddingLeft) || 0);
       const padRight = (parseFloat(style.borderRightWidth) || 0) + (parseFloat(style.paddingRight) || 0);
+
+      // Compare against main's CONTENT box: a classic (non-overlay) scrollbar
+      // eats into the box that mx-auto centres within, so measuring the border
+      // box would show a phantom right gap.
       const mainRect = main.getBoundingClientRect();
+      const mainLeft = mainRect.left + main.clientLeft;
       return {
         referenceLeft: Math.round(referenceLeft),
         logoLeft,
         contentLeft: Math.round(rect.left + pad),
         contentRight: Math.round(rect.right - padRight),
-        mainLeft: Math.round(mainRect.left),
-        mainRight: Math.round(mainRect.right),
+        columnLeft: Math.round(columnRect.left),
+        columnRight: Math.round(columnRect.right),
+        mainLeft: Math.round(mainLeft),
+        mainRight: Math.round(mainLeft + main.clientWidth),
       };
     }, probe);
+
+  /** Put the shell in the requested sidebar state (each goto resets it). */
+  const setSidebar = async (state) => {
+    const toggle = state === "collapsed" ? "Collapse sidebar" : "Expand sidebar";
+    const button = page.locator(`button[title="${toggle}"]`).first();
+    // The toggle is labelled by the action, so "Expand sidebar" only exists
+    // while collapsed — no button means we are already in the wanted state.
+    if ((await button.count()) === 0) return;
+    await button.waitFor({ state: "visible", timeout: 20000 });
+    await button.click();
+    await page.waitForTimeout(450);
+  };
 
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 900 });
 
-    for (const route of ROUTES) {
-      const path = route.path === "PRODUCT_DETAIL" ? productPath : route.path;
-      if (!path) continue;
+    for (const sidebar of SIDEBAR_STATES) {
+      for (const route of ROUTES) {
+        const path = route.path === "PRODUCT_DETAIL" ? productPath : route.path;
+        if (!path) continue;
 
-      if (route.skip) {
-        rows.push({ width, name: route.name, gutter: "-", content: "-", delta: "-", note: `skipped: ${route.skip}` });
-        continue;
-      }
-
-      const probe = route.probe || PAGE_ROOT;
-      try {
-        await page.goto(`${BASE_URL}${path}`, { waitUntil: "domcontentloaded" });
-        await page.waitForSelector(probe, { state: "attached", timeout: 30000 });
-        await page.waitForFunction(
-          () => document.fonts?.status === "loaded",
-          undefined,
-          { timeout: 10000 },
-        ).catch(() => {});
-        await page.waitForTimeout(400);
-
-        const result = await measure(probe);
-        if (result.error) throw new Error(result.error);
-        // If the header carries a brand logo, it must sit on the column edge.
-        if (result.logoLeft !== null && Math.abs(result.logoLeft - result.referenceLeft) > 1) {
-          throw new Error(`header logo (${result.logoLeft}) is off the page column edge (${result.referenceLeft})`);
+        if (route.skip) {
+          rows.push({ width, state: sidebar.state, name: route.name, gutter: "-", content: "-", delta: "-", note: `skipped: ${route.skip}` });
+          continue;
         }
 
-        const delta = result.contentLeft - result.referenceLeft;
-        // The column must be centred in the area right of the sidebar: equal
-        // whitespace on both sides.
-        const leftGap = result.contentLeft - result.mainLeft;
-        const rightGap = result.mainRight - result.contentRight;
-        const centred = Math.abs(leftGap - rightGap) <= 1;
+        const probe = route.probe || PAGE_ROOT;
+        try {
+          await page.goto(`${BASE_URL}${path}`, { waitUntil: "domcontentloaded" });
+          await page.waitForSelector(probe, { state: "attached", timeout: 30000 });
+          await page.waitForFunction(
+            () => document.fonts?.status === "loaded",
+            undefined,
+            { timeout: 10000 },
+          ).catch(() => {});
+          await setSidebar(sidebar.state);
+          await page.waitForTimeout(400);
 
-        const ok = Math.abs(delta) <= 1 && centred;
-        if (!ok) failures.push({ width, name: route.name, path, ...result, delta, leftGap, rightGap });
-        rows.push({
-          width,
-          name: route.name,
-          gutter: result.referenceLeft,
-          content: result.contentLeft,
-          delta,
-          note: ok ? "ok" : !centred ? `OFF-CENTRE (${leftGap} vs ${rightGap})` : "MISALIGNED",
-        });
-      } catch (error) {
-        failures.push({ width, name: route.name, path, error: String(error.message || error) });
-        rows.push({ width, name: route.name, gutter: "-", content: "-", delta: "-", note: `error: ${error.message || error}` });
+          const result = await measure(probe);
+          if (result.error) throw new Error(result.error);
+          // If the header carries a brand logo, it must sit on the column edge.
+          if (result.logoLeft !== null && Math.abs(result.logoLeft - result.referenceLeft) > 1) {
+            throw new Error(`header logo (${result.logoLeft}) is off the page column edge (${result.referenceLeft})`);
+          }
+
+          const delta = result.contentLeft - result.referenceLeft;
+          // The column must be centred in main: equal whitespace on both sides.
+          // This is measured on the column itself, so a narrow page (which
+          // stops short of the column's right edge) cannot mask a drift.
+          const columnLeftGap = result.columnLeft - result.mainLeft;
+          const columnRightGap = result.mainRight - result.columnRight;
+          const columnCentred = Math.abs(columnLeftGap - columnRightGap) <= 1;
+          const insideColumn = result.contentRight <= result.columnRight + 1;
+
+          const ok = Math.abs(delta) <= 1 && columnCentred && insideColumn;
+          if (!ok) {
+            failures.push({
+              width,
+              state: sidebar.state,
+              name: route.name,
+              path,
+              ...result,
+              delta,
+              columnLeftGap,
+              columnRightGap,
+            });
+          }
+          rows.push({
+            width,
+            state: sidebar.state,
+            name: route.name,
+            gutter: result.referenceLeft,
+            content: result.contentLeft,
+            delta,
+            note: ok
+              ? "ok"
+              : !columnCentred
+                ? `COLUMN OFF-CENTRE (${columnLeftGap} vs ${columnRightGap})`
+                : !insideColumn
+                  ? "OVERFLOWS COLUMN"
+                  : "MISALIGNED",
+          });
+        } catch (error) {
+          failures.push({ width, state: sidebar.state, name: route.name, path, error: String(error.message || error) });
+          rows.push({ width, state: sidebar.state, name: route.name, gutter: "-", content: "-", delta: "-", note: `error: ${error.message || error}` });
+        }
       }
     }
   }
@@ -198,11 +247,11 @@ const pad = (value, size) => String(value).padEnd(size);
 const padStart = (value, size) => String(value).padStart(size);
 
 console.log(`\nAlignment report — ${BASE_URL}\n`);
-console.log(`${pad("width", 6)} ${pad("page", 22)} ${padStart("gutter", 6)} ${padStart("content", 8)} ${padStart("delta", 6)}   note`);
-console.log("-".repeat(72));
+console.log(`${pad("width", 6)} ${pad("sidebar", 10)} ${pad("page", 22)} ${padStart("gutter", 6)} ${padStart("content", 8)} ${padStart("delta", 6)}   note`);
+console.log("-".repeat(88));
 for (const row of rows) {
   console.log(
-    `${pad(row.width, 6)} ${pad(row.name, 22)} ${padStart(row.gutter, 6)} ${padStart(row.content, 8)} ${padStart(row.delta, 6)}   ${row.note}`,
+    `${pad(row.width, 6)} ${pad(row.state, 10)} ${pad(row.name, 22)} ${padStart(row.gutter, 6)} ${padStart(row.content, 8)} ${padStart(row.delta, 6)}   ${row.note}`,
   );
 }
 
@@ -213,11 +262,11 @@ if (failures.length) {
       ? failure.error
       : [
         `content ${failure.contentLeft} vs column ${failure.referenceLeft}`,
-        `gaps ${failure.leftGap} / ${failure.rightGap}`,
+        `column gaps ${failure.columnLeftGap} / ${failure.columnRightGap}`,
       ].join(", ");
-    console.error(`  - ${failure.width}px ${failure.name} (${failure.path}): ${detail}`);
+    console.error(`  - ${failure.width}px ${failure.state} ${failure.name} (${failure.path}): ${detail}`);
   }
   process.exit(1);
 }
 
-console.log("\n✓ every page sits on the centred column, and the logo sits on it");
+console.log("\n✓ every page starts on the centred column, at both sidebar widths, and the logo sits on it");
