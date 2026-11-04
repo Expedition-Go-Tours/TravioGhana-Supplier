@@ -272,6 +272,13 @@ export default function DashboardPage() {
 
   const revenueTick = (value) => (value >= 1000 ? `$${value / 1000}k` : `$${value}`);
 
+  // A 12-month total is read at a glance; cents on it are noise.
+  const revenueTotalLabel = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(revenueTotal || 0);
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -364,17 +371,18 @@ export default function DashboardPage() {
                   <div className="ml-auto h-6 w-24 animate-pulse rounded bg-slate-100" />
                 ) : revenueData.length > 0 ? (
                   <>
-                    <p className="text-lg font-semibold tabular-nums text-slate-900">{formatCurrency(revenueTotal)}</p>
+                    <p className="text-lg font-semibold tabular-nums text-slate-900">{revenueTotalLabel}</p>
                     <p className="text-[11px] text-slate-400">12-month total</p>
                   </>
                 ) : null}
               </div>
             </div>
 
-            <div className="mt-4 min-h-[260px] flex-1">
+            <div className="relative mt-4 min-h-[260px] flex-1">
               {loading ? (
-                <div className="h-full animate-pulse rounded-lg bg-slate-50" />
+                <div className="absolute inset-0 animate-pulse rounded-lg bg-slate-50" />
               ) : revenueData.length > 0 ? (
+                <div className="absolute inset-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={revenueData} barCategoryGap="22%">
                     <CartesianGrid strokeDasharray="3 3" stroke="#eef2f6" vertical={false} />
@@ -399,8 +407,9 @@ export default function DashboardPage() {
                     <Bar dataKey="revenue" fill="#044b3b" radius={[4, 4, 0, 0]} maxBarSize={34} />
                   </BarChart>
                 </ResponsiveContainer>
+                </div>
               ) : (
-                <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center">
                   <TrendingUp size={20} className="text-slate-300" />
                   <p className="text-sm font-medium text-slate-500">No revenue yet</p>
                   <p className="max-w-[220px] text-xs text-slate-400">Paid bookings will fill this chart.</p>
