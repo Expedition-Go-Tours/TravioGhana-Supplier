@@ -120,7 +120,7 @@ describe('SpecialOffersListPage status filter', () => {
     renderWithProviders(<SpecialOffersListPage />);
 
     await screen.findByText('Active Sale');
-    fireEvent.change(screen.getByPlaceholderText('Search offers...'), { target: { value: 'zzzz' } });
+    fireEvent.change(screen.getByPlaceholderText('Search offers by name…'), { target: { value: 'zzzz' } });
 
     expect(await screen.findByText('No matching offers')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /clear all filters/i }));
@@ -131,28 +131,27 @@ describe('SpecialOffersListPage status filter', () => {
     expect(screen.queryByRole('button', { name: /^clear$/i })).toBeNull();
   });
 
-  it('keeps the stats cards counting every offer, not just the filtered view', async () => {
+  it('counts every offer in the status tabs, not just the filtered view', async () => {
     useOffers(MIXED);
     renderWithProviders(<SpecialOffersListPage />);
 
     await screen.findByText('Active Sale');
-    expect(screen.getByText('Total Offers')).toBeInTheDocument();
-    // Total is computed from `offers`, so 4 rows must be reported regardless
-    // of how many the default filter lets through.
-    expect(screen.getByText('4')).toBeInTheDocument();
+    // The tabs replaced the four stat cards: they are both the summary and the
+    // filter, and every count comes from `offers`, not the visible rows.
+    expect(screen.getByRole('button', { name: /^All\s*4$/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Active\s*1$/ })).toBeInTheDocument();
   });
 
-  it('shows an Expired card so rows the default filter hides are visible', async () => {
+  it('keeps expired rows findable from the status tabs', async () => {
     useOffers(MIXED);
     renderWithProviders(<SpecialOffersListPage />);
 
     await screen.findByText('Active Sale');
-    const label = screen.getByText('Expired');
     // MIXED holds two non-live rows — one whose window has run out and one
     // that is switched off — and the default Active view hides both. Folding
-    // the switched-off row into 'expired' is what lets this single card
-    // surface all of them without touching the filter.
-    expect(label.previousElementSibling).toHaveTextContent('2');
+    // the switched-off row into 'expired' is what lets this one tab surface
+    // all of them without touching the list.
+    expect(screen.getByRole('button', { name: /^Expired\s*2$/ })).toBeInTheDocument();
   });
 
   // Filter Expired and land on nothing used to read "Try adjusting your
@@ -168,8 +167,7 @@ describe('SpecialOffersListPage status filter', () => {
     const user = userEvent.setup();
     await screen.findByText('Active Sale');
 
-    await user.click(screen.getByRole('combobox', { name: 'Status' }));
-    await user.click(await screen.findByRole('option', { name: 'Scheduled' }));
+    await user.click(screen.getByRole('button', { name: /^Scheduled\s*0$/ }));
 
     expect(await screen.findByText('No scheduled offers')).toBeInTheDocument();
     expect(screen.getByText(/None of your 2 offers have that status/)).toBeInTheDocument();

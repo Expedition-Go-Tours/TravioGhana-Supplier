@@ -4,10 +4,10 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 
-import { Loader2, RefreshCw, ArrowUpRight, ShoppingBag, CheckCircle2, Star, DollarSign, MessageCircle, AlertTriangle, ClipboardList, MapPin, TrendingUp, Bell, Check, CalendarX2, X } from "lucide-react";
+import { Loader2, RefreshCw, ArrowUpRight, ShoppingBag, Star, AlertTriangle, ClipboardList, MapPin, TrendingUp, Bell, CalendarX2, X } from "lucide-react";
 import StatusBadge from "@/components/shared/StatusBadge";
 import OptimizedImage from "@/components/shared/OptimizedImage";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { fetchSupplierDashboard, fetchMonthlyRevenue } from "../api";
 import { canOpenPath } from "@/config/pageAccess";
 import { useTeamRole } from "@/hooks/useTeamRole";
@@ -18,15 +18,7 @@ import {
   useNotifications,
   useMarkAllNotificationsRead,
 } from "@/features/notifications/hooks/useNotifications";
-
-const NOTIFICATION_ICONS = {
-  new_booking: { icon: ShoppingBag, color: "text-emerald-600", bg: "bg-emerald-50" },
-  booking_confirmed: { icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50" },
-  new_review: { icon: Star, color: "text-amber-600", bg: "bg-amber-50" },
-  payout: { icon: DollarSign, color: "text-emerald-600", bg: "bg-emerald-50" },
-  new_enquiry: { icon: MessageCircle, color: "text-cyan-600", bg: "bg-cyan-50" },
-  booking_cancelled: { icon: AlertTriangle, color: "text-red-600", bg: "bg-red-50" },
-};
+import { NOTIFICATION_TYPES } from "@/features/notifications/constants";
 
 const STATS_CONFIG = [
   { widgetKey: "bookings", label: "Total Bookings", icon: ShoppingBag, accent: "border-l-emerald-600", iconBg: "bg-emerald-50", iconBorder: "border-emerald-200/60", iconColor: "text-emerald-600", path: "/bookings" },
@@ -49,17 +41,13 @@ const STATS_CONFIG = [
   { widgetKey: "pendingBookings", label: "Pending Bookings", icon: ClipboardList, accent: "border-l-amber-400", iconBg: "bg-amber-50", iconBorder: "border-amber-200/60", iconColor: "text-amber-600", path: "/bookings?tab=PENDING" },
 ];
 
-const CustomTooltip = ({ active, payload, label }) => {
-  if (active && payload?.length) {
-    return (
-      <div className="bg-white border border-emerald-100 rounded-xl shadow-lg shadow-emerald-900/5 p-3">
-        <p className="text-xs font-medium text-slate-500 mb-1">{label}</p>
-        <p className="text-sm font-semibold text-slate-800">{formatCurrency(payload[0].value)}</p>
-      </div>
-    );
-  }
-  return null;
-};
+const CustomTooltip = ({ active, payload, label, labelFormatter }) =>
+  active && payload?.length ? (
+    <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-lg shadow-slate-900/5">
+      <p className="text-[11px] font-medium text-slate-500">{labelFormatter ? labelFormatter(label) : label}</p>
+      <p className="mt-0.5 text-sm font-semibold tabular-nums text-slate-800">{formatCurrency(payload[0].value)}</p>
+    </div>
+  ) : null;
 
 function timeAgo(dateStr) {
   if (!dateStr) return "";
@@ -265,377 +253,446 @@ export default function DashboardPage() {
   const cancellationBadge = CANCELLATION_STATUS_BADGES[cancellationStatus];
   const CancellationBadgeIcon = cancellationBadge.icon;
 
+  const revenueTotal = revenueData.reduce((sum, row) => sum + (Number(row.revenue) || 0), 0);
+
+  const cancellationStats = [
+    { label: "Upcoming", value: cancellationSummary?.upcomingConfirmed ?? 0 },
+    { label: "Cancelled", value: cancellationSummary?.cancelled ?? 0 },
+    { label: "Supplier-caused", value: cancellationSummary?.supplierCausedCount ?? 0 },
+    { label: "Completed", value: cancellationSummary?.completed ?? 0 },
+  ];
+
+  // "2025-12" -> "Dec". Anything the API already labels is passed through.
+  const monthLabel = (value) => {
+    const match = /^(\d{4})-(\d{2})$/.exec(String(value));
+    if (!match) return value;
+    return new Date(Number(match[1]), Number(match[2]) - 1, 1)
+      .toLocaleDateString("en-GB", { month: "short" });
+  };
+
+  const revenueTick = (value) => (value >= 1000 ? `$${value / 1000}k` : `$${value}`);
+
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-800 truncate">{getGreeting()}, {user?.name?.split(' ')[0] || 'there'}</h1>
+          <h1 className="truncate text-xl font-bold text-slate-900 sm:text-2xl">
+            {getGreeting()}, {user?.name?.split(" ")[0] || "there"}
+          </h1>
           {greetingStatus && (
-            <p className="text-sm text-slate-500 mt-1.5">{greetingStatus}</p>
+            <p className="mt-1 text-sm text-slate-500">{greetingStatus}</p>
           )}
         </div>
-        <button onClick={() => { refetchNotifications(); fetchDashboard(); }} disabled={loading}
-          className="flex items-center gap-1.5 px-3.5 py-2 bg-white border border-emerald-200/60 rounded-xl text-xs font-medium text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300 transition-all disabled:opacity-40 shadow-sm"
+        <button
+          onClick={() => { refetchNotifications(); fetchDashboard(); }}
+          disabled={loading}
+          className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50"
         >
-          {loading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+          {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
           Refresh
         </button>
       </div>
 
       {/* Error */}
       {error && !loading && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs font-medium text-red-700 flex items-center gap-2">
-          <AlertTriangle size={12} /> {error}
-          <button onClick={() => { refetchNotifications(); fetchDashboard(); }} className="ml-auto underline">Retry</button>
+        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-xs font-medium text-red-700">
+          <AlertTriangle size={14} />
+          <span className="min-w-0 flex-1">{error}</span>
+          <button onClick={() => { refetchNotifications(); fetchDashboard(); }} className="shrink-0 underline">
+            Retry
+          </button>
         </div>
       )}
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {visibleStats.map((s) => {
           const Icon = s.icon;
           const openable = canOpen(s.path);
+          const Wrapper = openable ? "button" : "div";
           return (
-            <div
+            <Wrapper
               key={s.label}
-              onClick={openable ? () => navigate(s.path, s.state ? { state: s.state } : undefined) : undefined}
-              className={`bg-white border border-emerald-100/60 rounded-xl p-4 transition-all border-l-4 ${s.accent} ${
-                openable ? "hover:shadow-md hover:shadow-emerald-900/5 hover:border-emerald-200 cursor-pointer" : ""
-              }`}
+              {...(openable
+                ? {
+                  type: "button",
+                  onClick: () => navigate(s.path, s.state ? { state: s.state } : undefined),
+                }
+                : {})}
+              className={cn(
+                "rounded-xl border border-slate-200/80 bg-white p-4 text-left transition-colors",
+                openable && "hover:border-slate-300 hover:shadow-sm",
+              )}
             >
-              <div className="flex items-center justify-between mb-2.5">
-                <div className={`w-9 h-9 rounded-lg ${s.iconBg} border ${s.iconBorder} flex items-center justify-center`}>
-                  <Icon size={16} className={s.iconColor} />
-                </div>
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-xs font-medium text-slate-500">{s.label}</p>
+                <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", s.iconBg, s.iconColor)}>
+                  <Icon size={15} />
+                </span>
               </div>
               {loading ? (
-                <div className="space-y-1.5">
-                  <div className="h-5 w-16 bg-emerald-100/40 rounded animate-pulse" />
-                  <div className="h-3 w-20 bg-emerald-100/40 rounded animate-pulse" />
+                <div className="mt-2 space-y-1.5">
+                  <div className="h-7 w-20 animate-pulse rounded bg-slate-100" />
+                  <div className="h-3 w-24 animate-pulse rounded bg-slate-50" />
                 </div>
               ) : (
                 <>
-                  <p className="text-lg font-bold text-slate-800">{cardValueByKey[s.widgetKey]}</p>
-                  <p className="text-xs font-medium text-slate-500 mt-0.5">{s.label}</p>
-                  {s.hint && (
-                    <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">{s.hint}</p>
-                  )}
+                  <p className="mt-2 text-2xl font-bold leading-tight tracking-tight text-slate-900">
+                    {cardValueByKey[s.widgetKey]}
+                  </p>
+                  {s.hint && <p className="mt-1 text-[11px] leading-tight text-slate-400">{s.hint}</p>}
                 </>
               )}
-            </div>
+            </Wrapper>
           );
         })}
       </div>
 
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Revenue Overview Chart */}
+      {/* Main grid */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {/* Revenue */}
         {canSeeRevenue && (
-        <div className="lg:col-span-2 bg-white border border-emerald-100/60 rounded-xl p-5 flex flex-col hover:border-emerald-200 transition-all">
-          <div className="flex items-center justify-between mb-4 shrink-0">
-            {/* Plots grossAmount per month — money the customer paid, not the
-                supplier's cut — over the trailing 12 calendar months, so the
-                old "Bookings Overview / Earnings are cumulative · Bookings from
-                last 90 days" described neither the metric, nor the arithmetic,
-                nor the window. */}
-            <h3 className="text-sm font-semibold text-slate-800">Revenue Overview</h3>
-            {canOpen("/bookings") && (
-              <button onClick={() => navigate("/bookings")} className="text-xs font-medium text-emerald-600 hover:text-emerald-700 flex items-center gap-1 transition-colors">
-                View all <ArrowUpRight size={11} />
-              </button>
-            )}
-          </div>
-          <div className="flex-1 min-h-[240px]">
-            {loading ? (
-              <div className="h-full bg-emerald-50/40 rounded-lg animate-pulse" />
-            ) : revenueData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={revenueData} barCategoryGap="20%">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94a3b8", fontWeight: 500 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: "#94a3b8", fontWeight: 500 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v / 1000}k`} />
-                  <Tooltip content={<CustomTooltip />} cursor={{ fill: "#f0fdf4" }} />
-                  <Bar dataKey="revenue" fill="#044b3b" radius={[4, 4, 0, 0]} maxBarSize={32} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-full text-xs font-medium text-slate-400">No revenue yet</div>
-            )}
-          </div>
-          <p className="text-[10px] font-medium text-slate-400 mt-3 shrink-0">Gross revenue by month · Last 12 months</p>
-        </div>
-        )}
-
-        {/* Right Column */}
-        <div className="space-y-4">
-          {/* Notifications */}
-          {canSeeNotifications && (
-          <div className="bg-white border border-emerald-100/60 rounded-xl hover:border-emerald-200 transition-all overflow-hidden shadow-sm">
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-emerald-50">
-              <div className="flex items-center gap-2.5">
-                <div className="relative">
-                  <Bell size={16} className={unreadCount > 0 ? "text-emerald-600" : "text-slate-400"} />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1.5 -right-2 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[9px] font-bold text-white bg-[#059669] rounded-full ring-2 ring-white">
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-800 leading-tight">Notifications</h3>
-                  {unreadCount > 0 && (
-                    <p className="text-[10px] text-slate-400 leading-tight mt-px">{unreadCount} unread</p>
-                  )}
-                </div>
+          <section className="flex flex-col rounded-xl border border-slate-200/80 bg-white p-5 lg:col-span-2">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">Revenue</h2>
+                <p className="mt-0.5 text-xs text-slate-500">Gross bookings per month, last 12 months</p>
               </div>
-              <div className="flex items-center gap-1.5">
-                {unreadCount > 0 && (
-                  <button onClick={handleMarkAllRead}
-                    className="px-2.5 py-1.5 text-[11px] font-medium text-emerald-600 hover:text-white hover:bg-[#059669] rounded-lg transition-all"
-                  >
-                    <Check size={11} className="inline mr-0.5" /> Mark read
-                  </button>
-                )}
-                <button onClick={() => navigate("/notifications")} className="px-2.5 py-1.5 text-[11px] font-medium text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all">
-                  View all <ArrowUpRight size={11} className="inline" />
-                </button>
+              <div className="text-right">
+                {loading ? (
+                  <div className="ml-auto h-6 w-24 animate-pulse rounded bg-slate-100" />
+                ) : revenueData.length > 0 ? (
+                  <>
+                    <p className="text-lg font-semibold tabular-nums text-slate-900">{formatCurrency(revenueTotal)}</p>
+                    <p className="text-[11px] text-slate-400">12-month total</p>
+                  </>
+                ) : null}
               </div>
             </div>
-            <div className="p-3 max-h-[380px] overflow-y-auto space-y-2">
+
+            <div className="mt-4 min-h-[260px] flex-1">
               {loading ? (
-                <div className="space-y-3">
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="flex items-start gap-3.5 p-3">
-                      <div className="w-9 h-9 rounded-lg bg-slate-100 animate-pulse shrink-0" />
-                      <div className="flex-1 space-y-2 pt-0.5">
-                        <div className="h-3 w-3/5 bg-slate-100 rounded animate-pulse" />
-                        <div className="h-2.5 w-4/5 bg-slate-100 rounded animate-pulse" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : notifications.length > 0 ? (
-                notifications.slice(0, 5).map((n) => {
-                  const iconConfig = NOTIFICATION_ICONS[n.type] || { icon: MessageCircle, color: "text-slate-500", bg: "bg-slate-50" };
-                  const Icon = iconConfig.icon;
-                  const isUnread = !n.readAt;
-                  const notifType = n.type?.replace(/_/g, ' ') || 'general';
-                  return (
-                    <div
-                      key={n.id}
-                      onClick={() => navigate("/notifications")}
-                      className={`relative rounded-lg border transition-all cursor-pointer ${
-                        isUnread
-                          ? "border-[#059669]/20 bg-linear-to-r from-[#059669]/[0.04] to-transparent hover:border-[#059669]/40 hover:shadow-sm"
-                          : "border-transparent hover:border-slate-200 hover:bg-slate-50/80"
-                      }`}
-                    >
-                      <div className="p-3">
-                        <div className="flex items-start gap-3">
-                          <div className={`w-9 h-9 rounded-lg ${iconConfig.bg} flex items-center justify-center shrink-0 ${isUnread ? "ring-1 ring-black/[0.06]" : ""}`}>
-                            <Icon size={15} className={iconConfig.color} />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-start justify-between gap-2">
-                              <p className={`text-sm leading-snug ${isUnread ? "font-semibold text-slate-800" : "text-slate-600"}`}>
-                                {n.title || n.message || "Notification"}
-                              </p>
-                              <span className="shrink-0 text-[11px] text-slate-400 whitespace-nowrap mt-px font-medium">
-                                {timeAgo(n.createdAt)}
-                              </span>
-                            </div>
-                            {n.title && n.message && (
-                              <p className="text-xs text-slate-400 leading-relaxed mt-0.5 line-clamp-2">{n.message}</p>
-                            )}
-                            <div className="flex items-center gap-2 mt-2">
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-400 capitalize">
-                                {notifType}
-                              </span>
-                              {isUnread && (
-                                <span className="w-1.5 h-1.5 rounded-full bg-[#059669]" />
-                              )}
-                              {n.data?.bookingId && (
-                                <span className="ml-auto text-[10px] font-medium text-[#059669]">View booking →</span>
-                              )}
-                              {n.data?.payoutId && canOpen("/finance") && (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); goTo(`/finance?tab=payouts&payoutId=${n.data.payoutId}`); }}
-                                  className="ml-auto text-[10px] font-medium text-[#059669] hover:text-[#047857] transition-colors"
-                                >
-                                  View payout →
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
+                <div className="h-full animate-pulse rounded-lg bg-slate-50" />
+              ) : revenueData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={revenueData} barCategoryGap="22%">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#eef2f6" vertical={false} />
+                    <XAxis
+                      dataKey="month"
+                      tickFormatter={monthLabel}
+                      tick={{ fontSize: 11, fill: "#94a3b8", fontWeight: 500 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tick={({ x, y, payload }) => (
+                        <text x={x} y={y} dy={4} textAnchor="end" fontSize={11} fill="#94a3b8" fontWeight={500}>
+                          {revenueTick(payload.value)}
+                        </text>
+                      )}
+                      axisLine={false}
+                      tickLine={false}
+                      width={44}
+                    />
+                    <Tooltip content={<CustomTooltip labelFormatter={monthLabel} />} cursor={{ fill: "#f0fdf4" }} />
+                    <Bar dataKey="revenue" fill="#044b3b" radius={[4, 4, 0, 0]} maxBarSize={34} />
+                  </BarChart>
+                </ResponsiveContainer>
               ) : (
-                <div className="flex flex-col items-center justify-center py-10 px-5 text-center">
-                  <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center mb-3">
-                    <Bell size={18} className="text-slate-300" />
-                  </div>
-                  {/* Was "All caught up", which is both wrong here and a duplicate:
-                      the bell's subtitle already says those words for the unread
-                      count, and this panel is empty whenever there are no
-                      notifications AT ALL — including for a supplier who has never
-                      had one, which is not having finished anything. The copy below
-                      also named three of the six notification types it actually
-                      receives; an enquiry is the one a supplier most wants and was
-                      hidden under "updates". */}
-                  <p className="text-sm font-semibold text-slate-500">No notifications yet</p>
-                  <p className="text-xs text-slate-400 mt-1 max-w-[200px] leading-relaxed">
-                    Bookings, payouts, reviews and customer enquiries will appear here.
-                  </p>
+                <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+                  <TrendingUp size={20} className="text-slate-300" />
+                  <p className="text-sm font-medium text-slate-500">No revenue yet</p>
+                  <p className="max-w-[220px] text-xs text-slate-400">Paid bookings will fill this chart.</p>
                 </div>
               )}
             </div>
-          </div>
+          </section>
+        )}
+
+        {/* Right column */}
+        <div className="space-y-4">
+          {/* Notifications */}
+          {canSeeNotifications && (
+            <section className="overflow-hidden rounded-xl border border-slate-200/80 bg-white">
+              <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-semibold text-slate-900">Notifications</h2>
+                  {unreadCount > 0 && (
+                    <span className="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
+                      {unreadCount}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-0.5">
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={handleMarkAllRead}
+                      className="rounded-md px-2 py-1 text-[11px] font-medium text-emerald-700 transition-colors hover:bg-emerald-50"
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                  <button
+                    onClick={() => navigate("/notifications")}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700"
+                  >
+                    View all <ArrowUpRight size={11} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="max-h-[340px] space-y-1 overflow-y-auto p-2">
+                {loading ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="flex items-start gap-3 rounded-lg p-2.5">
+                      <div className="h-8 w-8 shrink-0 animate-pulse rounded-lg bg-slate-100" />
+                      <div className="flex-1 space-y-2 pt-0.5">
+                        <div className="h-3 w-3/5 animate-pulse rounded bg-slate-100" />
+                        <div className="h-2.5 w-4/5 animate-pulse rounded bg-slate-50" />
+                      </div>
+                    </div>
+                  ))
+                ) : notifications.length > 0 ? (
+                  notifications.slice(0, 5).map((n) => {
+                    const iconConfig = NOTIFICATION_TYPES[n.type] || NOTIFICATION_TYPES.system;
+                    const Icon = iconConfig.icon;
+                    // The notifications hook exposes the mapped `read` flag;
+                    // `readAt` only exists on the raw API row, so testing it
+                    // tinted every notification as unread.
+                    const isUnread = !n.read;
+                    return (
+                      <div
+                        key={n.id}
+                        className={cn(
+                          "flex items-start gap-1 rounded-lg transition-colors",
+                          isUnread ? "bg-emerald-50/50" : "hover:bg-slate-50",
+                        )}
+                      >
+                        <button
+                          onClick={() => navigate("/notifications")}
+                          className="flex min-w-0 flex-1 items-start gap-3 rounded-lg p-2.5 text-left"
+                        >
+                          <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", iconConfig.bg, iconConfig.text)}>
+                            <Icon size={14} />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-start justify-between gap-2">
+                              <span className={cn(
+                                "line-clamp-1 text-[13px]",
+                                isUnread ? "font-semibold text-slate-800" : "font-medium text-slate-600",
+                              )}>
+                                {n.title || n.message || "Notification"}
+                              </span>
+                              <span className="shrink-0 text-[11px] text-slate-400">{timeAgo(n.createdAt)}</span>
+                            </span>
+                            {n.title && n.message && (
+                              <span className="mt-0.5 line-clamp-2 block text-[11px] leading-relaxed text-slate-400">{n.message}</span>
+                            )}
+                          </span>
+                        </button>
+                        {n.data?.payoutId && canOpen("/finance") && (
+                          <button
+                            onClick={() => goTo(`/finance?tab=payouts&payoutId=${n.data.payoutId}`)}
+                            className="mr-1.5 mt-2 shrink-0 rounded-md px-2 py-1 text-[11px] font-medium text-emerald-700 transition-colors hover:bg-emerald-50"
+                          >
+                            View payout
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="flex flex-col items-center justify-center px-5 py-10 text-center">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-50">
+                      <Bell size={16} className="text-slate-300" />
+                    </div>
+                    <p className="mt-3 text-sm font-medium text-slate-600">No notifications yet</p>
+                    <p className="mt-1 max-w-[200px] text-xs leading-relaxed text-slate-400">
+                      Bookings, payouts, reviews and customer enquiries will appear here.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </section>
           )}
 
-          {/* Cancellation Rate Card */}
+          {/* Cancellation rate */}
           {canSeeCancellation && (
-          <div onClick={() => navigate("/cancellation-rate")} className="bg-white border border-emerald-100/60 rounded-xl p-5 hover:border-emerald-200 transition-all cursor-pointer">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center">
-                  <CalendarX2 size={18} className="text-red-500" />
+            <button
+              onClick={() => navigate("/cancellation-rate")}
+              className="w-full rounded-xl border border-slate-200/80 bg-white p-4 text-left transition-colors hover:border-slate-300"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-50 text-slate-500">
+                    <CalendarX2 size={15} />
+                  </span>
+                  <span>
+                    <span className="block text-sm font-semibold text-slate-900">Cancellation rate</span>
+                    <span className="block text-[11px] text-slate-500">Last 30 days</span>
+                  </span>
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-800">Cancellation rate</h3>
-                  <p className="text-xs text-slate-500">Last 30 days</p>
-                </div>
+                <ArrowUpRight size={14} className="mt-1 shrink-0 text-slate-400" />
               </div>
-              <span className="text-xs font-medium text-emerald-600 flex items-center gap-1">
-                View details <ArrowUpRight size={11} />
-              </span>
-            </div>
 
-            <div className="flex items-end gap-4 mb-4">
-              <div className="text-4xl font-bold text-slate-800 tracking-tight">
-                {cancellationSummary?.cancellationRate ?? 0}%
+              <div className="mt-3 flex items-center gap-2.5">
+                {loading ? (
+                  <div className="h-8 w-28 animate-pulse rounded bg-slate-100" />
+                ) : (
+                  <>
+                    <span className="text-3xl font-bold tracking-tight text-slate-900">
+                      {cancellationSummary?.cancellationRate ?? 0}%
+                    </span>
+                    <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold", cancellationBadge.className)}>
+                      <CancellationBadgeIcon size={10} aria-hidden="true" />
+                      {cancellationStatus}
+                    </span>
+                  </>
+                )}
               </div>
-              <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${cancellationBadge.className}`}>
-                <CancellationBadgeIcon size={11} aria-hidden="true" />
-                {cancellationStatus}
-              </div>
-            </div>
 
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-              <span><span className="font-semibold text-slate-700">{cancellationSummary?.upcomingConfirmed ?? 0}</span> upcoming</span>
-              <span><span className="font-semibold text-slate-700">{cancellationSummary?.cancelled ?? 0}</span> cancelled</span>
-              <span><span className="font-semibold text-slate-700">{cancellationSummary?.supplierCausedCount ?? 0}</span> supplier-caused</span>
-              <span><span className="font-semibold text-slate-700">{cancellationSummary?.completed ?? 0}</span> completed</span>
-            </div>
-          </div>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                {cancellationStats.map((stat) => (
+                  <span key={stat.label} className="rounded-lg bg-slate-50 px-2.5 py-2">
+                    <span className="block text-[11px] text-slate-500">{stat.label}</span>
+                    <span className="block text-sm font-semibold tabular-nums text-slate-800">{stat.value}</span>
+                  </span>
+                ))}
+              </div>
+            </button>
           )}
         </div>
       </div>
 
-      {/* Bottom Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Recent Bookings — shown only to the roles the Bookings page is for */}
+      {/* Bottom grid */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {/* Recent bookings */}
         {canSeeRecentBookings && (
-        <div className="lg:col-span-2 bg-white border border-emerald-100/60 rounded-xl p-5 hover:border-emerald-200 transition-all">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-slate-800">Recent Bookings</h3>
-            {canOpen("/bookings") && (
-              <button onClick={() => navigate("/bookings")} className="text-xs font-medium text-emerald-600 hover:text-emerald-700 flex items-center gap-1 transition-colors">
-                View all <ArrowUpRight size={11} />
-              </button>
-            )}
-          </div>
-          {loading ? (
-            <div className="space-y-3">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="flex items-center gap-3 p-2.5 bg-emerald-50/40 rounded-lg animate-pulse">
-                  <div className="w-9 h-9 rounded-lg bg-emerald-100" />
-                  <div className="flex-1 space-y-1.5">
-                    <div className="h-3 w-3/4 bg-emerald-100 rounded" />
-                    <div className="h-2.5 w-1/2 bg-emerald-100 rounded" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : recentBookings.length > 0 ? (
-            <div className="space-y-1">
-              {recentBookings.slice(0, 4).map((b) => (
-                <div
-                  key={b.id}
-                  onClick={canOpen("/bookings") ? () => navigate(`/bookings?bookingId=${b.id}`) : undefined}
-                  className={`flex items-center gap-3 p-2.5 rounded-lg transition-colors border border-transparent ${
-                    canOpen("/bookings") ? "hover:bg-emerald-50/40 cursor-pointer hover:border-emerald-100" : ""
-                  }`}
+          <section className="rounded-xl border border-slate-200/80 bg-white lg:col-span-2">
+            <div className="flex items-center justify-between px-5 py-4">
+              <h2 className="text-sm font-semibold text-slate-900">Recent bookings</h2>
+              {canOpen("/bookings") && (
+                <button
+                  onClick={() => navigate("/bookings")}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 transition-colors hover:text-emerald-800"
                 >
-                  {b.tourPhoto ? (
-                    <OptimizedImage src={b.tourPhoto} alt="" width={40} className="w-10 h-10 rounded-lg object-cover shrink-0 ring-1 ring-emerald-100" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-200/60 flex items-center justify-center shrink-0 text-sm font-bold text-emerald-700">
-                      {(b.tourName || "T").charAt(0)}
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-slate-700 truncate">{b.tourName || "Unknown Tour"}</p>
-                    <p className="text-xs font-medium text-slate-400 mt-0.5">
-                      {b.travelDate ? formatDate(b.travelDate) : ""}
-                      {b.travelers ? ` • ${b.travelers} ${b.travelers === 1 ? "Person" : "People"}` : ""}
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-sm font-semibold text-slate-800">{formatCurrency(b.total, b.currency)}</p>
-                    <div className="mt-0.5">
-                      <StatusBadge status={b.status} label={b.status?.replace(/_/g, " ") || b.status} size="sm" />
-                    </div>
-                  </div>
-                </div>
-              ))}
+                  View all <ArrowUpRight size={11} />
+                </button>
+              )}
             </div>
-          ) : (
-            <div className="flex items-center justify-center py-8 text-xs font-medium text-slate-400">No recent bookings</div>
-          )}
-        </div>
+
+            {loading ? (
+              <div className="space-y-3 border-t border-slate-100 px-5 py-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div className="h-9 w-9 animate-pulse rounded-lg bg-slate-100" />
+                    <div className="flex-1 space-y-1.5">
+                      <div className="h-3 w-3/4 animate-pulse rounded bg-slate-100" />
+                      <div className="h-2.5 w-1/2 animate-pulse rounded bg-slate-50" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : recentBookings.length > 0 ? (
+              <div className="divide-y divide-slate-100 border-t border-slate-100">
+                {recentBookings.slice(0, 4).map((b) => (
+                  <button
+                    key={b.id}
+                    onClick={canOpen("/bookings") ? () => navigate(`/bookings?bookingId=${b.id}`) : undefined}
+                    disabled={!canOpen("/bookings")}
+                    className={cn(
+                      "flex w-full items-center gap-3 px-5 py-3 text-left transition-colors",
+                      canOpen("/bookings") ? "hover:bg-slate-50" : "cursor-default",
+                    )}
+                  >
+                    {b.tourPhoto ? (
+                      <OptimizedImage src={b.tourPhoto} alt="" width={36} className="h-9 w-9 shrink-0 rounded-lg object-cover ring-1 ring-slate-100" />
+                    ) : (
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-xs font-bold text-emerald-700">
+                        {(b.tourName || "T").charAt(0)}
+                      </span>
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13px] font-medium text-slate-800">{b.tourName || "Unknown tour"}</span>
+                      <span className="mt-0.5 block text-[11px] text-slate-400">
+                        {b.travelDate ? formatDate(b.travelDate) : ""}
+                        {b.travelers ? ` · ${b.travelers} ${b.travelers === 1 ? "person" : "people"}` : ""}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-right">
+                      <span className="block text-[13px] font-semibold tabular-nums text-slate-900">
+                        {formatCurrency(b.total, b.currency)}
+                      </span>
+                      <span className="mt-1 block">
+                        <StatusBadge status={b.status} label={b.status?.replace(/_/g, " ") || b.status} size="sm" />
+                      </span>
+                    </span>
+                    <ArrowUpRight size={14} className="shrink-0 text-slate-300" aria-hidden="true" />
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="border-t border-slate-100 px-5 py-10 text-center text-sm text-slate-500">
+                No recent bookings
+              </div>
+            )}
+          </section>
         )}
 
-        {/* Top Products */}
-        <div className={`bg-white border border-emerald-100/60 rounded-xl p-5 hover:border-emerald-200 transition-all ${canOpen("/bookings") ? "" : "lg:col-span-2"}`}>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-slate-800">Top Products</h3>
+        {/* Top products */}
+        <section className={cn("rounded-xl border border-slate-200/80 bg-white", !canOpen("/bookings") && "lg:col-span-2")}>
+          <div className="flex items-center justify-between px-5 py-4">
+            <h2 className="text-sm font-semibold text-slate-900">Top products</h2>
             {canOpen("/products") && (
-              <button onClick={() => navigate("/products")} className="text-xs font-medium text-emerald-600 hover:text-emerald-700 flex items-center gap-1 transition-colors">
+              <button
+                onClick={() => navigate("/products")}
+                className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 transition-colors hover:text-emerald-800"
+              >
                 View all <ArrowUpRight size={11} />
               </button>
             )}
           </div>
+
           {loading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => <div key={i} className="h-16 bg-emerald-50/40 rounded-lg animate-pulse" />)}
+            <div className="space-y-3 border-t border-slate-100 px-5 py-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <div className="h-9 w-9 animate-pulse rounded-lg bg-slate-100" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-3 w-4/5 animate-pulse rounded bg-slate-100" />
+                    <div className="h-2.5 w-1/2 animate-pulse rounded bg-slate-50" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : topProducts.length > 0 ? (
-            <div className="space-y-2">
+            <div className="divide-y divide-slate-100 border-t border-slate-100">
               {topProducts.map((product, i) => (
                 <button
                   key={product.id}
                   onClick={canOpen(`/products/${product.id}`) ? () => navigate(`/products/${product.id}`) : undefined}
-                  className="w-full flex items-center gap-3 rounded-lg border border-transparent hover:border-emerald-200 hover:bg-emerald-50/30 p-2 text-left transition-all"
+                  disabled={!canOpen(`/products/${product.id}`)}
+                  className={cn(
+                    "flex w-full items-center gap-3 px-5 py-2.5 text-left transition-colors",
+                    canOpen(`/products/${product.id}`) ? "hover:bg-slate-50" : "cursor-default",
+                  )}
                 >
-                  <span className="w-5 shrink-0 text-xs font-semibold text-slate-400 tabular-nums">{i + 1}</span>
-                  <div className="w-10 h-10 rounded-lg overflow-hidden bg-emerald-50 shrink-0">
+                  <span className="w-4 shrink-0 text-xs font-semibold tabular-nums text-slate-400">{i + 1}</span>
+                  <span className="h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-slate-50">
                     {product.coverPhoto ? (
-                      <OptimizedImage src={product.coverPhoto} width={40} className="w-full h-full object-cover" />
+                      <OptimizedImage src={product.coverPhoto} width={36} className="h-full w-full object-cover" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-emerald-300">
-                        <ShoppingBag size={16} />
-                      </div>
+                      <span className="flex h-full w-full items-center justify-center text-slate-300">
+                        <ShoppingBag size={14} />
+                      </span>
                     )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-medium text-slate-800 truncate" title={product.title}>
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] font-medium text-slate-800" title={product.title}>
                       {product.title}
-                    </p>
-                    <p className="text-[11px] text-slate-400">
+                    </span>
+                    <span className="mt-0.5 block text-[11px] text-slate-400">
                       {product.bookings} booking{product.bookings !== 1 ? "s" : ""}
                       {product.reviewCount > 0 && (
                         <span className="ml-2 inline-flex items-center gap-0.5">
@@ -643,40 +700,22 @@ export default function DashboardPage() {
                           {product.averageRating.toFixed(1)}
                         </span>
                       )}
-                    </p>
-                  </div>
-                  <span className="text-[13px] font-semibold text-emerald-600 shrink-0 tabular-nums">
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-[13px] font-semibold tabular-nums text-slate-900">
                     {formatCurrency(product.revenue)}
                   </span>
                 </button>
               ))}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-8 gap-1.5">
+            <div className="flex flex-col items-center justify-center gap-1.5 border-t border-slate-100 px-5 py-10">
               <ShoppingBag size={20} className="text-slate-300" />
-              <p className="text-xs font-medium text-slate-400">No product bookings yet</p>
+              <p className="text-sm text-slate-500">No product bookings yet</p>
             </div>
           )}
-        </div>
+        </section>
       </div>
-
-      {/* Loading skeleton */}
-      {loading && !error && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {canOpen("/bookings") && (
-            <div className="lg:col-span-2 bg-white border border-emerald-100/60 rounded-xl p-5">
-              <div className="h-4 w-32 bg-emerald-100/40 rounded animate-pulse mb-4" />
-              <div className="h-[220px] bg-emerald-50/40 rounded-lg animate-pulse" />
-            </div>
-          )}
-          <div className={`bg-white border border-emerald-100/60 rounded-xl p-5 ${canOpen("/bookings") ? "" : "lg:col-span-2"}`}>
-            <div className="h-4 w-24 bg-emerald-100/40 rounded animate-pulse mb-4" />
-            <div className="space-y-3">
-              {[1, 2, 3, 4, 5].map((i) => <div key={i} className="h-8 bg-emerald-50/40 rounded animate-pulse" />)}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

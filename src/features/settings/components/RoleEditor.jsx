@@ -100,6 +100,18 @@ export default function RoleEditor({ open, catalog, role, onClose, onSaved }) {
     return () => { cancelled = true; };
   }, [open, role, catalog]);
 
+  // The dialog is fixed to the viewport. Without this, a wheel or trackpad
+  // swipe over the backdrop scrolls the page behind it, and the dialog looks
+  // like it is sliding up and down.
+  useEffect(() => {
+    if (!open) return;
+    const scroller = document.querySelector("main");
+    if (!scroller) return;
+    const previous = scroller.style.overflow;
+    scroller.style.overflow = "hidden";
+    return () => { scroller.style.overflow = previous; };
+  }, [open]);
+
   const landingOptions = useMemo(() => {
     const hasSelectedPermission = (key) => selected.has(key) || selected.has("*");
     return Object.keys(PAGE_ACCESS)
@@ -190,12 +202,12 @@ export default function RoleEditor({ open, catalog, role, onClose, onSaved }) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-3 sm:p-6" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3 sm:p-6" onClick={onClose}>
       <div
-        className="my-4 w-full max-w-3xl rounded-2xl border border-slate-200 bg-white shadow-xl"
+        className="flex max-h-full w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
           <div>
             <h2 className="text-sm font-semibold text-slate-800">{role ? `Edit ${role.name}` : "Create a role"}</h2>
             <p className="mt-0.5 text-xs text-slate-500">
@@ -207,7 +219,7 @@ export default function RoleEditor({ open, catalog, role, onClose, onSaved }) {
           </button>
         </div>
 
-        <div className="max-h-[70vh] space-y-5 overflow-y-auto px-5 py-5">
+        <div className="flex-1 space-y-5 overflow-y-auto overscroll-contain px-5 py-5">
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-semibold text-slate-700">Role name</label>
@@ -345,7 +357,7 @@ export default function RoleEditor({ open, catalog, role, onClose, onSaved }) {
           </section>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-5 py-4">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-5 py-4">
           <div>
             {role && (
               <button type="button" onClick={handleArchive} disabled={archiving || (role.memberCount || 0) > 0} title={(role.memberCount || 0) > 0 ? "Reassign members first" : "Archive role"} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40">

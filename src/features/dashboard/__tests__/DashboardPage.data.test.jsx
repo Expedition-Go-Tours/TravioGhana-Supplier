@@ -8,7 +8,7 @@
  * The request follows the page, exactly as the dashboard's links already did.
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 import { hasTeamPermission } from '@/config/teamRoles';
@@ -112,8 +112,8 @@ describe('a role without the Bookings page', () => {
   it('has no Recent Bookings panel left saying "No recent bookings"', async () => {
     renderPage();
 
-    await waitFor(() => expect(screen.getByText('Top Products')).toBeInTheDocument());
-    expect(screen.queryByText('Recent Bookings')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Top products')).toBeInTheDocument());
+    expect(screen.queryByText('Recent bookings')).not.toBeInTheDocument();
     expect(screen.queryByText('No recent bookings')).not.toBeInTheDocument();
   });
 
@@ -132,7 +132,8 @@ describe('a role without the Bookings page', () => {
     // 5 total against 2 confirmed + 1 pending. The card used to be bound to
     // confirmed + pending, so it reported 3 under a heading promising a total —
     // and would have reported 1 (pending alone) once everything completed.
-    expect(screen.getByText('Total Bookings').previousElementSibling?.textContent).toBe('5');
+    const card = screen.getByText('Total Bookings').closest('button');
+    expect(within(card).getByText('5')).toBeInTheDocument();
   });
 });
 
@@ -143,7 +144,7 @@ describe('a role with the Bookings page', () => {
     renderPage();
 
     await waitFor(() => expect(fetchSupplierBookings).toHaveBeenCalledWith({ page: 1, limit: 4 }));
-    expect(screen.getByText('Recent Bookings')).toBeInTheDocument();
+    expect(screen.getByText('Recent bookings')).toBeInTheDocument();
     expect(screen.getAllByText('Shai Hills Safari').length).toBeGreaterThan(0);
   });
 
@@ -158,6 +159,6 @@ describe('a role with the Bookings page', () => {
     renderPage();
 
     await waitFor(() => expect(fetchSupplierBookings).toHaveBeenCalled());
-    expect(screen.getByText('Recent Bookings')).toBeInTheDocument();
+    expect(screen.getByText('Recent bookings')).toBeInTheDocument();
   });
 });
