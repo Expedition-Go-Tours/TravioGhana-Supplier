@@ -53,6 +53,9 @@ const QUICK_FILTERS = [
   { key: "CONFIRMED", label: "Confirmed" },
   { key: "COMPLETED", label: "Completed" },
   { key: "CANCELLED", label: "Cancelled" },
+  // Not a BookingStatus: bookings whose refund is pending, issued or failed.
+  // The backend resolves the filter; the label stays a tab, not a status.
+  { key: "REFUNDS", label: "Refunds" },
 ];
 
 export default function BookingsPage() {
@@ -532,6 +535,13 @@ export default function BookingsPage() {
       cancelled:
         summaryCounts.CANCELLED ??
         filteredData.filter((b) => b.status === "CANCELLED").length,
+      refunds:
+        summaryCounts.REFUNDS ??
+        filteredData.filter(
+          (b) =>
+            b.status === "REFUNDED" ||
+            ["PENDING", "SUCCEEDED", "FAILED"].includes(b.refundStatus)
+        ).length,
       revenue:
         bookingSummary?.totalRevenue ??
         filteredData.reduce((sum, b) => sum + (Number(b.total) || 0), 0),
@@ -573,6 +583,7 @@ export default function BookingsPage() {
     CONFIRMED: stats.confirmed,
     COMPLETED: stats.completed,
     CANCELLED: stats.cancelled,
+    REFUNDS: stats.refunds,
   };
 
   // Supplier-created bookings: the server decides whether this supplier may
