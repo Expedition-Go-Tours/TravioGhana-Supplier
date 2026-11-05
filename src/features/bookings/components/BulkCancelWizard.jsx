@@ -133,10 +133,15 @@ export default function BulkCancelWizard({ isOpen, onClose, onCompleted }) {
           const start = new Date(scope.dateFrom);
           const end = new Date(scope.dateTo);
           end.setHours(23, 59, 59, 999);
+          const startOfToday = new Date();
+          startOfToday.setHours(0, 0, 0, 0);
           const count = result.bookings.filter((b) => {
             if (b.status !== "PENDING" && b.status !== "CONFIRMED") return false;
             if (scope.time && b.selectedTime !== scope.time) return false;
             const travel = new Date(b.travelDate);
+            // The server refuses to cancel on the activity day; counting those
+            // rows here would promise a number the run cannot deliver.
+            if (travel <= startOfToday) return false;
             return travel >= start && travel <= end;
           }).length;
           const truncated = (result.pagination?.totalCount ?? 0) > 1000;
@@ -493,6 +498,12 @@ export default function BulkCancelWizard({ isOpen, onClose, onCompleted }) {
                     Counted from your current bookings — the final number is
                     confirmed when the cancellation runs.
                   </p>
+                  {new Date(scope.dateTo) >= new Date(new Date().setHours(0, 0, 0, 0)) && (
+                    <p className="mt-2 text-xs text-amber-700">
+                      Bookings today or earlier are excluded — the activity has
+                      already started, and cancellation closes on the day.
+                    </p>
+                  )}
                 </div>
 
                 {/* Mandatory stop-selling prompt */}

@@ -218,6 +218,11 @@ export default function BookingCard({
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const travelDatePassed = new Date(booking.travelDate) < today;
+  // Cancellation closes at 00:00 on the activity day; the server enforces the
+  // same rule, so this is the button matching the API rather than preventing it.
+  const travelDay = new Date(booking.travelDate);
+  travelDay.setHours(0, 0, 0, 0);
+  const travelDayStarted = travelDay <= today;
   // Reserve-now-pay-later bookings start PENDING with no money captured; payment
   // is the gate, so don't offer a manual "Accept booking" until the charge lands.
   // A PAID PENDING booking (pay-later charged, or a manual-confirmation tour)
@@ -230,7 +235,10 @@ export default function BookingCard({
   ).filter(
     // Post-activity states: only after the activity date has passed.
     (a) => !((a.value === 'COMPLETED' || a.value === 'NO_SHOW') && !travelDatePassed)
-  ).filter((a) => a.value !== 'REFUND_REQUEST' || canRequestRefund);
+  ).filter((a) => a.value !== 'REFUND_REQUEST' || canRequestRefund)
+    .map((a) => (a.value === 'CANCELLED' && travelDayStarted
+      ? { ...a, disabled: true, disabledReason: 'Cancellation is closed on the day of the activity. Mark it completed or no-show.' }
+      : a));
   const pickup = booking.pickup || {};
   // The card and the detail panel must read the same snapshot the same way:
   // exact street address first, then the short label, legacy place and zone.
@@ -850,11 +858,12 @@ export default function BookingCard({
                       e.stopPropagation();
                       onStatusUpdate(booking.id, action.value);
                     }}
-                    disabled={isUpdating}
+                    disabled={isUpdating || action.disabled}
+                    title={action.disabled ? action.disabledReason : undefined}
                     className={cn(
                       // A full-width target on a phone; compact in the row on
                       // desktop, where these sit beside the secondary actions.
-                      "inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 sm:w-auto sm:py-2",
+                      "inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:py-2",
                       action.variant === "primary"
                         ? "bg-emerald-600 text-white shadow-sm hover:bg-emerald-700"
                         : action.variant === "danger"

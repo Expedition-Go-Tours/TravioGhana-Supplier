@@ -341,6 +341,9 @@ function StatusActions({ booking, onStatusUpdate, isUpdating, onChanged }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const travelDatePassed = new Date(booking.travelDate) < today;
+  const travelDay = new Date(booking.travelDate);
+  travelDay.setHours(0, 0, 0, 0);
+  const travelDayStarted = travelDay <= today;
   const payLaterUnpaid =
     booking.paymentTiming === "later" &&
     booking.status === "PENDING" &&
@@ -366,7 +369,13 @@ function StatusActions({ booking, onStatusUpdate, isUpdating, onChanged }) {
           ? "The activity date has passed; confirm nothing. Cancel it instead."
           : null,
     });
-    actions.push({ value: "CANCELLED", label: "Cancel booking", variant: "danger" });
+    actions.push({
+      value: "CANCELLED",
+      label: "Cancel booking",
+      variant: "danger",
+      disabled: travelDayStarted,
+      disabledReason: "Cancellation is closed on the day of the activity.",
+    });
   } else if (booking.status === "CONFIRMED") {
     actions.push({
       value: "COMPLETED",
@@ -382,7 +391,13 @@ function StatusActions({ booking, onStatusUpdate, isUpdating, onChanged }) {
       disabled: !travelDatePassed,
       disabledReason: "No-show can only be recorded after the activity date.",
     });
-    actions.push({ value: "CANCELLED", label: "Cancel booking", variant: "danger" });
+    actions.push({
+      value: "CANCELLED",
+      label: "Cancel booking",
+      variant: "danger",
+      disabled: travelDayStarted,
+      disabledReason: "Cancellation is closed on the day of the activity.",
+    });
   } else if ((booking.status === "COMPLETED" || booking.status === "NO_SHOW") && canRequestRefund) {
     // Post-activity refund: the supplier asks, an admin approves, and the
     // refund is charged to the supplier's balance. Kept in step with the
