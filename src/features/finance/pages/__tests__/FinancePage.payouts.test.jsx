@@ -13,6 +13,7 @@ const {
   updatePayoutSettingsMock,
   createPayoutRequestMock,
   fetchMyInvoicesMock,
+  fetchRefundRequestsMock,
 } = vi.hoisted(() => ({
   fetchFinanceSummaryMock: vi.fn(),
   fetchFinanceEarningsMock: vi.fn(),
@@ -23,6 +24,14 @@ const {
   updatePayoutSettingsMock: vi.fn(),
   createPayoutRequestMock: vi.fn(),
   fetchMyInvoicesMock: vi.fn(),
+  fetchRefundRequestsMock: vi.fn(),
+}));
+
+// The refunds tab now lists the supplier's own refund requests from the
+// bookings API; keep it local so no real I/O runs in these tests.
+vi.mock('@/features/bookings/api', () => ({
+  fetchRefundRequests: fetchRefundRequestsMock,
+  withdrawRefundRequest: vi.fn(() => Promise.resolve({})),
 }));
 
 vi.mock('../../api', () => ({
@@ -199,6 +208,7 @@ beforeEach(() => {
   fetchFinanceDisputesMock.mockResolvedValue({ disputes: [], pagination: null });
   getFinanceChargesMock.mockResolvedValue({ charges: [], openTotals: [] });
   fetchMyInvoicesMock.mockResolvedValue({ invoices: [], pagination: null });
+  fetchRefundRequestsMock.mockResolvedValue({ requests: [], total: 0, page: 1, limit: 50 });
 });
 
 describe('FinancePage — the earnings list opens on All', () => {
@@ -553,21 +563,42 @@ describe('FinancePage — the payout dialog', () => {
     expect(screen.getByRole('button', { name: /submit request/i })).not.toHaveFocus();
   });
 
-  it('gives the refund dialog the same semantics', async () => {
-    // It was the same bare overlay with the same missing role and key handling,
-    // so it needed the same treatment rather than being left behind.
-    // The refund modal is reached from the Refunds tab, not the Earnings one.
+  it('lists the supplier’s own refund requests on the Refunds tab', async () => {
+    fetchRefundRequestsMock.mockResolvedValue({
+      requests: [{
+        id: 'sr1',
+        requestNumber: 'SR-20261105-E2AD',
+        status: 'COMPLETED',
+        createdAt: '2026-11-05T13:17:26.909Z',
+        decidedAt: '2026-11-05T13:33:35.281Z',
+        preview: { proposed: 35, charge: 29.75, currency: 'USD' },
+        booking: {
+          bookingNumber: 'TRG-45236279-2026-54',
+          tourTitle: 'Accra Guided City Tour',
+          travelDate: '2026-10-27T00:00:00.000Z',
+          grossAmount: 35,
+          currency: 'USD',
+        },
+      }],
+      total: 1,
+      page: 1,
+      limit: 50,
+    });
+
     renderPage('refunds');
     await ready();
 
-    await userEvent.click(await screen.findByRole('button', { name: /request refund/i }));
-    const dialog = await screen.findByRole('dialog');
+    expect(await screen.findByText('SR-20261105-E2AD')).toBeInTheDocument();
+    expect(screen.getByText('Approved')).toBeInTheDocument();
+    expect(screen.getByText('-$35.00')).toBeInTheDocument();
+    // The request lives in the tabbed list, not in a separate block.
+    expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
+  });
 
-    expect(dialog).toHaveAttribute('aria-modal', 'true');
-    expect(dialog).toHaveAccessibleName('Request a refund');
-
-    await userEvent.keyboard('{Escape}');
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  it('sends the supplier to a completed booking to file a refund', async () => {
+    renderPage('refunds');
+    await ready();
+    expect(await screen.findByRole('button', { name: /request a refund/i })).toBeInTheDocument();
   });
 });
 

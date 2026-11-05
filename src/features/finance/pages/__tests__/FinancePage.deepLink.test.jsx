@@ -16,7 +16,7 @@ const {
   fetchPayoutRequestsMock,
   fetchPayoutRequestByIdMock,
   fetchPayoutMethodsMock,
-  fetchFinanceDisputesMock,
+  fetchRefundRequestsMock,
   getFinanceChargesMock,
   fetchMyInvoicesMock,
 } = vi.hoisted(() => ({
@@ -25,7 +25,7 @@ const {
   fetchPayoutRequestsMock: vi.fn(),
   fetchPayoutRequestByIdMock: vi.fn(),
   fetchPayoutMethodsMock: vi.fn(),
-  fetchFinanceDisputesMock: vi.fn(),
+  fetchRefundRequestsMock: vi.fn(),
   getFinanceChargesMock: vi.fn(),
   fetchMyInvoicesMock: vi.fn(),
 }));
@@ -36,7 +36,6 @@ vi.mock('../../api', () => ({
   fetchPayoutRequests: fetchPayoutRequestsMock,
   fetchPayoutRequestById: fetchPayoutRequestByIdMock,
   fetchPayoutMethods: fetchPayoutMethodsMock,
-  fetchFinanceDisputes: fetchFinanceDisputesMock,
   getFinanceCharges: getFinanceChargesMock,
   fetchMyInvoices: fetchMyInvoicesMock,
   cancelPayoutRequest: vi.fn(),
@@ -59,7 +58,8 @@ vi.mock('@/stores/authStore', () => ({
 // The refunds tab also loads the supplier's own refund requests; keep that
 // call local so the tab's dispute assertions are not affected by real I/O.
 vi.mock('@/features/bookings/api', () => ({
-  fetchRefundRequests: vi.fn(() => Promise.resolve({ requests: [], total: 0, page: 1, limit: 10 })),
+  fetchRefundRequests: fetchRefundRequestsMock,
+  withdrawRefundRequest: vi.fn(() => Promise.resolve({})),
 }));
 
 vi.mock('@/features/refund-claims/pages/RefundClaimsPage', () => ({ default: () => null }));
@@ -131,23 +131,6 @@ const payoutRequestRow = (over = {}) => ({
   ...over,
 });
 
-const disputeRow = (over = {}) => ({
-  id: 'dp1',
-  disputeNumber: 'DP-2026-0001',
-  reason: 'TOUR_CANCELLED',
-  description: '',
-  status: 'OPEN',
-  resolution: '',
-  refundAmount: 120,
-  createdAt: '2026-10-05T00:26:00.000Z',
-  resolvedAt: null,
-  bookingNumber: 'GHA-1001',
-  tourTitle: 'Kakum Canopy Walk',
-  travelDate: '2026-10-06T00:00:00.000Z',
-  grossAmount: 250,
-  currency: 'USD',
-  ...over,
-});
 
 const renderPage = (url) =>
   render(
@@ -168,7 +151,7 @@ beforeEach(() => {
     payoutRequestRow({ id: 'pr9', requestNumber: 'PR-20261005-000009' })
   );
   fetchPayoutMethodsMock.mockResolvedValue([]);
-  fetchFinanceDisputesMock.mockResolvedValue({ disputes: [disputeRow()], pagination: null });
+  fetchRefundRequestsMock.mockResolvedValue({ requests: [], total: 0, page: 1, limit: 50 });
   getFinanceChargesMock.mockResolvedValue({ charges: [], openTotals: [] });
   fetchMyInvoicesMock.mockResolvedValue({ invoices: [], pagination: null });
 });
@@ -201,36 +184,42 @@ describe('a ?payoutRequestId deep link', () => {
   });
 });
 
-describe('a ?disputeId deep link', () => {
-  it('fetches the refund it names and opens its detail', async () => {
-    fetchFinanceDisputesMock.mockImplementation((params = {}) =>
-      Promise.resolve(
-        params.disputeId
-          ? { disputes: [disputeRow({ id: 'dp9', disputeNumber: 'DP-2026-0009' })], pagination: null }
-          : { disputes: [disputeRow()], pagination: null }
-      )
-    );
-    renderPage('/finance?tab=refunds&disputeId=dp9');
+describe('a ?refundRequestId deep link', () => {
+  it('shows the refund request the notification is about, inside the tabbed list', async () => {
+    fetchRefundRequestsMock.mockResolvedValue({
+      requests: [{
+        id: 'sr9',
+        requestNumber: 'SR-20261105-E2AD',
+        status: 'COMPLETED',
+        createdAt: '2026-11-05T13:17:26.909Z',
+        decidedAt: '2026-11-05T13:33:35.281Z',
+        preview: { proposed: 35, charge: 29.75, currency: 'USD' },
+        booking: {
+          bookingNumber: 'TRG-45236279-2026-54',
+          tourTitle: 'Accra Guided City Tour',
+          travelDate: '2026-10-27T00:00:00.000Z',
+          grossAmount: 35,
+          currency: 'USD',
+        },
+      }],
+      total: 1,
+      page: 1,
+      limit: 50,
+    });
+
+    renderPage('/finance?tab=refunds&refundRequestId=sr9');
     await ready();
 
-    await waitFor(() =>
-      expect(fetchFinanceDisputesMock).toHaveBeenCalledWith({ disputeId: 'dp9' })
-    );
-    // Assert inside waitFor rather than via findByText: the row is mounted by
-    // an effect after the fetch resolves, so the query and the assertion have
-    // to happen in the same render — between two awaits the row can still be
-    // mid-mount.
-    await waitFor(() => expect(screen.getByText('DP-2026-0009')).toBeInTheDocument());
-    // The row expands on click; the link does it for the supplier.
-    await waitFor(() => expect(screen.getByText('Booking total')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('SR-20261105-E2AD')).toBeInTheDocument());
+    // It lives in the same list as every other request, under the All tab.
+    expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
+    expect(document.getElementById('refund-request-sr9')).toBeInTheDocument();
   });
 
-  it('opens a refund already on the page without refetching', async () => {
-    renderPage('/finance?tab=refunds&disputeId=dp1');
+  it('sends the supplier to a completed booking to file a refund', async () => {
+    renderPage('/finance?tab=refunds');
     await ready();
-
-    await waitFor(() => expect(screen.getByText('Booking total')).toBeInTheDocument());
-    expect(fetchFinanceDisputesMock).toHaveBeenCalledTimes(1);
+    expect(await screen.findByRole('button', { name: /request a refund/i })).toBeInTheDocument();
   });
 });
 

@@ -210,9 +210,10 @@ describe("notificationPresentation — every link names the thing it is about", 
     expect(mapped.actionLabel).toBe("View Payout");
   });
 
-  it("keeps the dispute id on the refunds tab", () => {
+  it("sends an old dispute notification to the refunds tab", () => {
     const mapped = route("DISPUTE_RESOLVED", { disputeId: "dp-1" });
-    expect(mapped.action).toBe("/finance?tab=refunds&disputeId=dp-1");
+    // The legacy dispute list is retired; the tab is still the right place.
+    expect(mapped.action).toBe("/finance?tab=refunds");
   });
 
   it("opens the invoice a money notice is about", () => {

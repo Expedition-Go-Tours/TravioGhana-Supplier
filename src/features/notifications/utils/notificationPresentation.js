@@ -113,7 +113,9 @@ function getNotificationRoute(type, data = {}) {
     };
   }
   if (data.disputeId) {
-    return { path: `/finance?tab=refunds&disputeId=${data.disputeId}`, label: "View Refund" };
+    // The legacy dispute list is retired from the Refunds tab; the tab itself
+    // is still the right destination for an old dispute notification.
+    return { path: "/finance?tab=refunds", label: "View Refunds" };
   }
   if (data.invoiceId) {
     return { path: `/finance?tab=invoices&invoiceId=${data.invoiceId}`, label: "View Invoice" };

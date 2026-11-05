@@ -1,38 +1,37 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import RefundClaimsPage from "@/features/refund-claims/pages/RefundClaimsPage";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   DollarSign, Wallet, CreditCard, Loader2, RefreshCw, Plus, Trash2,
   TrendingUp, Landmark, Smartphone, Eye, EyeOff, FileText,
   CheckCircle2, AlertTriangle, X, ChevronDown, ChevronLeft, ChevronRight, Banknote,
-  Calendar, Info, Search, Lock, XCircle, Undo2, ClipboardList,
+  Calendar, Info, Lock, XCircle, Undo2, ClipboardList,
   ListFilter as FilterIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { useModalDialog } from "@/components/shared/useModalDialog";
-import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { formatCurrency, formatDate, formatTravelDate, cn } from "@/lib/utils";
 import { PayoutScheduleEditor, PayoutScheduleSummary } from "../components/PayoutScheduleCard";
 import PayoutMethodFormSheet from "../components/PayoutMethodFormSheet";
 import InvoicesTab from "../components/InvoicesTab";
 import {
-  cancelPayoutRequest, createPayoutMethod, createPayoutRequest, createRefundRequest, deletePayoutMethod,
-  fetchFinanceDisputes, fetchFinanceEarnings, fetchFinanceSummary, fetchMyInvoices, fetchPayoutMethods, fetchPayoutRequestById,
+  cancelPayoutRequest, createPayoutMethod, createPayoutRequest, deletePayoutMethod,
+  fetchFinanceEarnings, fetchFinanceSummary, fetchMyInvoices, fetchPayoutMethods, fetchPayoutRequestById,
   fetchPayoutRequests,
   getFinanceCharges,
-  withdrawRefundRequest,
 } from "../api";
 import { getAuthToken } from "@/stores/authStore";
 import { useTeamRole } from "@/hooks/useTeamRole";
-import { fetchRefundRequests } from "@/features/bookings/api";
+import { fetchRefundRequests, withdrawRefundRequest } from "@/features/bookings/api";
 import { DENIED_ACTION_REASON } from "@/config/pageAccess";
 import { moneyLine, moneyTotal, hasPositiveAmount } from "../money";
 import { COUNTRIES, PAYOUT_METHOD_TYPES, maskTail } from "../config/payoutMethodForm";
 import { describeActionError } from "@/lib/errorHandler";
 
-/** Status pills for the supplier's own refund requests (separate from disputes). */
+/** Status pills for the supplier's own refund requests. */
 const REFUND_REQUEST_STATUS = {
   PENDING_APPROVAL: { label: "Pending review", cls: "border-amber-200 bg-amber-50 text-amber-700" },
   EXECUTING: { label: "Processing", cls: "border-sky-200 bg-sky-50 text-sky-700" },
@@ -66,159 +65,21 @@ const FILTER_PILLS = [
   { key: "CANCELLED", label: "Cancelled" },
 ];
 
-const REFUND_STATUS_FILTERS = [
-  { key: "", label: "All" },
-  { key: "OPEN,UNDER_REVIEW", label: "In review" },
-  { key: "RESOLVED_CUSTOMER,RESOLVED_SUPPLIER", label: "Resolved" },
-  { key: "WITHDRAWN", label: "Withdrawn" },
+const REFUND_REQUEST_FILTERS = [
+  { key: "", label: "All", statuses: null },
+  { key: "IN_REVIEW", label: "In review", statuses: ["PENDING_APPROVAL", "EXECUTING"] },
+  { key: "RESOLVED", label: "Resolved", statuses: ["COMPLETED", "REJECTED", "FAILED"] },
+  { key: "WITHDRAWN", label: "Withdrawn", statuses: ["WITHDRAWN"] },
 ];
 
-const REFUND_REASONS = [
-  { value: "OPERATIONAL", label: "Operational issue", desc: "Guide, vehicle or venue unavailable · minimum participants not reached" },
-  { value: "FORCE_MAJEURE", label: "Force majeure", desc: "Weather, disasters or events beyond your control" },
-  { value: "CUSTOMER_REQUESTED", label: "Customer requested", desc: "The customer asked you directly for a refund" },
-  { value: "OTHER", label: "Other", desc: "Anything else that warrants a refund" },
-];
-
-const INITIAL_REFUND_FORM = { bookingId: "", reason: "", description: "" };
+/** "GUIDE_ISSUE" → "Guide issue" — the reason codes are stable API values. */
+function humanizeReason(code) {
+  if (!code) return "—";
+  const text = String(code).replace(/_/g, " ").toLowerCase();
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
 
 const PAGE_SIZE = 20;
-
-// Searchable booking picker rendered through a portal so it can never be
-// clipped by the modal's scroll container. Closes on Escape, outside click,
-// or scroll of anything other than its own panel.
-function BookingCombobox({ options, value, onChange }) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const triggerRef = useRef(null);
-  const panelRef = useRef(null);
-  const [style, setStyle] = useState(null);
-
-  const selected = options.find((b) => b.id === value) || null;
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return options;
-    return options.filter((b) =>
-      [b.bookingNumber, b.tour, b.customer].some((v) => String(v || "").toLowerCase().includes(q))
-    );
-  }, [options, query]);
-
-  const place = useCallback(() => {
-    const el = triggerRef.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - r.bottom - 16;
-    const flip = spaceBelow < 180 && r.top > 240;
-    setStyle({
-      position: "fixed",
-      left: r.left,
-      width: r.width,
-      ...(flip
-        ? { bottom: window.innerHeight - r.top + 4, maxHeight: Math.min(288, r.top - 16) }
-        : { top: r.bottom + 4, maxHeight: Math.min(288, Math.max(160, spaceBelow)) }),
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!open) return;
-    place();
-    const onDown = (e) => {
-      if (triggerRef.current?.contains(e.target) || panelRef.current?.contains(e.target)) return;
-      setOpen(false);
-    };
-    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
-    const onScroll = (e) => {
-      if (panelRef.current?.contains(e.target) || triggerRef.current?.contains(e.target)) return;
-      setOpen(false);
-    };
-    window.addEventListener("resize", place);
-    window.addEventListener("scroll", onScroll, true);
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("resize", place);
-      window.removeEventListener("scroll", onScroll, true);
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open, place]);
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        ref={triggerRef}
-        onClick={() => { setOpen((o) => !o); setQuery(""); }}
-        className={cn(
-          "w-full flex items-center justify-between gap-2 px-3.5 py-2.5 border rounded-lg text-sm bg-white text-left transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400",
-          selected ? "border-slate-200" : "border-slate-200 text-slate-400"
-        )}
-      >
-        {selected ? (
-          <span className="min-w-0">
-            <span className="block font-medium text-slate-900 truncate">{selected.bookingNumber}</span>
-            <span className="block text-xs text-slate-500 truncate">
-              {selected.tour} · {formatCurrency(selected.grossAmount, selected.currency)}
-            </span>
-          </span>
-        ) : (
-          <span>Select a booking…</span>
-        )}
-        <ChevronDown size={16} className={cn("text-slate-500 shrink-0 transition-transform", open && "rotate-180")} />
-      </button>
-
-      {open && createPortal(
-        <div
-          ref={panelRef}
-          style={style}
-          className="bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden flex flex-col z-[60]"
-        >
-          <div className="p-2 border-b border-slate-100 shrink-0">
-            <div className="relative">
-              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input
-                autoFocus
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search booking #, tour or customer…"
-                className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-md text-sm text-slate-700 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
-              />
-            </div>
-          </div>
-          <div className="overflow-y-auto">
-            {filtered.length === 0 ? (
-              <p className="px-3 py-6 text-center text-sm text-slate-500">No bookings match “{query.trim()}”</p>
-            ) : (
-              filtered.map((b) => (
-                <button
-                  key={b.id}
-                  type="button"
-                  onClick={() => { onChange(b.id); setOpen(false); setQuery(""); }}
-                  className={cn(
-                    "w-full px-3 py-2.5 text-left hover:bg-slate-50 transition-colors",
-                    value === b.id && "bg-emerald-50"
-                  )}
-                >
-                  <span className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium text-slate-900">{b.bookingNumber}</span>
-                    <span className="text-sm font-semibold text-slate-700 shrink-0 tabular-nums">
-                      {formatCurrency(b.grossAmount, b.currency)}
-                    </span>
-                  </span>
-                  <span className="block text-xs text-slate-500 truncate">
-                    {b.tour}{b.travelDate ? ` · ${formatDate(b.travelDate)}` : ""}{b.customer ? ` · ${b.customer}` : ""}
-                  </span>
-                </button>
-              ))
-            )}
-          </div>
-        </div>,
-        document.body
-      )}
-    </div>
-  );
-}
 
 function TablePagination({ pagination, page, onPageChange }) {
   if (!pagination || !pagination.totalPages || pagination.totalPages <= 1) return null;
@@ -274,16 +135,16 @@ function SummaryCard({ label, value, icon: Icon, tint = "bg-slate-50 text-slate-
 
 export default function FinancePage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   // Normalize unknown/stale ?tab= values (e.g. legacy "requests" deep links)
   // to the default tab so the page can never render with no active tab.
   const requestedTab = searchParams.get("tab") || "earnings";
   const activeTab = TABS.some((tab) => tab.key === requestedTab) ? requestedTab : "earnings";
-  // Deep links from the notification bell (?payoutRequestId / ?disputeId /
-  // ?invoiceId) name the row or invoice the notification is about. The tab
-  // alone was never enough: the target may sit on any page of a paginated
-  // list, so it is resolved by id below and pulsed in place.
+  // Deep links from the notification bell (?payoutRequestId / ?invoiceId /
+  // ?refundRequestId) name the row, invoice or refund request the
+  // notification is about. The tab alone was never enough: the target may sit
+  // on any page of a paginated list, so it is resolved by id below.
   const focusPayoutRequestId = searchParams.get("payoutRequestId") || null;
-  const focusDisputeId = searchParams.get("disputeId") || null;
   const focusInvoiceId = searchParams.get("invoiceId") || null;
   // A supplier refund decision lands on the Refunds tab and names the request.
   const focusRefundRequestId = searchParams.get("refundRequestId") || null;
@@ -314,29 +175,17 @@ export default function FinancePage() {
     enabled: !submittingRequest,
   });
   const [cancellingRequestId, setCancellingRequestId] = useState(null);
-  const [disputes, setDisputes] = useState([]);
   // The supplier's own refund requests (supplier asks, admin decides). They
-  // are filed from a booking but live here, on the Refunds tab, which is where
-  // the decision email/notification sends the supplier.
+  // are filed from a completed booking and reported here; the decision email
+  // and bell deep-link into this list (?refundRequestId=).
   const [refundRequests, setRefundRequests] = useState([]);
   const [refundRequestsError, setRefundRequestsError] = useState(null);
-  const [disputeStatusFilter, setDisputeStatusFilter] = useState("");
-  const [expandedDispute, setExpandedDispute] = useState(null);
-  const [withdrawingDisputeId, setWithdrawingDisputeId] = useState(null);
-  const [showRefundModal, setShowRefundModal] = useState(false);
-  const [refundForm, setRefundForm] = useState(INITIAL_REFUND_FORM);
-  const [submittingRefund, setSubmittingRefund] = useState(false);
-  const refundDialog = useModalDialog({
-    open: showRefundModal,
-    onClose: () => setShowRefundModal(false),
-    enabled: !submittingRefund,
-  });
-  const [eligibleBookings, setEligibleBookings] = useState([]);
-  const [loadingEligible, setLoadingEligible] = useState(false);
+  const [refundRequestFilter, setRefundRequestFilter] = useState("");
+  const [expandedRefundRequest, setExpandedRefundRequest] = useState(null);
+  const [withdrawingRefundRequestId, setWithdrawingRefundRequestId] = useState(null);
   const [page, setPage] = useState(1);
   const [earningsPagination, setEarningsPagination] = useState(null);
   const [payoutsPagination, setPayoutsPagination] = useState(null);
-  const [disputesPagination, setDisputesPagination] = useState(null);
   const [charges, setCharges] = useState({ rows: [], openTotals: [], openByReason: {}, loading: true, error: null });
   const [invoices, setInvoices] = useState([]);
   const [invoicesPagination, setInvoicesPagination] = useState(null);
@@ -380,25 +229,15 @@ export default function FinancePage() {
         setInvoices(invResult.invoices || []);
         setInvoicesPagination(invResult.pagination || null);
       } else if (activeTab === "refunds") {
-        const [result, mine] = await Promise.all([
-          fetchFinanceDisputes({
-            page,
-            limit: PAGE_SIZE,
-            ...(disputeStatusFilter ? { status: disputeStatusFilter } : {}),
-          }),
-          fetchRefundRequests({ limit: 10 }).catch((err) => ({ __error: err })),
-        ]);
-        setDisputes(result.disputes || []);
-        setDisputesPagination(result.pagination || null);
-        if (mine.__error) {
-          setRefundRequestsError(
-            mine.__error.response?.data?.message ||
-              mine.__error.message ||
-              "Could not load your refund requests.",
-          );
-        } else {
-          setRefundRequestsError(null);
+        try {
+          const mine = await fetchRefundRequests({ limit: 50 });
           setRefundRequests(mine.requests || []);
+          setRefundRequestsError(null);
+        } catch (err) {
+          if (err.code === "AUTH_REQUIRED") return;
+          setRefundRequestsError(
+            err.response?.data?.message || err.message || "Could not load your refund requests.",
+          );
         }
       } else if (activeTab === "methods") {
         const result = await fetchPayoutMethods();
@@ -409,17 +248,25 @@ export default function FinancePage() {
       if (err.code === "AUTH_REQUIRED") return;
       setError(err.response?.data?.message || err.message || "Failed to load finance data");
     } finally { setLoading(false); }
-  }, [activeTab, disputeStatusFilter, filterPill, page, invoiceStatusFilter]);
+  }, [activeTab, filterPill, page, invoiceStatusFilter]);
 
   // Reset to the first page whenever the tab or a filter changes
   // (render-phase state adjustment — the linter-approved way to sync state to
   // a prop/derived change without calling setState in an effect).
-  const resetKey = `${activeTab}|${disputeStatusFilter ?? ""}|${filterPill ?? ""}|${invoiceStatusFilter ?? ""}`;
+  const resetKey = `${activeTab}|${filterPill ?? ""}|${invoiceStatusFilter ?? ""}`;
   const [prevResetKey, setPrevResetKey] = useState(resetKey);
   if (resetKey !== prevResetKey) {
     setPrevResetKey(resetKey);
     setPage(1);
   }
+
+  // Refunds are filtered client-side: the list is small and the tabs group
+  // several statuses, which a single ?status= cannot express.
+  const filteredRefundRequests = useMemo(() => {
+    const filter = REFUND_REQUEST_FILTERS.find((f) => f.key === refundRequestFilter);
+    if (!filter?.statuses) return refundRequests;
+    return refundRequests.filter((r) => filter.statuses.includes(r.status));
+  }, [refundRequests, refundRequestFilter]);
 
   useEffect(() => {
     let cancelled = false;
@@ -452,36 +299,16 @@ export default function FinancePage() {
     return () => { cancelled = true; };
   }, [focusPayoutRequestId, activeTab, loading, payoutRequests]);
 
+  // Scroll the deep-linked payout request into view once it is on the page.
   useEffect(() => {
-    if (!focusDisputeId || loading || activeTab !== "refunds") return;
-    if (disputes.some((d) => d.id === focusDisputeId)) return;
-    let cancelled = false;
-    fetchFinanceDisputes({ disputeId: focusDisputeId })
-      .then(({ disputes: found }) => {
-        if (cancelled || !found?.[0]) return;
-        const target = found[0];
-        setDisputes((prev) => (prev.some((d) => d.id === target.id) ? prev : [target, ...prev]));
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [focusDisputeId, activeTab, loading, disputes]);
-
-  // Scroll the deep-linked row into view and open its detail, once it exists.
-  // The dispute row is a click-to-expand row, so the deep link expands it too.
-  useEffect(() => {
-    const focusId = focusPayoutRequestId || focusDisputeId;
-    if (!focusId || loading) return;
-    const onTab =
-      (focusPayoutRequestId && activeTab === "payouts" && payoutRequests.some((r) => r.id === focusId)) ||
-      (focusDisputeId && activeTab === "refunds" && disputes.some((d) => d.id === focusId));
-    if (!onTab) return;
-    if (focusDisputeId) setExpandedDispute(focusDisputeId);
+    if (!focusPayoutRequestId || loading || activeTab !== "payouts") return undefined;
+    if (!payoutRequests.some((r) => r.id === focusPayoutRequestId)) return undefined;
     const timer = setTimeout(() => {
-      document.getElementById(`finance-row-${focusId}`)
+      document.getElementById(`finance-row-${focusPayoutRequestId}`)
         ?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 100);
     return () => clearTimeout(timer);
-  }, [focusPayoutRequestId, focusDisputeId, activeTab, loading, payoutRequests, disputes]);
+  }, [focusPayoutRequestId, activeTab, loading, payoutRequests]);
 
   // The invoice drawer opens straight from its id (it fetches the invoice
   // itself), so the param only has to be dropped once the supplier closes it —
@@ -497,7 +324,7 @@ export default function FinancePage() {
   // The highlight is a one-off: the param goes after 8s so a reload does not
   // re-scroll to a target the supplier has long since moved past.
   useEffect(() => {
-    if (!focusPayoutRequestId && !focusDisputeId && !focusRefundRequestId) return undefined;
+    if (!focusPayoutRequestId && !focusRefundRequestId) return undefined;
     const timer = setTimeout(() => {
       setSearchParams((prev) => {
         const next = new URLSearchParams(prev);
@@ -508,7 +335,7 @@ export default function FinancePage() {
       }, { replace: true });
     }, 8000);
     return () => clearTimeout(timer);
-  }, [focusPayoutRequestId, focusDisputeId, focusRefundRequestId, setSearchParams]);
+  }, [focusPayoutRequestId, focusRefundRequestId, setSearchParams]);
 
   // Scroll the deep-linked refund request into view once its list has loaded.
   useEffect(() => {
@@ -692,50 +519,16 @@ export default function FinancePage() {
 
   // ── Refund requests ──
 
-  const openRefundModal = async () => {
-    setShowRefundModal(true);
-    setRefundForm(INITIAL_REFUND_FORM);
-    setLoadingEligible(true);
-    try {
-      const result = await fetchFinanceEarnings({ limit: 500, payoutStatus: "PENDING,ELIGIBLE" });
-      const eligible = (result.earnings || []).filter((e) => !e.openDispute);
-      setEligibleBookings(eligible);
-    } catch {
-      setEligibleBookings([]);
-    } finally {
-      setLoadingEligible(false);
-    }
-  };
-
-  const handleSubmitRefund = async (e) => {
-    e.preventDefault();
-    if (!refundForm.bookingId) return toast.error("Select a booking");
-    if (!refundForm.reason) return toast.error("Choose a reason for the refund");
-    setSubmittingRefund(true);
-    try {
-      await createRefundRequest({
-        bookingId: refundForm.bookingId,
-        reason: refundForm.reason,
-        description: refundForm.description || undefined,
-      });
-      toast.success("Refund request submitted for review");
-      setShowRefundModal(false);
-      await loadData();
-    } catch (err) {
-      toast.error(describeActionError(err, "Couldn't submit refund request"));
-    } finally { setSubmittingRefund(false); }
-  };
-
   const handleWithdrawRefund = async (id) => {
-    if (!confirm("Withdraw this refund request? The booking's funds will become available for payout again.")) return;
-    setWithdrawingDisputeId(id);
+    if (!confirm("Withdraw this refund request? It will no longer be reviewed.")) return;
+    setWithdrawingRefundRequestId(id);
     try {
       await withdrawRefundRequest(id);
       toast.success("Refund request withdrawn");
       await loadData();
     } catch (err) {
-      toast.error(describeActionError(err, "Couldn't withdraw refund request"));
-    } finally { setWithdrawingDisputeId(null); }
+      toast.error(describeActionError(err, "Couldn't withdraw the refund request"));
+    } finally { setWithdrawingRefundRequestId(null); }
   };
 
   // ── Stat cards. v3 (balance / next payout) for enrolled suppliers; the v2
@@ -1084,125 +877,6 @@ export default function FinancePage() {
                   {submittingRequest ? "Submitting..." : "Submit request"}
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
-        )}
-        </AnimatePresence>,
-        document.body
-      )}
-
-      {/* Refund Request Modal */}
-      {createPortal(
-        <AnimatePresence>
-          {showRefundModal && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
-              onClick={() => !submittingRefund && setShowRefundModal(false)}
-            >
-            <motion.div
-              ref={refundDialog.panelRef}
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="refund-request-dialog-title"
-              tabIndex={-1}
-              initial={{ opacity: 0, scale: 0.95, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 8 }}
-              transition={{ duration: 0.18 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto"
-            >
-              <form onSubmit={handleSubmitRefund}>
-                <div className="flex items-start justify-between mb-4">
-                  <div className="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center">
-                    <Undo2 size={22} className="text-emerald-600" />
-                  </div>
-                  <button type="button" onClick={() => setShowRefundModal(false)} disabled={submittingRefund}
-                    className="-m-1.5 p-1.5 text-slate-500 hover:text-slate-600 transition-colors">
-                    <X size={18} />
-                  </button>
-                </div>
-                <h3 id="refund-request-dialog-title" className="text-lg font-bold text-slate-900">Request a refund</h3>
-                <p className="text-sm text-slate-500 mt-1">
-                  An admin will review your request. While it is open, the booking's funds are on hold.
-                </p>
-
-                <div className="mt-5 space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Booking</label>
-                    {loadingEligible ? (
-                      <div className="flex items-center gap-2 p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-500">
-                        <Loader2 size={15} className="animate-spin shrink-0" />
-                        Loading eligible bookings…
-                      </div>
-                    ) : eligibleBookings.length === 0 ? (
-                      <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
-                        <AlertTriangle size={15} className="shrink-0" />
-                        No eligible bookings right now. Bookings that are paid out or already disputed can't be refunded here.
-                      </div>
-                    ) : (
-                      <BookingCombobox
-                        options={eligibleBookings}
-                        value={refundForm.bookingId}
-                        onChange={(id) => setRefundForm((p) => ({ ...p, bookingId: id }))}
-                      />
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Reason</label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {REFUND_REASONS.map((r) => (
-                        <button
-                          key={r.value}
-                          type="button"
-                          onClick={() => setRefundForm((p) => ({ ...p, reason: r.value }))}
-                          className={cn(
-                            "p-3 rounded-xl border-2 text-left transition-all",
-                            refundForm.reason === r.value
-                              ? "border-emerald-500 bg-emerald-50"
-                              : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
-                          )}
-                        >
-                          <p className={cn(
-                            "text-sm font-semibold",
-                            refundForm.reason === r.value ? "text-emerald-800" : "text-slate-700"
-                          )}>{r.label}</p>
-                          <p className="text-xs text-slate-500 mt-0.5 leading-snug">{r.desc}</p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                      Explanation <span className="font-normal text-slate-500">(optional)</span>
-                    </label>
-                    <textarea
-                      rows={3}
-                      placeholder="Add context that helps the reviewer decide: what happened, what the customer asked for…"
-                      value={refundForm.description}
-                      onChange={(e) => setRefundForm((p) => ({ ...p, description: e.target.value }))}
-                      className="w-full px-3.5 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-700 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all resize-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-3 mt-5">
-                  <button type="button" onClick={() => setShowRefundModal(false)} disabled={submittingRefund}
-                    className="flex-1 py-2.5 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40 transition-colors">
-                    Cancel
-                  </button>
-                  <button type="submit" disabled={submittingRefund || !refundForm.bookingId || !refundForm.reason}
-                    className="flex-1 py-2.5 bg-emerald-700 text-white rounded-lg text-sm font-semibold hover:bg-emerald-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2">
-                    {submittingRefund ? <Loader2 size={16} className="animate-spin" /> : <Undo2 size={16} />}
-                    {submittingRefund ? "Submitting..." : "Submit request"}
-                  </button>
-                </div>
-              </form>
             </motion.div>
           </motion.div>
         )}
@@ -1693,85 +1367,22 @@ export default function FinancePage() {
           </motion.div>
         )}
 
-        {/* REFUNDS TAB — supplier-initiated refund requests */}
+        {/* REFUNDS TAB — the supplier's own refund requests.
+            One lifecycle: filed from a completed booking, decided by our team,
+            reported here. The decision email and bell deep-link into this list
+            (?refundRequestId=). */}
         {activeTab === "refunds" && (
           <motion.div key="refunds" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }} className="space-y-4">
-            {/* The supplier's own refund requests — filed from a booking, decided
-                by our team. This is where the decision email and notification land. */}
-            <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white">
-              <div className="border-b border-slate-200 px-4 py-3 sm:px-5">
-                <h3 className="text-sm font-semibold text-slate-900">Your refund requests</h3>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  Requests you filed for a traveller refund. Our team reviews each one.
-                </p>
-              </div>
-              {refundRequestsError ? (
-                <p className="px-4 py-3 text-xs text-rose-600 sm:px-5">{refundRequestsError}</p>
-              ) : refundRequests.length === 0 ? (
-                <p className="px-4 py-4 text-xs text-slate-500 sm:px-5">
-                  No refund requests filed. You can request one from a completed booking.
-                </p>
-              ) : (
-                <ul className="divide-y divide-slate-100">
-                  {refundRequests.map((r) => {
-                    const meta = REFUND_REQUEST_STATUS[r.status] || {
-                      label: r.status?.replace(/_/g, " "),
-                      cls: "border-slate-200 bg-slate-100 text-slate-600",
-                    };
-                    return (
-                      <li
-                        key={r.id}
-                        id={`refund-request-${r.id}`}
-                        className={cn(
-                          "flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5",
-                          focusRefundRequestId === r.id && "bg-emerald-50/60 ring-2 ring-inset ring-emerald-300",
-                        )}
-                      >
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-mono text-xs font-medium text-emerald-700">{r.requestNumber}</span>
-                            <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-semibold", meta.cls)}>
-                              {meta.label}
-                            </span>
-                          </div>
-                          <p className="mt-0.5 truncate text-xs text-slate-500">
-                            {r.booking?.bookingNumber || "Booking"}
-                            {r.booking?.tourTitle ? ` · ${r.booking.tourTitle}` : ""}
-                          </p>
-                          {r.status === "REJECTED" && r.decisionNote ? (
-                            <p className="mt-1 text-[11px] text-slate-500">Reason: {r.decisionNote}</p>
-                          ) : null}
-                          {r.status === "FAILED" ? (
-                            <p className="mt-1 text-[11px] text-rose-600">
-                              Our team is retrying this refund — you are not charged.
-                            </p>
-                          ) : null}
-                        </div>
-                        <div className="text-right">
-                          <p className="tnum text-sm font-semibold text-slate-900">
-                            {formatCurrency(
-                              Number(r.preview?.proposed || r.refundedAmount || 0),
-                              r.preview?.currency || r.booking?.currency || "USD",
-                            )}
-                          </p>
-                          <p className="text-[11px] text-slate-500">{formatDate(r.createdAt)}</p>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-2 flex-wrap">
-                {REFUND_STATUS_FILTERS.map((pill) => (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                {REFUND_REQUEST_FILTERS.map((pill) => (
                   <button
                     key={pill.key}
-                    onClick={() => setDisputeStatusFilter(pill.key)}
+                    onClick={() => setRefundRequestFilter(pill.key)}
+                    aria-pressed={refundRequestFilter === pill.key}
                     className={cn(
                       "h-8 rounded-full border px-3 text-xs font-medium transition-colors",
-                      disputeStatusFilter === pill.key
+                      refundRequestFilter === pill.key
                         ? "border-emerald-600 bg-emerald-600 text-white"
                         : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-800"
                     )}
@@ -1781,19 +1392,22 @@ export default function FinancePage() {
                 ))}
               </div>
               <button
-                onClick={openRefundModal}
+                onClick={() => navigate("/bookings?tab=COMPLETED")}
                 className="flex h-9 items-center gap-2 rounded-lg bg-emerald-600 px-3.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
               >
                 <Plus size={16} />
-                Request refund
+                Request a refund
               </button>
             </div>
 
             <div className="flex items-start gap-2.5 rounded-xl border border-slate-200/80 bg-slate-50 p-3">
               <Info size={15} className="mt-0.5 shrink-0 text-slate-400" />
               <p className="text-xs leading-relaxed text-slate-600">
-                If a customer's money should go back (cancellations, force majeure, or a direct request), file a refund request.
-                An admin reviews it: approved means the customer is refunded; denied returns the funds to your eligible balance.
+                Refunds are requested from the booking itself, so we capture what happened on the trip.
+                Open a completed booking and choose{" "}
+                <span className="font-medium text-slate-700">Request refund</span>. Our team reviews it:
+                approved means the traveller is refunded and the charge sits on your balance; declined
+                means nothing moves.
               </p>
             </div>
 
@@ -1809,13 +1423,23 @@ export default function FinancePage() {
                   ))}
                 </div>
               </div>
-            ) : disputes.length === 0 ? (
+            ) : refundRequestsError ? (
+              <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-700">
+                {refundRequestsError}
+              </div>
+            ) : filteredRefundRequests.length === 0 ? (
               <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white px-6 py-20 text-center">
                 <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50">
                   <Undo2 size={26} className="text-emerald-300" />
                 </div>
-                <h3 className="text-base font-semibold text-slate-700 mb-1">No refund requests</h3>
-                <p className="text-sm text-slate-500 max-w-[280px]">Requests you file will appear here while they await review.</p>
+                <h3 className="text-base font-semibold text-slate-700 mb-1">
+                  {refundRequestFilter ? "Nothing here yet" : "No refund requests"}
+                </h3>
+                <p className="text-sm text-slate-500 max-w-[300px]">
+                  {refundRequestFilter
+                    ? "No requests match this filter. Try All."
+                    : "Open a completed booking and choose Request refund. Your requests and their decisions appear here."}
+                </p>
               </div>
             ) : (
               <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white">
@@ -1826,58 +1450,62 @@ export default function FinancePage() {
                         <th className="whitespace-nowrap px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">Request</th>
                         <th className="whitespace-nowrap px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">Booking</th>
                         <th className="whitespace-nowrap px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">Reason</th>
-                        <th className="whitespace-nowrap px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-400">Refunded</th>
+                        <th className="whitespace-nowrap px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-400">Refund</th>
                         <th className="whitespace-nowrap px-4 py-2.5 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-400">Status</th>
                         <th className="whitespace-nowrap px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400">Filed</th>
                         <th className="whitespace-nowrap px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-400">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {disputes.map((d, i) => {
-                        const isExpanded = expandedDispute === d.id;
-                        const isOpen = d.status === "OPEN" || d.status === "UNDER_REVIEW";
+                      {filteredRefundRequests.map((r, i) => {
+                        const isExpanded = expandedRefundRequest === r.id;
+                        const meta = REFUND_REQUEST_STATUS[r.status] || {
+                          label: r.status?.replace(/_/g, " "),
+                          cls: "border-slate-200 bg-slate-100 text-slate-600",
+                        };
+                        const amount = Number(r.preview?.proposed ?? r.refundedAmount ?? 0);
+                        const currency = r.preview?.currency || r.booking?.currency || "USD";
                         return (
-                          <Fragment key={d.id}>
+                          <Fragment key={r.id}>
                             <motion.tr
-                              key={d.id}
-                              id={`finance-row-${d.id}`}
+                              id={`refund-request-${r.id}`}
                               initial={{ opacity: 0, y: 8 }}
                               animate={{ opacity: 1, y: 0 }}
                               transition={{ delay: i * 0.03 }}
-                              onClick={() => setExpandedDispute(isExpanded ? null : d.id)}
+                              onClick={() => setExpandedRefundRequest(isExpanded ? null : r.id)}
                               className={cn(
                                 "border-b border-slate-100 last:border-0 cursor-pointer transition-colors",
                                 isExpanded ? "bg-emerald-50/40" : "hover:bg-slate-50",
-                                focusDisputeId === d.id && "ring-2 ring-emerald-300",
+                                focusRefundRequestId === r.id && "ring-2 ring-inset ring-emerald-300",
                               )}
                             >
                               <td className="py-3 px-4">
-                                <span className="font-mono text-xs font-medium text-emerald-700">{d.disputeNumber}</span>
+                                <span className="font-mono text-xs font-medium text-emerald-700">{r.requestNumber}</span>
                               </td>
                               <td className="py-3 px-4">
-                                <p className="text-sm font-medium text-slate-700">{d.bookingNumber}</p>
-                                <p className="text-xs text-slate-500 mt-0.5">{d.tourTitle}</p>
+                                <p className="text-sm font-medium text-slate-700">{r.booking?.bookingNumber || "—"}</p>
+                                <p className="text-xs text-slate-500 mt-0.5">{r.booking?.tourTitle || ""}</p>
                               </td>
-                              <td className="py-3 px-4">
-                                <RefundReasonBadge reason={d.reason} />
+                              <td className="py-3 px-4 text-sm text-slate-700">
+                                {humanizeReason(r.payload?.reasonCode)}
                               </td>
                               <td className="py-3 px-4 text-right text-sm tabular-nums">
-                                {d.refundAmount != null ? (
-                                  <span className="font-semibold text-red-600">-{formatCurrency(d.refundAmount, d.currency)}</span>
-                                ) : (
-                                  <span className="text-slate-500">—</span>
-                                )}
+                                <span className="font-semibold text-red-600">-{formatCurrency(amount, currency)}</span>
                               </td>
-                              <td className="py-3 px-4 text-center"><RefundStatusBadge status={d.status} /></td>
-                              <td className="py-3 px-4 text-sm text-slate-500">{formatDate(d.createdAt)}</td>
+                              <td className="py-3 px-4 text-center">
+                                <span className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold", meta.cls)}>
+                                  {meta.label}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-sm text-slate-500">{formatDate(r.createdAt)}</td>
                               <td className="py-3 px-4 text-right">
-                                {isOpen && (
+                                {r.status === "PENDING_APPROVAL" && (
                                   <button
-                                    onClick={(e) => { e.stopPropagation(); handleWithdrawRefund(d.id); }}
-                                    disabled={withdrawingDisputeId === d.id}
+                                    onClick={(e) => { e.stopPropagation(); handleWithdrawRefund(r.id); }}
+                                    disabled={withdrawingRefundRequestId === r.id}
                                     className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-40"
                                   >
-                                    {withdrawingDisputeId === d.id ? <Loader2 size={12} className="animate-spin" /> : <XCircle size={12} />}
+                                    {withdrawingRefundRequestId === r.id ? <Loader2 size={12} className="animate-spin" /> : <XCircle size={12} />}
                                     Withdraw
                                   </button>
                                 )}
@@ -1889,26 +1517,37 @@ export default function FinancePage() {
                                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
                                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Travel date</p>
-                                      <p className="text-sm font-medium text-slate-700 mt-1">{formatDate(d.travelDate)}</p>
+                                      <p className="text-sm font-medium text-slate-700 mt-1">{formatTravelDate(r.booking?.travelDate)}</p>
                                     </div>
                                     <div>
                                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Booking total</p>
-                                      <p className="text-sm font-medium text-slate-700 mt-1">{formatCurrency(d.grossAmount, d.currency)}</p>
+                                      <p className="text-sm font-medium text-slate-700 mt-1">{formatCurrency(r.booking?.grossAmount, currency)}</p>
                                     </div>
                                     <div>
-                                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Resolved</p>
-                                      <p className="text-sm font-medium text-slate-700 mt-1">{d.resolvedAt ? formatDate(d.resolvedAt) : "Awaiting review"}</p>
+                                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Decision</p>
+                                      <p className="text-sm font-medium text-slate-700 mt-1">
+                                        {r.decidedAt ? formatDate(r.decidedAt) : "Awaiting review"}
+                                      </p>
                                     </div>
-                                    {d.description && (
+                                    {r.payload?.note && (
                                       <div className="md:col-span-3">
-                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Your explanation</p>
-                                        <p className="text-sm text-slate-700 mt-1 whitespace-pre-wrap">{d.description}</p>
+                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Your note</p>
+                                        <p className="text-sm text-slate-700 mt-1 whitespace-pre-wrap">{r.payload.note}</p>
                                       </div>
                                     )}
-                                    {d.resolution && (
+                                    {r.decisionNote && (
                                       <div className="md:col-span-3">
                                         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Admin decision</p>
-                                        <p className="text-sm text-slate-700 mt-1 whitespace-pre-wrap">{d.resolution}</p>
+                                        <p className="text-sm text-slate-700 mt-1 whitespace-pre-wrap">{r.decisionNote}</p>
+                                      </div>
+                                    )}
+                                    {r.status === "FAILED" && (
+                                      <div className="md:col-span-3">
+                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Refund status</p>
+                                        <p className="text-sm text-rose-600 mt-1">
+                                          The provider refund did not complete. Our team is retrying it and the
+                                          charge has been reversed — nothing is owed by you.
+                                        </p>
                                       </div>
                                     )}
                                   </div>
@@ -1921,7 +1560,6 @@ export default function FinancePage() {
                     </tbody>
                   </table>
                 </div>
-                <TablePagination pagination={disputesPagination} page={page} onPageChange={setPage} />
               </div>
             )}
           </motion.div>
@@ -2232,36 +1870,3 @@ function ChargeStatusBadge({ status }) {
   );
 }
 
-// Badge for supplier refund request lifecycle
-function RefundStatusBadge({ status }) {
-  const styles = {
-    "OPEN": { bg: "bg-amber-50", text: "text-amber-700", label: "Open" },
-    "UNDER_REVIEW": { bg: "bg-sky-50", text: "text-sky-700", label: "Under review" },
-    "RESOLVED_CUSTOMER": { bg: "bg-red-50", text: "text-red-700", label: "Refunded" },
-    "RESOLVED_SUPPLIER": { bg: "bg-emerald-50", text: "text-emerald-700", label: "Denied" },
-    "WITHDRAWN": { bg: "bg-slate-100", text: "text-slate-500", label: "Withdrawn" },
-  };
-
-  const style = styles[status] || styles["OPEN"];
-
-  return (
-    <span className={cn("inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium whitespace-nowrap", style.bg, style.text)}>
-      {style.label}
-    </span>
-  );
-}
-
-function RefundReasonBadge({ reason }) {
-  const labels = {
-    OPERATIONAL: "Operational",
-    FORCE_MAJEURE: "Force majeure",
-    CUSTOMER_REQUESTED: "Customer asked",
-    OTHER: "Other",
-  };
-
-  return (
-    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-600 whitespace-nowrap">
-      {labels[reason] || reason}
-    </span>
-  );
-}
