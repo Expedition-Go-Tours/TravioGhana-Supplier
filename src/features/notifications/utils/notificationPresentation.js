@@ -17,6 +17,10 @@ const BACKEND_TYPE_TO_UI = {
   DISPUTE_OPENED: "booking",
   DISPUTE_RESOLVED: "booking",
   REFUND_CLAIM: "payment",
+  // Supplier-initiated refund requests: the decision changes their balance.
+  SUPPLIER_REFUND_APPROVED: "payment",
+  SUPPLIER_REFUND_REJECTED: "alert",
+  SUPPLIER_REFUND_FAILED: "alert",
   REVIEW_RECEIVED: "review",
   SUPPLIER_APPROVED: "system",
   SUPPLIER_REJECTED: "alert",

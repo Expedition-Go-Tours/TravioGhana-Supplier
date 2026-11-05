@@ -251,3 +251,32 @@ describe("notificationPresentation — every link names the thing it is about", 
     expect(mapped.type).toBe("system");
   });
 });
+
+describe("notificationPresentation — supplier refund decisions", () => {
+  const map = (type) =>
+    mapBackendNotification({
+      id: `n-${type}`,
+      type,
+      createdAt: "2026-11-05T13:20:00.000Z",
+      data: {
+        bookingId: "BK-9",
+        refundRequestId: "SR-1",
+        requestNumber: "SR-20261105-E2AD",
+        amount: 35,
+        charge: 29.75,
+        currency: "USD",
+      },
+    });
+
+  it("opens the booking each decision is about", () => {
+    for (const type of ["SUPPLIER_REFUND_APPROVED", "SUPPLIER_REFUND_REJECTED", "SUPPLIER_REFUND_FAILED"]) {
+      expect(map(type).action).toBe("/bookings?bookingId=BK-9");
+    }
+  });
+
+  it("uses the money icon for an approval and the alert icon for a refusal or failure", () => {
+    expect(map("SUPPLIER_REFUND_APPROVED").type).toBe("payment");
+    expect(map("SUPPLIER_REFUND_REJECTED").type).toBe("alert");
+    expect(map("SUPPLIER_REFUND_FAILED").type).toBe("alert");
+  });
+});
