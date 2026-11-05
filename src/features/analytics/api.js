@@ -60,6 +60,24 @@ export async function fetchProductAnalytics(period) {
   return products;
 }
 
+/**
+ * One product's performance: revenue, bookings, booking window, rating and
+ * cancellations for the selected period, with the previous window alongside.
+ * The GA4 half (views, cart, conversion) still comes from the funnel endpoint
+ * because it is measured by Google, not by us.
+ */
+export async function fetchProductPerformance(tourId, period = "30d") {
+  const response = await api.get(`/suppliers/analytics/products/${tourId}`, {
+    params: { period },
+    skipGlobalErrorHandler: true,
+  });
+  const data = response.data?.data;
+  if (!data || !data.product || !data.revenue || !data.bookings) {
+    throw new Error("This product's performance is unavailable on this server.");
+  }
+  return data;
+}
+
 export async function fetchMonthlyRevenue(months = 12) {
   const response = await api.get("/suppliers/monthly-revenue", {
     params: { months },

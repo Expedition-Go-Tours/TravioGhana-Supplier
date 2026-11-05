@@ -18,6 +18,7 @@ import NotificationsPage from "@/features/notifications/pages/NotificationsPage"
 import SettingsPage from "@/features/settings/pages/SettingsPage";
 import ChatPage from "@/features/chat/pages/ChatPage";
 import AnalyticsPage from "@/features/analytics/pages/AnalyticsPage";
+import ProductPerformancePage from "@/features/analytics/pages/ProductPerformancePage";
 import CancellationRatePage from "@/features/cancellation/pages/CancellationRatePage";
 import SpecialOffersListPage from "@/features/special-offers/pages/SpecialOffersListPage";
 import SpecialOfferBuilderPage from "@/features/special-offers/pages/SpecialOfferBuilderPage";
@@ -87,6 +88,7 @@ export const router = createBrowserRouter([
                 { path: "chat", element: <ChatPage />, handle: { bleed: true } },
                 { path: "customers", element: <Navigate to="/chat" replace /> },
                 { path: "analytics", element: <AnalyticsPage /> },
+                { path: "analytics/:tourId", element: <ProductPerformancePage /> },
                 { path: "cancellation-rate", element: <CancellationRatePage /> },
                 { path: "special-offers", element: <SpecialOffersListPage /> },
                 { path: "special-offers/build/:id?/:step?", element: <SpecialOfferBuilderPage /> },

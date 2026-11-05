@@ -24,6 +24,8 @@ import { percentChange } from "../comparisons";
 import PerformanceChart from "../components/PerformanceChart";
 import ProductPerformanceTable from "../components/ProductPerformanceTable";
 import Ga4FunnelPanel from "../components/Ga4FunnelPanel";
+import RecommendedActions from "../components/RecommendedActions";
+import { buildRecommendations } from "../recommendations";
 
 const PERIODS = [
   { key: "30d", label: "30 days", full: "Last 30 days", days: 30 },
@@ -129,8 +131,15 @@ export default function AnalyticsPage() {
 
   const cancellationRate = cancellation?.cancellationRate;
 
+  const recommendations = buildRecommendations({
+    summary,
+    products,
+    ga4,
+    cancellation,
+  });
+
   return (
-    <div className="max-w-5xl space-y-5">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-900 md:text-2xl">Performance</h1>
@@ -295,6 +304,8 @@ export default function AnalyticsPage() {
         onRetry={() => setReloadKey((key) => key + 1)}
         periodLabel={config.full}
       />
+
+      <RecommendedActions items={recommendations} />
     </div>
   );
 }

@@ -119,7 +119,7 @@ export default function ProductPerformanceTable({
   };
 
   const open = (tourId) => {
-    if (tourId) navigate(`/products/${tourId}`);
+    if (tourId) navigate(`/analytics/${tourId}`);
   };
 
   return (
