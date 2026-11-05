@@ -166,7 +166,8 @@ describe("notificationPresentation — payout request deep links", () => {
     });
     // The old link went to ?tab=requests, which no longer exists since payout
     // requests moved into the Payouts tab — landing on it blanked the page.
-    expect(mapped.action).toBe("/finance?tab=payouts");
+    // The id goes with it so the tab opens the request the bell is about.
+    expect(mapped.action).toBe("/finance?tab=payouts&payoutRequestId=pr-1");
     expect(mapped.actionLabel).toBe("View Payout Request");
   });
 
@@ -185,5 +186,68 @@ describe("notificationPresentation — payout request deep links", () => {
       expect(mapped.actionLabel).toBe("View Payout Requests");
       expect(mapped.action).not.toContain("tab=requests");
     }
+  });
+});
+
+describe("notificationPresentation — every link names the thing it is about", () => {
+  const route = (type, data = {}) =>
+    mapBackendNotification({ id: "n", type, createdAt: "2026-05-21T09:00:00.000Z", data });
+
+  it("opens the exact booking from a booking notification", () => {
+    expect(route("BOOKING_CONFIRMED", { bookingId: "BK-1" }).action).toBe(
+      "/bookings?bookingId=BK-1",
+    );
+    expect(route("PICKUP_UPDATED", { bookingId: "BK-2" }).action).toBe(
+      "/bookings?bookingId=BK-2",
+    );
+  });
+
+  it("keeps the payout id on the payout history deep link", () => {
+    const mapped = route("PAYOUT_PROCESSED", { payoutId: "po-1" });
+    // Legacy Payout rows live in Settings; the Finance payouts tab lists
+    // payout *requests*, which the payout id does not name.
+    expect(mapped.action).toBe("/settings?tab=payouts&payoutId=po-1");
+    expect(mapped.actionLabel).toBe("View Payout");
+  });
+
+  it("keeps the dispute id on the refunds tab", () => {
+    const mapped = route("DISPUTE_RESOLVED", { disputeId: "dp-1" });
+    expect(mapped.action).toBe("/finance?tab=refunds&disputeId=dp-1");
+  });
+
+  it("opens the invoice a money notice is about", () => {
+    expect(route("INVOICE_APPROVED", { invoiceId: "inv-1" }).action).toBe(
+      "/finance?tab=invoices&invoiceId=inv-1",
+    );
+    expect(route("INVOICE_PAID", { invoiceId: "inv-2" }).action).toBe(
+      "/finance?tab=invoices&invoiceId=inv-2",
+    );
+  });
+
+  it("routes the types that used to fall through to the notifications list", () => {
+    expect(route("INVOICE_GENERATED", { invoices: ["INV-1"] }).action).toBe(
+      "/finance?tab=invoices",
+    );
+    expect(route("PAYOUT_REQUEST_WINDOW_OPEN").action).toBe("/finance?tab=payouts");
+    expect(route("CANCELLATION_RATE_ALERT", { rate: 2.4 }).action).toBe("/cancellation-rate");
+    expect(route("TEAM_INVITE_ACCEPTED", { memberId: "m-1" }).action).toBe("/settings?tab=team");
+    expect(route("DOCUMENTATION_WINDOW_REMINDER", { daysLeft: 3 }).action).toBe(
+      "/supplier/status",
+    );
+  });
+
+  it("gives money notices the payment icon instead of the generic system one", () => {
+    for (const type of ["INVOICE_GENERATED", "INVOICE_APPROVED", "INVOICE_PAID", "PAYOUT_REQUEST_WINDOW_OPEN"]) {
+      expect(route(type).type).toBe("payment");
+      expect(NOTIFICATION_TYPES.payment.icon).toBeTruthy();
+    }
+    expect(route("CANCELLATION_RATE_ALERT").type).toBe("alert");
+    expect(route("DOCUMENTATION_WINDOW_REMINDER").type).toBe("alert");
+  });
+
+  it("sends an unknown type to its own inbox, never to a wrong page", () => {
+    const mapped = route("SOMETHING_NEW_AND_UNMAPPED");
+    expect(mapped.action).toBe("/notifications");
+    expect(mapped.type).toBe("system");
   });
 });

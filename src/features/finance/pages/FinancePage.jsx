@@ -19,7 +19,8 @@ import PayoutMethodFormSheet from "../components/PayoutMethodFormSheet";
 import InvoicesTab from "../components/InvoicesTab";
 import {
   cancelPayoutRequest, createPayoutMethod, createPayoutRequest, createRefundRequest, deletePayoutMethod,
-  fetchFinanceDisputes, fetchFinanceEarnings, fetchFinanceSummary, fetchMyInvoices, fetchPayoutMethods, fetchPayoutRequests,
+  fetchFinanceDisputes, fetchFinanceEarnings, fetchFinanceSummary, fetchMyInvoices, fetchPayoutMethods, fetchPayoutRequestById,
+  fetchPayoutRequests,
   getFinanceCharges,
   withdrawRefundRequest,
 } from "../api";
@@ -266,6 +267,13 @@ export default function FinancePage() {
   // to the default tab so the page can never render with no active tab.
   const requestedTab = searchParams.get("tab") || "earnings";
   const activeTab = TABS.some((tab) => tab.key === requestedTab) ? requestedTab : "earnings";
+  // Deep links from the notification bell (?payoutRequestId / ?disputeId /
+  // ?invoiceId) name the row or invoice the notification is about. The tab
+  // alone was never enough: the target may sit on any page of a paginated
+  // list, so it is resolved by id below and pulsed in place.
+  const focusPayoutRequestId = searchParams.get("payoutRequestId") || null;
+  const focusDisputeId = searchParams.get("disputeId") || null;
+  const focusInvoiceId = searchParams.get("invoiceId") || null;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [summary, setSummary] = useState(null);
@@ -389,6 +397,86 @@ export default function FinancePage() {
     });
     return () => { cancelled = true; };
   }, [loadData]);
+
+  /**
+   * Deep-link resolution for the rows a notification points at.
+   *
+   * The list is paginated server-side, so a target that is not on the current
+   * page is fetched by id and prepended — the same pattern ReviewsPage uses
+   * for `?reviewId`. A failed fetch is left silent: the supplier still lands
+   * on the right tab with the rest of the data.
+   */
+  useEffect(() => {
+    if (!focusPayoutRequestId || loading || activeTab !== "payouts") return;
+    if (payoutRequests.some((r) => r.id === focusPayoutRequestId)) return;
+    let cancelled = false;
+    fetchPayoutRequestById(focusPayoutRequestId)
+      .then((request) => {
+        if (cancelled || !request) return;
+        setPayoutRequests((prev) =>
+          prev.some((r) => r.id === request.id) ? prev : [request, ...prev],
+        );
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [focusPayoutRequestId, activeTab, loading, payoutRequests]);
+
+  useEffect(() => {
+    if (!focusDisputeId || loading || activeTab !== "refunds") return;
+    if (disputes.some((d) => d.id === focusDisputeId)) return;
+    let cancelled = false;
+    fetchFinanceDisputes({ disputeId: focusDisputeId })
+      .then(({ disputes: found }) => {
+        if (cancelled || !found?.[0]) return;
+        const target = found[0];
+        setDisputes((prev) => (prev.some((d) => d.id === target.id) ? prev : [target, ...prev]));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [focusDisputeId, activeTab, loading, disputes]);
+
+  // Scroll the deep-linked row into view and open its detail, once it exists.
+  // The dispute row is a click-to-expand row, so the deep link expands it too.
+  useEffect(() => {
+    const focusId = focusPayoutRequestId || focusDisputeId;
+    if (!focusId || loading) return;
+    const onTab =
+      (focusPayoutRequestId && activeTab === "payouts" && payoutRequests.some((r) => r.id === focusId)) ||
+      (focusDisputeId && activeTab === "refunds" && disputes.some((d) => d.id === focusId));
+    if (!onTab) return;
+    if (focusDisputeId) setExpandedDispute(focusDisputeId);
+    const timer = setTimeout(() => {
+      document.getElementById(`finance-row-${focusId}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [focusPayoutRequestId, focusDisputeId, activeTab, loading, payoutRequests, disputes]);
+
+  // The invoice drawer opens straight from its id (it fetches the invoice
+  // itself), so the param only has to be dropped once the supplier closes it —
+  // otherwise the drawer reopens on every reload of the same URL.
+  const clearInvoiceFocus = useCallback(() => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("invoiceId");
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  // The highlight is a one-off: the param goes after 8s so a reload does not
+  // re-scroll to a target the supplier has long since moved past.
+  useEffect(() => {
+    if (!focusPayoutRequestId && !focusDisputeId) return undefined;
+    const timer = setTimeout(() => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("payoutRequestId");
+        next.delete("disputeId");
+        return next;
+      }, { replace: true });
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [focusPayoutRequestId, focusDisputeId, setSearchParams]);
 
   // Cancellation-fee ledger (shown on the payouts tab)
   const loadCharges = useCallback(async () => {
@@ -1483,10 +1571,14 @@ export default function FinancePage() {
                       {payoutRequests.map((r, i) => (
                         <motion.tr
                           key={r.id}
+                          id={`finance-row-${r.id}`}
                           initial={{ opacity: 0, y: 8 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: i * 0.03 }}
-                          className="border-b border-slate-100 last:border-0 transition-colors hover:bg-slate-50"
+                          className={cn(
+                            "border-b border-slate-100 last:border-0 transition-colors hover:bg-slate-50",
+                            focusPayoutRequestId === r.id && "bg-emerald-50/60 ring-2 ring-emerald-300",
+                          )}
                         >
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-2">
@@ -1547,6 +1639,8 @@ export default function FinancePage() {
               statusFilter={invoiceStatusFilter}
               onStatusFilterChange={setInvoiceStatusFilter}
               isEnrolled={isEnrolled}
+              focusInvoiceId={focusInvoiceId}
+              onFocusCleared={clearInvoiceFocus}
             />
           </motion.div>
         )}
@@ -1631,13 +1725,15 @@ export default function FinancePage() {
                           <Fragment key={d.id}>
                             <motion.tr
                               key={d.id}
+                              id={`finance-row-${d.id}`}
                               initial={{ opacity: 0, y: 8 }}
                               animate={{ opacity: 1, y: 0 }}
                               transition={{ delay: i * 0.03 }}
                               onClick={() => setExpandedDispute(isExpanded ? null : d.id)}
                               className={cn(
                                 "border-b border-slate-100 last:border-0 cursor-pointer transition-colors",
-                                isExpanded ? "bg-emerald-50/40" : "hover:bg-slate-50"
+                                isExpanded ? "bg-emerald-50/40" : "hover:bg-slate-50",
+                                focusDisputeId === d.id && "ring-2 ring-emerald-300",
                               )}
                             >
                               <td className="py-3 px-4">

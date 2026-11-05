@@ -80,9 +80,12 @@ export default function NotificationBell() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
-  const handleNotificationClick = async (notification) => {
+  const handleNotificationClick = (notification) => {
+    // Navigation is the point of the click; marking the row read is
+    // bookkeeping. A failed mark-as-read (offline, a 500, a stale token) used
+    // to swallow the click entirely because it was awaited before navigating.
     if (!notification.read) {
-      await markAsRead.mutateAsync(notification.id);
+      markAsRead.mutateAsync(notification.id).catch(() => {});
     }
     closePanel();
     if (notification.backendType === "NEW_MESSAGE") {

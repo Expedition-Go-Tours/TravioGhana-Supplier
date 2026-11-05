@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Download, FileText,
@@ -320,9 +320,44 @@ function InvoiceDetailDrawer({ invoiceId, open, onClose }) {
  * supplier's cadence. Suppliers not yet on the automatic cycle see an
  * explanation rather than an empty table.
  */
-export default function InvoicesTab({ invoices, pagination, loading, error, page, onPageChange, onRetry, statusFilter, onStatusFilterChange, isEnrolled }) {
-  const [openInvoiceId, setOpenInvoiceId] = useState(null);
+export default function InvoicesTab({
+  invoices,
+  pagination,
+  loading,
+  error,
+  page,
+  onPageChange,
+  onRetry,
+  statusFilter,
+  onStatusFilterChange,
+  isEnrolled,
+  focusInvoiceId,
+  onFocusCleared,
+}) {
+  const [openInvoiceId, setOpenInvoiceId] = useState(focusInvoiceId || null);
   const [pdfBusyId, setPdfBusyId] = useState(null);
+
+  // A notification deep link (?invoiceId=…) opens that invoice directly: the
+  // drawer fetches it by id, so it works whatever page the list is on. Applied
+  // once per id — a supplier opening some other invoice from the list must not
+  // be snapped back to the linked one.
+  const appliedFocusRef = useRef(focusInvoiceId || null);
+  useEffect(() => {
+    if (!focusInvoiceId) {
+      appliedFocusRef.current = null;
+      return;
+    }
+    if (appliedFocusRef.current === focusInvoiceId) return;
+    appliedFocusRef.current = focusInvoiceId;
+    setOpenInvoiceId(focusInvoiceId);
+  }, [focusInvoiceId]);
+
+  const handleDrawerClose = useCallback(() => {
+    // The param goes with the drawer, so reloading the same URL does not
+    // reopen an invoice the supplier already closed.
+    if (openInvoiceId && openInvoiceId === focusInvoiceId) onFocusCleared?.();
+    setOpenInvoiceId(null);
+  }, [openInvoiceId, focusInvoiceId, onFocusCleared]);
 
   const handlePdf = useCallback(async (inv) => {
     setPdfBusyId(inv.id);
@@ -528,7 +563,7 @@ export default function InvoicesTab({ invoices, pagination, loading, error, page
       <InvoiceDetailDrawer
         invoiceId={openInvoiceId}
         open={Boolean(openInvoiceId)}
-        onClose={() => setOpenInvoiceId(null)}
+        onClose={handleDrawerClose}
       />
     </div>
   );

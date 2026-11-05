@@ -1230,6 +1230,11 @@ function PayoutsTab() {
   const [showMethodForm, setShowMethodForm] = useState(false);
   const [plan, setPlan] = useState(null);
   const [available, setAvailable] = useState(0);
+  // A payout notification deep-links here (?payoutId=…) because this list is
+  // the only place a legacy Payout record is shown. Resolve the row by id —
+  // the history is capped at ten, so the target is often not in it.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const focusPayoutId = searchParams.get("payoutId") || null;
 
   const loadData = async () => {
     setLoading(true);
@@ -1250,6 +1255,46 @@ function PayoutsTab() {
   };
 
   useEffect(() => { Promise.resolve().then(() => loadData()); }, []);
+
+  // Deep link: fetch the payout itself when it is not among the ten shown,
+  // then scroll it into view and pulse it for a few seconds.
+  useEffect(() => {
+    if (!focusPayoutId || loading) return;
+    if (payouts.some((p) => p.id === focusPayoutId)) return;
+    let cancelled = false;
+    fetchPayouts({ id: focusPayoutId, limit: 10 })
+      .then((result) => {
+        if (cancelled) return;
+        const target = result?.payouts?.find((p) => p.id === focusPayoutId);
+        if (target) {
+          setPayouts((prev) => (prev.some((p) => p.id === target.id) ? prev : [target, ...prev]));
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [focusPayoutId, loading, payouts]);
+
+  useEffect(() => {
+    if (!focusPayoutId || loading || !payouts.some((p) => p.id === focusPayoutId)) return;
+    const timer = setTimeout(() => {
+      document.getElementById(`payout-${focusPayoutId}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [focusPayoutId, loading, payouts]);
+
+  // The pulse is a one-off: drop the param so a reload does not re-scroll.
+  useEffect(() => {
+    if (!focusPayoutId) return undefined;
+    const timer = setTimeout(() => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("payoutId");
+        return next;
+      }, { replace: true });
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [focusPayoutId, setSearchParams]);
 
   const handleDeleteMethod = async (id) => {
     try {
@@ -1398,7 +1443,14 @@ function PayoutsTab() {
           ) : (
             <div className="space-y-2.5">
               {payouts.map((p) => (
-                <div key={p.id} className="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-200 transition-all">
+                <div
+                  key={p.id}
+                  id={`payout-${p.id}`}
+                  className={cn(
+                    "flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-200 transition-all",
+                    focusPayoutId === p.id && "ring-2 ring-emerald-300",
+                  )}
+                >
                   <div className="flex items-center gap-3">
                     <div className={cn(
                       "w-9 h-9 rounded-lg flex items-center justify-center shrink-0",

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   Search,
@@ -94,6 +94,27 @@ export default function BookingsPage() {
   // The detail panel is URL-driven so a supplier can share or reload a link to
   // one booking, and so Back closes the panel before leaving the page.
   const detailBookingId = searchParams.get("detail") || null;
+
+  // A notification, the chat panel or an email link arrives as `?bookingId=`,
+  // but the drawer is driven by `?detail=`. Reconcile the two here instead of
+  // relying on the row highlight: the booking targeted by a notification is
+  // usually not on the page the list happens to be showing (different filters,
+  // page 3 of the supplier's history), so highlighting could do nothing at
+  // all and the click looked like it ignored the notification. The drawer
+  // fetches by id, so it opens whatever the list contains. Converted once per
+  // id, and with `replace`, so Back closes the drawer instead of bouncing
+  // between the two params.
+  const consumedDeepLinkRef = useRef(null);
+  useEffect(() => {
+    const target = searchParams.get("bookingId");
+    if (!target || consumedDeepLinkRef.current === target) return;
+    consumedDeepLinkRef.current = target;
+    setHighlightedBookingId(target);
+    const next = new URLSearchParams(searchParams);
+    next.delete("bookingId");
+    if (!next.get("detail")) next.set("detail", target);
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const page = parseInt(searchParams.get("page") || "0", 10);
   const pageSize = parseInt(
@@ -279,11 +300,13 @@ export default function BookingsPage() {
   };
 
   const openDetail = useCallback(
-    (booking) => updateFilters({ detail: booking.id }),
+    (booking) => updateFilters({ detail: booking.id, bookingId: undefined }),
     [updateFilters]
   );
   const closeDetail = useCallback(
-    () => updateFilters({ detail: undefined }),
+    // `bookingId` goes too: a deep link is consumed into `detail`, and closing
+    // the drawer must not re-open it from a leftover param.
+    () => updateFilters({ detail: undefined, bookingId: undefined }),
     [updateFilters]
   );
 

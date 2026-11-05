@@ -27,6 +27,14 @@ const BACKEND_TYPE_TO_UI = {
   PAYOUT_REQUEST_APPROVED: "payment",
   PAYOUT_REQUEST_REJECTED: "alert",
   PAYOUT_SCHEDULE_UPDATED: "payment",
+  // The finance-v3 invoice notices and the payout window open are money
+  // notices like any other; without an entry here they fell through to the
+  // generic "System" icon and the System filter.
+  PAYOUT_REQUEST_WINDOW_OPEN: "payment",
+  INVOICE_GENERATED: "payment",
+  INVOICE_APPROVED: "payment",
+  INVOICE_PAID: "payment",
+  CANCELLATION_RATE_ALERT: "alert",
   SYSTEM_ALERT: "system",
   NEW_MESSAGE: "message",
   TEAM_INVITE_ACCEPTED: "system",
@@ -36,6 +44,7 @@ const BACKEND_TYPE_TO_UI = {
   DOCUMENT_REJECTED: "alert",
   DOCUMENT_EXPIRY_REMINDER: "alert",
   DOCUMENT_EXPIRED: "alert",
+  DOCUMENTATION_WINDOW_REMINDER: "alert",
   // Supplier cancellation approval flow (admin decided on a parked request).
   CANCELLATION_REQUEST_APPROVED: "cancellation_approved",
   CANCELLATION_REQUEST_REJECTED: "cancellation_rejected",
@@ -68,13 +77,22 @@ function getNotificationRoute(type, data = {}) {
     return { path: `/products/${data.tourId}`, label: "View Product" };
   }
   if (data.payoutId) {
-    return { path: `/finance?tab=payouts&payoutId=${data.payoutId}`, label: "View Payout" };
+    // Legacy payout records live in the payout history on Settings, not on
+    // Finance — landing on the Payouts tab showed a list of payout *requests*
+    // and the payout the notification was about was nowhere in it.
+    return { path: `/settings?tab=payouts&payoutId=${data.payoutId}`, label: "View Payout" };
   }
   if (data.payoutRequestId) {
-    return { path: "/finance?tab=payouts", label: "View Payout Request" };
+    return {
+      path: `/finance?tab=payouts&payoutRequestId=${data.payoutRequestId}`,
+      label: "View Payout Request",
+    };
   }
   if (data.disputeId) {
-    return { path: "/finance?tab=refunds", label: "View Refund" };
+    return { path: `/finance?tab=refunds&disputeId=${data.disputeId}`, label: "View Refund" };
+  }
+  if (data.invoiceId) {
+    return { path: `/finance?tab=invoices&invoiceId=${data.invoiceId}`, label: "View Invoice" };
   }
   if (data.conversationId) {
     // Customer conversations: pass customerId so ChatPage auto-selects
@@ -112,7 +130,16 @@ function getNotificationRoute(type, data = {}) {
     case "PAYOUT_REQUEST_SUBMITTED":
     case "PAYOUT_REQUEST_APPROVED":
     case "PAYOUT_REQUEST_REJECTED":
+    case "PAYOUT_REQUEST_WINDOW_OPEN":
       return { path: "/finance?tab=payouts", label: "View Payout Requests" };
+    case "INVOICE_GENERATED":
+    case "INVOICE_APPROVED":
+    case "INVOICE_PAID":
+      return { path: "/finance?tab=invoices", label: "View Invoices" };
+    case "CANCELLATION_RATE_ALERT":
+      return { path: "/cancellation-rate", label: "View Cancellation Rate" };
+    case "TEAM_INVITE_ACCEPTED":
+      return { path: "/settings?tab=team", label: "View Team" };
     case "SUPPLIER_APPROVED":
     case "SUPPLIER_REJECTED":
       return { path: "/supplier/status", label: "View Status" };
@@ -123,6 +150,7 @@ function getNotificationRoute(type, data = {}) {
     case "DOCUMENT_REJECTED":
     case "DOCUMENT_EXPIRY_REMINDER":
     case "DOCUMENT_EXPIRED":
+    case "DOCUMENTATION_WINDOW_REMINDER":
       return { path: "/supplier/status", label: "View Status" };
     case "SYSTEM_ALERT":
       return { path: "/finance", label: "View Finance" };

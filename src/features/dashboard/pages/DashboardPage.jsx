@@ -9,7 +9,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { fetchSupplierDashboard, fetchMonthlyRevenue } from "../api";
-import { canOpenPath } from "@/config/pageAccess";
+import { canOpenPath, canOpenSettingsTab } from "@/config/pageAccess";
 import { useTeamRole } from "@/hooks/useTeamRole";
 import { fetchCancellationSummary } from "@/features/cancellation/api";
 import { getAuthToken, useAuthStore } from "@/stores/authStore";
@@ -500,9 +500,12 @@ export default function DashboardPage() {
                             )}
                           </span>
                         </button>
-                        {n.data?.payoutId && canOpen("/finance") && (
+                        {n.data?.payoutId && canOpenSettingsTab(hasPermission, "payouts") && (
                           <button
-                            onClick={() => goTo(`/finance?tab=payouts&payoutId=${n.data.payoutId}`)}
+                            // The payout history — the only list of Payout
+                            // records — lives in Settings, not on the Finance
+                            // payouts tab (which lists payout *requests*).
+                            onClick={() => goTo(`/settings?tab=payouts&payoutId=${n.data.payoutId}`)}
                             className="mr-1.5 mt-2 shrink-0 rounded-md px-2 py-1 text-[11px] font-medium text-emerald-700 transition-colors hover:bg-emerald-50"
                           >
                             View payout

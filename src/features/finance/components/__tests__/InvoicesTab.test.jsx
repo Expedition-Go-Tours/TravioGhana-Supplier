@@ -291,3 +291,40 @@ describe('InvoicesTab — the detail drawer', () => {
     expect(within(dialog).getByRole('button', { name: /Booking list/ })).toBeDisabled();
   });
 });
+
+describe('InvoicesTab — a notification deep link', () => {
+  it('opens the linked invoice on mount even when it is not in the list', async () => {
+    renderTab({ invoices: [], focusInvoiceId: 'inv-missing' });
+
+    // The drawer fetches by id, so the invoice need not be on the page the
+    // list happens to show — that is the whole point of the link.
+    await waitFor(() => expect(fetchInvoiceByIdMock).toHaveBeenCalledWith('inv-missing'));
+    expect(fetchInvoiceByIdMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops the deep-link param when the drawer is closed', async () => {
+    const user = userEvent.setup();
+    const onFocusCleared = vi.fn();
+    renderTab({ invoices: [], focusInvoiceId: 'inv-missing', onFocusCleared });
+
+    await waitFor(() => expect(fetchInvoiceByIdMock).toHaveBeenCalledWith('inv-missing'));
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+
+    await waitFor(() => expect(onFocusCleared).toHaveBeenCalledTimes(1));
+    // Reopening from the row afterwards is not snapped back to the link.
+    expect(fetchInvoiceByIdMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('is not snapped away from an invoice the supplier opens from the list', async () => {
+    const user = userEvent.setup();
+    renderTab({ focusInvoiceId: 'inv-other' });
+
+    await waitFor(() => expect(fetchInvoiceByIdMock).toHaveBeenCalledWith('inv-other'));
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+
+    // Opening a different invoice from the row must win over the link — the
+    // deep link is applied once, not re-imposed on every state change.
+    await user.click(screen.getByRole('button', { name: 'INV-2026-10-0001' }));
+    await waitFor(() => expect(fetchInvoiceByIdMock).toHaveBeenCalledWith('inv1'));
+  });
+});
