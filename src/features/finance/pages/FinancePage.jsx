@@ -1178,12 +1178,17 @@ export default function FinancePage() {
               onClick={() => setSearchParams((prev) => ({ ...Object.fromEntries(prev), tab: tab.key }))}
               aria-pressed={isActive}
               className={cn(
-                "-mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-2.5 py-2.5 text-sm font-medium transition-colors",
-                isActive
-                  ? "border-emerald-600 text-emerald-700"
-                  : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
+                "relative -mb-px flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 border-transparent px-2.5 py-2.5 text-sm font-medium transition-colors",
+                isActive ? "text-emerald-700" : "text-slate-500 hover:text-slate-700"
               )}
             >
+              {isActive && (
+                <motion.span
+                  layoutId="finance-tab-underline"
+                  className="absolute inset-x-1 -bottom-px h-0.5 rounded-full bg-emerald-600"
+                  transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                />
+              )}
               <Icon size={15} />
               {tab.label}
             </button>

@@ -1,7 +1,8 @@
-import { Outlet, useLocation, useMatches } from "react-router-dom";
+import { useLocation, useMatches } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import PageContainer from "./PageContainer";
+import PageTransition from "./PageTransition";
 import { useSidebarStore } from "@/stores/sidebarStore";
 import SupportFloating from "@/features/chat/components/SupportFloating";
 import { useTeamRole } from "@/hooks/useTeamRole";
@@ -39,7 +40,7 @@ export default function AppShell() {
         }`}
       >
         <PageContainer bleed={isBleed}>
-          <Outlet />
+          <PageTransition subtle={isBleed} />
         </PageContainer>
       </main>
       {!isProductBuilder && !isChatPage && canChat && <SupportFloating />}

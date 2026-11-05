@@ -19,6 +19,8 @@ import {
   Undo2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { motion, useReducedMotion } from "framer-motion";
+import { PANEL_SPRING } from "@/lib/motion";
 import StatusBadge from "@/components/shared/StatusBadge";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { BOOKING_STATUSES } from "@/lib/constants";
@@ -472,6 +474,7 @@ export default function BookingDetailDrawer({
   );
   const closeRef = useRef(null);
   const panelRef = useRef(null);
+  const reduceMotion = useReducedMotion();
   // Only the newest fetch may land: the panel can be pointed at another
   // booking (URL navigation) while a load is still out.
   const loadSeqRef = useRef(0);
@@ -573,17 +576,30 @@ export default function BookingDetailDrawer({
   }, [booking]);
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      <div
+    <motion.div
+      className="fixed inset-0 z-50 flex justify-end"
+      initial={{ opacity: 1 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 1, transition: { duration: reduceMotion ? 0 : 0.24 } }}
+    >
+      <motion.div
         className="absolute inset-0 bg-slate-900/40"
+        initial={{ opacity: reduceMotion ? 1 : 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: reduceMotion ? 1 : 0 }}
+        transition={{ duration: reduceMotion ? 0 : 0.18 }}
         onClick={onClose}
         aria-hidden="true"
       />
-      <div
+      <motion.div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={`Booking ${booking?.bookingNumber || bookingId}`}
+        initial={{ x: reduceMotion ? 0 : "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: reduceMotion ? 0 : "100%" }}
+        transition={reduceMotion ? { duration: 0 } : PANEL_SPRING}
         className="relative w-full sm:max-w-xl h-full drawer-viewport bg-white shadow-2xl flex flex-col"
       >
         {/* Header */}
@@ -978,7 +994,7 @@ export default function BookingDetailDrawer({
             />
           </div>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

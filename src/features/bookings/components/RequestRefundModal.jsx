@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import useModalDialog from "@/components/shared/useModalDialog";
 import {
@@ -307,7 +308,7 @@ export default function RequestRefundModal({ isOpen, onClose, booking, onSubmitt
     }
   }
 
-  if (!isOpen) return null;
+  const reduceMotion = useReducedMotion();
 
   const closeButton = (
     <button
@@ -323,21 +324,36 @@ export default function RequestRefundModal({ isOpen, onClose, booking, onSubmitt
   );
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
-      <div
-        className="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px] animate-in fade-in-0 duration-200 motion-reduce:animate-none"
+    <AnimatePresence>
+      {isOpen && (
+      <motion.div
+        className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
+        initial={{ opacity: 1 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 1, transition: { duration: reduceMotion ? 0 : 0.2 } }}
+      >
+      <motion.div
+        className="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px]"
+        initial={{ opacity: reduceMotion ? 1 : 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: reduceMotion ? 1 : 0 }}
+        transition={{ duration: reduceMotion ? 0 : 0.16 }}
         onClick={() => !submitting && onClose?.()}
         aria-hidden="true"
       />
 
-      <div
+      <motion.div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="refund-modal-title"
         aria-describedby="refund-modal-description"
         tabIndex={-1}
-        className="relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl outline-none animate-in fade-in-0 zoom-in-95 duration-200 motion-reduce:animate-none sm:max-w-[560px] sm:rounded-2xl"
+        initial={{ opacity: reduceMotion ? 1 : 0, y: reduceMotion ? 0 : 18, scale: reduceMotion ? 1 : 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: reduceMotion ? 1 : 0, y: reduceMotion ? 0 : 18, scale: reduceMotion ? 1 : 0.98 }}
+        transition={{ duration: reduceMotion ? 0 : 0.2 }}
+        className="relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl outline-none sm:max-w-[560px] sm:rounded-2xl"
       >
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-5 py-5 sm:px-6">
           <div className="min-w-0">
@@ -738,8 +754,10 @@ export default function RequestRefundModal({ isOpen, onClose, booking, onSubmitt
             </div>
           )}
         </div>
-      </div>
-    </div>,
+      </motion.div>
+      </motion.div>
+      )}
+    </AnimatePresence>,
     document.body
   );
 }

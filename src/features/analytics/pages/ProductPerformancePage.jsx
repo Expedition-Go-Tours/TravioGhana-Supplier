@@ -12,7 +12,9 @@ import {
   Star,
   Wallet,
 } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { formatCurrency, cn } from "@/lib/utils";
+import { TAB_SPRING } from "@/lib/motion";
 import useMediaQuery from "@/hooks/useMediaQuery";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { fetchGa4Funnel, fetchProductPerformance } from "../api";
@@ -271,15 +273,30 @@ export default function ProductPerformancePage() {
             aria-selected={tab === entry.key}
             onClick={() => setTab(entry.key)}
             className={cn(
-              "whitespace-nowrap rounded-lg px-3 py-2 text-xs font-medium transition-colors",
-              tab === entry.key ? "bg-emerald-600 text-white" : "text-slate-500 hover:text-slate-800",
+              "relative whitespace-nowrap rounded-lg px-3 py-2 text-xs font-medium transition-colors",
+              tab === entry.key ? "text-white" : "text-slate-500 hover:text-slate-800",
             )}
           >
-            {entry.label}
+            {tab === entry.key && (
+              <motion.span
+                layoutId="product-tab-pill"
+                className="absolute inset-0 rounded-lg bg-emerald-600"
+                transition={TAB_SPRING}
+              />
+            )}
+            <span className="relative z-10">{entry.label}</span>
           </button>
         ))}
       </div>
 
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={tab}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4, transition: { duration: 0.12 } }}
+          transition={{ duration: 0.2 }}
+        >
       {tab === "revenue" && (
         <PerformanceChart
           buckets={data?.series?.buckets || []}
@@ -420,6 +437,9 @@ export default function ProductPerformancePage() {
           </Link>
         </section>
       )}
+
+        </motion.div>
+      </AnimatePresence>
 
       {!isWide && tab === "revenue" && (
         <p className="text-[11px] text-slate-400">

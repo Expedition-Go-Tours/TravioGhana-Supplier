@@ -12,6 +12,7 @@ import {
   Info,
 } from "lucide-react";
 import { toast } from "sonner";
+import { motion, useReducedMotion } from "framer-motion";
 import AmPmTimePicker from "@/components/shared/AmPmTimePicker";
 import LocationMapPicker from "@/components/shared/LocationMapPicker";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -303,19 +304,28 @@ export default function EditPickupModal({ booking, onClose, onSaved }) {
   const dateLabel = booking?.travelDate ? formatTravelDate(booking.travelDate) : "";
   const bookingTimeLabel = booking?.selectedTime ? formatTime(booking.selectedTime) : "";
 
+  const reduceMotion = useReducedMotion();
+
   return (
-    <div
+    <motion.div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-4"
+      initial={{ opacity: 1 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 1, transition: { duration: reduceMotion ? 0 : 0.2 } }}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) requestClose();
       }}
     >
-      <div
+      <motion.div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="edit-pickup-title"
         aria-describedby="edit-pickup-context"
+        initial={{ opacity: reduceMotion ? 1 : 0, scale: reduceMotion ? 1 : 0.97, y: reduceMotion ? 0 : 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: reduceMotion ? 1 : 0, scale: reduceMotion ? 1 : 0.97, y: reduceMotion ? 0 : 8 }}
+        transition={{ duration: reduceMotion ? 0 : 0.18 }}
         className="relative flex max-h-[92vh] w-full max-w-[620px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
       >
         {/* Header */}
@@ -732,7 +742,7 @@ export default function EditPickupModal({ booking, onClose, onSaved }) {
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

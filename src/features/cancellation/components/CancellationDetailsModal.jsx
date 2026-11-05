@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { X, CalendarX2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
 import { formatCurrency } from "@/lib/utils";
 
 const SORT_FIELDS = {
@@ -55,14 +56,32 @@ export default function CancellationDetailsModal({
     );
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} />
+  const reduceMotion = useReducedMotion();
 
-      <div
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      initial={{ opacity: 1 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 1, transition: { duration: reduceMotion ? 0 : 0.2 } }}
+    >
+      <motion.div
+        className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+        initial={{ opacity: reduceMotion ? 1 : 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: reduceMotion ? 1 : 0 }}
+        transition={{ duration: reduceMotion ? 0 : 0.16 }}
+        onClick={onClose}
+      />
+
+      <motion.div
         role="dialog"
         aria-modal="true"
         aria-label="Cancellation details"
+        initial={{ opacity: reduceMotion ? 1 : 0, scale: reduceMotion ? 1 : 0.97, y: reduceMotion ? 0 : 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: reduceMotion ? 1 : 0, scale: reduceMotion ? 1 : 0.97, y: reduceMotion ? 0 : 8 }}
+        transition={{ duration: reduceMotion ? 0 : 0.18 }}
         className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col"
       >
         {/* Header */}
@@ -229,7 +248,7 @@ export default function CancellationDetailsModal({
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

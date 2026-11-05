@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { AnimatePresence } from "framer-motion";
 import {
   RefreshCw,
   Loader2,
@@ -622,8 +623,10 @@ export default function PickupPlannerPage() {
       )}
 
       {/* Edit modal */}
-      {editing && (
+      <AnimatePresence>
+        {editing && (
         <EditPickupModal
+          key="edit-pickup"
           booking={editing}
           onClose={() => setEditing(null)}
           onSaved={() => {
@@ -631,7 +634,8 @@ export default function PickupPlannerPage() {
             loadPlanner();
           }}
         />
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
 }

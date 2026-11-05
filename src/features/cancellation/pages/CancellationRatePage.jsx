@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { AnimatePresence } from "framer-motion";
 
 import { AlertTriangle, RotateCw } from "lucide-react";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
@@ -262,8 +263,10 @@ export default function CancellationRatePage() {
       )}
 
       {/* Details Modal */}
-      {showDetailsModal && (
+      <AnimatePresence>
+        {showDetailsModal && (
         <CancellationDetailsModal
+          key="cancellation-details"
           summary={summary}
           records={sortedRecords}
           pagination={pagination}
@@ -275,7 +278,8 @@ export default function CancellationRatePage() {
           days={days}
           onClose={() => setShowDetailsModal(false)}
         />
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
 }
