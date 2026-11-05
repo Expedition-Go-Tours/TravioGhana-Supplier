@@ -6,6 +6,7 @@ import {
   loadSupplierProfile,
   getLoginErrorMessage,
 } from "@/features/auth/api";
+import { getSignInErrorMessage } from "@/features/auth/signInErrors";
 import { useAuthStore, canAccessSupplierDashboard } from "@/stores/authStore";
 import api from "@/lib/axios";
 
@@ -96,7 +97,9 @@ export function useSupplierLogin() {
 
         return { user, supplierProfile };
       } catch (err) {
-        const message = getLoginErrorMessage(err);
+        // The credential form: a Google-only account must be told to use
+        // Google, not that its password is wrong.
+        const message = getSignInErrorMessage(err);
         setError(message);
         throw err;
       } finally {

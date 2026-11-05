@@ -443,11 +443,16 @@ describe('PayoutScheduleSummary — invoice flow copy', () => {
   });
 
   it('never claims a future payment has already been processed', () => {
-    // paidOn is 5 Nov 2026 — in the future relative to any real clock here —
-    // so the card must say the payment is scheduled, not that it happened.
-    renderInvoiceCard();
+    // A paidOn that stays in the future whatever day the suite runs. The
+    // fixture used to hardcode 5 Nov 2026 as "the future", which silently
+    // became "today" and flipped the card to "processed" — exactly the bug
+    // this test exists to prevent.
+    const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    renderInvoiceCard({
+      nextPayout: { ...nextPayout, window: { ...nextPayout.window, paidOn: future.toISOString() } },
+    });
 
-    expect(screen.getByText(/payment is scheduled for thu 5 nov\./i)).toBeInTheDocument();
+    expect(screen.getByText(/payment is scheduled for/i)).toBeInTheDocument();
     expect(screen.queryByText(/payment was processed/i)).not.toBeInTheDocument();
   });
 
