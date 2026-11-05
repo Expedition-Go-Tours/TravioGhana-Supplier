@@ -1,4 +1,5 @@
 import { forwardRef } from "react";
+import { createPortal } from "react-dom";
 import ReactDatePicker from "react-datepicker";
 import { registerLocale } from "react-datepicker";
 import { enGB } from "date-fns/locale";
@@ -12,6 +13,26 @@ import {
 import "react-datepicker/dist/react-datepicker.css";
 
 registerLocale("en-GB", enGB);
+
+/**
+ * Where the calendar popper renders: at <body>, never inside the field's
+ * wrapper.
+ *
+ * As a child of the wrapper it was clipped by any `overflow-hidden` ancestor —
+ * the bookings toolbar is one — so the 20rem calendar hanging off a 7rem input
+ * was cut in half. The clipped rows were still laid out but could not be
+ * clicked, which is why the calendar "got stuck": the month arrows and the last
+ * weeks of the month were inside the cut-off area.
+ *
+ * The wrapper div carries the component's own class so every theme rule scoped
+ * under `.dashboard-date-picker` keeps matching the portaled calendar.
+ */
+function PopperContainer({ children }) {
+  return createPortal(
+    <div className="dashboard-date-picker">{children}</div>,
+    document.body,
+  );
+}
 
 const DatePicker = forwardRef(function DatePicker(
   {
@@ -62,6 +83,7 @@ const DatePicker = forwardRef(function DatePicker(
         placeholderText={placeholder}
         showPopperArrow={false}
         popperPlacement="bottom-start"
+        popperContainer={PopperContainer}
         calendarClassName="dashboard-date-picker__calendar"
         popperClassName="dashboard-date-picker__popper"
         className={cn(
