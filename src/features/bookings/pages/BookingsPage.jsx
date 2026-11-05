@@ -46,6 +46,7 @@ import CancellationRequestsPanel from "../components/CancellationRequestsPanel";
 import CreateBookingDrawer from "../components/CreateBookingDrawer";
 import { listMyProducts } from "@/features/products/api";
 import { describeActionError } from "@/lib/errorHandler";
+import { sortBookings } from "../lib/sortBookings";
 
 const QUICK_FILTERS = [
   { key: "ALL", label: "All bookings" },
@@ -509,11 +510,8 @@ export default function BookingsPage() {
   // supplier can have thousands of bookings and the browser only holds one
   // page). Keep a copy for rendering so we never mutate the state array.
   const filteredData = useMemo(
-    () =>
-      [...bookings].sort(
-        (a, b) => new Date(b.bookingDate) - new Date(a.bookingDate)
-      ),
-    [bookings]
+    () => sortBookings(bookings, activeTab),
+    [bookings, activeTab]
   );
 
   const stats = useMemo(() => {

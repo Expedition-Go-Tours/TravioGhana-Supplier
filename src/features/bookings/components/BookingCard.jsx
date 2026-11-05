@@ -689,6 +689,16 @@ export default function BookingCard({
                                booking.refundStatus === 'PENDING' ? 'Pending' :
                                booking.refundStatus === 'FAILED' ? 'Failed' : booking.refundStatus}
                             </span>
+                            {booking.refundStatus === 'SUCCEEDED' && booking.refundedAt && (
+                              <p className="mt-0.5 text-[11px] text-slate-400">
+                                Refunded {formatDate(booking.refundedAt)}
+                              </p>
+                            )}
+                            {booking.refundStatus === 'PENDING' && booking.cancelledAt && (
+                              <p className="mt-0.5 text-[11px] text-slate-400">
+                                Requested {formatDate(booking.cancelledAt)}
+                              </p>
+                            )}
                           </div>
                         )}
                       </div>

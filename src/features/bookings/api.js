@@ -91,6 +91,8 @@ export function mapBookingRow(booking) {
     cancellationNote: booking.cancellationNote || null,
     cancelledAt: booking.cancelledAt || null,
     refundStatus: booking.refundStatus || null,
+    // When the money actually went back. The Refunds tab orders by this.
+    refundedAt: booking.refundedAt || null,
     discount: Number(booking.discounts) || 0,
     offerId: booking.appliedOfferId || null,
     offerName: booking.offerName || booking.appliedOffer?.name || null,
