@@ -866,7 +866,9 @@ export default function BookingDetailDrawer({
                 <Section title="Cancellation" icon={Ban}>
                   <div className="space-y-1.5 text-sm">
                     <Fact label="Reason">
-                      {booking.cancellationReason || <span className="text-slate-400">Not recorded</span>}
+                      {booking.cancellationReasonLabel || booking.cancellationReason || (
+                        <span className="text-slate-400">Not recorded</span>
+                      )}
                     </Fact>
                     {booking.cancellationNote && (
                       <Fact label="Customer note">{booking.cancellationNote}</Fact>

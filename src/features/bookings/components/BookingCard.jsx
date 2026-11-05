@@ -656,10 +656,12 @@ export default function BookingCard({
                         <Ban size={12} /> Cancellation
                       </p>
                       <div className="mt-2 grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-3">
-                        {booking.cancellationReason && (
+                        {(booking.cancellationReasonLabel || booking.cancellationReason) && (
                           <div className={booking.cancellationNote ? "sm:col-span-1" : "sm:col-span-2"}>
                             <p className="text-[11px] text-slate-500">Reason</p>
-                            <p className="text-sm text-slate-800">{booking.cancellationReason}</p>
+                            <p className="text-sm text-slate-800">
+                              {booking.cancellationReasonLabel || booking.cancellationReason}
+                            </p>
                           </div>
                         )}
                         {booking.cancellationNote && (

@@ -83,6 +83,13 @@ export default function CancellationRatePage() {
     }
   };
 
+  // The card layout picks a field and a direction at once (a select cannot
+  // express "toggle"), so it needs a setter rather than the table's toggle.
+  const handleSortChange = (field, dir) => {
+    setSortField(field);
+    setSortDir(dir === "desc" ? "desc" : "asc");
+  };
+
   const sortedRecords = [...records].sort((a, b) => {
     if (!sortField) return 0;
     const aVal = a[sortField];
@@ -245,6 +252,7 @@ export default function CancellationRatePage() {
             sortField={sortField}
             sortDir={sortDir}
             onSort={handleSort}
+            onSortChange={handleSortChange}
             onPageChange={setPage}
             onExportCSV={exportCSV}
             days={days}

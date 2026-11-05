@@ -82,6 +82,12 @@ export function mapBookingRow(booking) {
     // `.refundStatus` read in BookingCard was undefined and the whole
     // "Cancellation" section silently never rendered.
     cancellationReason: booking.cancellationReason || null,
+    // Server-resolved display string: the customer's own reason for a
+    // customer cancel, the taxonomy label for a supplier/system one, and a
+    // humanised code if the label map has not caught up. Never print the raw
+    // `cancellationReason` when this exists — it holds codes like
+    // HEALTH_MEDICAL for customer rows.
+    cancellationReasonLabel: booking.cancellationReasonLabel || null,
     cancellationNote: booking.cancellationNote || null,
     cancelledAt: booking.cancelledAt || null,
     refundStatus: booking.refundStatus || null,

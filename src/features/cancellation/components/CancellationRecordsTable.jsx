@@ -1,16 +1,65 @@
 import { CalendarX2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import useMediaQuery from "@/hooks/useMediaQuery";
 
 const SORT_FIELDS = {
   cancelledOn: "Cancelled On",
-  travelDate: "Travel Date",
-  reason: "Cancellation Reason",
-  bookingReference: "Booking Reference",
-  productName: "Product",
-  bookingValue: "Booking Value",
-  refundAmount: "Refund Amount",
+  reason: "Reason",
+  bookingReference: "Booking",
+  bookingValue: "Value",
   countsTowardRate: "Rate Impact",
 };
+
+const MOBILE_SORTS = [
+  { value: "cancelledOn:desc", label: "Newest first" },
+  { value: "cancelledOn:asc", label: "Oldest first" },
+  { value: "bookingValue:desc", label: "Highest value" },
+  { value: "reason:asc", label: "Reason A–Z" },
+  { value: "countsTowardRate:desc", label: "Counts toward rate first" },
+];
+
+const ORIGIN_LABEL = {
+  CUSTOMER: "Customer",
+  SUPPLIER: "You",
+  SYSTEM: "System",
+};
+
+function ImpactBadge({ value }) {
+  if (value === true) {
+    return (
+      <span className="inline-flex items-center whitespace-nowrap rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
+        Counts
+      </span>
+    );
+  }
+  if (value === false) {
+    return (
+      <span className="inline-flex items-center whitespace-nowrap rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
+        Excluded
+      </span>
+    );
+  }
+  return <span className="text-xs text-slate-400">—</span>;
+}
+
+function OriginTag({ origin }) {
+  const label = ORIGIN_LABEL[String(origin || "").toUpperCase()];
+  if (!label) return null;
+  return (
+    <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+      {label}
+    </span>
+  );
+}
+
+function SortIcon({ field, sortField, sortDir }) {
+  if (sortField !== field) return <ArrowUpDown size={13} className="shrink-0 text-slate-300" />;
+  return sortDir === "asc" ? (
+    <ArrowUp size={13} className="shrink-0 text-emerald-600" />
+  ) : (
+    <ArrowDown size={13} className="shrink-0 text-emerald-600" />
+  );
+}
 
 export default function CancellationRecordsTable({
   records,
@@ -18,19 +67,25 @@ export default function CancellationRecordsTable({
   sortField,
   sortDir,
   onSort,
+  onSortChange,
   onPageChange,
   onExportCSV,
   days,
   totalLost,
 }) {
-  const SortIcon = ({ field }) => {
-    if (sortField !== field) return <ArrowUpDown size={13} className="text-slate-300 shrink-0" />;
-    return sortDir === "asc" ? (
-      <ArrowUp size={13} className="text-emerald-600 shrink-0" />
-    ) : (
-      <ArrowDown size={13} className="text-emerald-600 shrink-0" />
-    );
+  // The table needs five readable columns; below 1024px there isn't room, and
+  // a horizontally scrolling table hides the value and impact columns — the
+  // two things the page exists to show. Phones and small laptops get cards
+  // instead. Only one layout is in the DOM, so a screen reader never hears the
+  // same record twice.
+  const isWide = useMediaQuery("(min-width: 1024px)");
+
+  const changeSort = (field, dir) => {
+    if (onSortChange) onSortChange(field, dir);
+    else onSort(field);
   };
+
+  const mobileSortValue = `${sortField || "cancelledOn"}:${sortField ? sortDir : "desc"}`;
 
   return (
     <div className="bg-white border border-slate-200 rounded-[20px] shadow-none overflow-hidden">
@@ -66,8 +121,15 @@ export default function CancellationRecordsTable({
         </div>
       ) : (
         <>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          {isWide ? (
+            <table className="w-full table-fixed text-sm">
+              <colgroup>
+                <col className="w-[104px]" />
+                <col />
+                <col className="w-[190px]" />
+                <col className="w-[116px]" />
+                <col className="w-[104px]" />
+              </colgroup>
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/50">
                   {Object.entries(SORT_FIELDS).map(([key, label]) => (
@@ -78,7 +140,7 @@ export default function CancellationRecordsTable({
                     >
                       <div className="flex items-center gap-1.5">
                         {label}
-                        <SortIcon field={key} />
+                        <SortIcon field={key} sortField={sortField} sortDir={sortDir} />
                       </div>
                     </th>
                   ))}
@@ -90,46 +152,112 @@ export default function CancellationRecordsTable({
                     key={r.id}
                     className="border-b border-slate-50 last:border-0 hover:bg-slate-50/40 transition-colors"
                   >
-                    <td className="px-4 py-3.5 text-slate-700 whitespace-nowrap">{r.cancelledOn || r.travelDate}</td>
-                    <td className="px-4 py-3.5 text-slate-700 whitespace-nowrap">{r.travelDate}</td>
-                    <td className="px-4 py-3.5 text-slate-600 max-w-60" title={r.note ? `${r.reason}\n${r.note}` : r.reason}>
-                      <div className="truncate">{r.reason}</div>
+                    <td className="px-4 py-3.5 align-top">
+                      <div className="whitespace-nowrap text-xs text-slate-700">{r.cancelledOn || r.travelDate}</div>
+                      <div className="mt-0.5 whitespace-nowrap text-[11px] text-slate-400">Travelled {r.travelDate}</div>
+                    </td>
+                    <td
+                      className="px-4 py-3.5 min-w-0"
+                      title={r.note ? `${r.reason}\n${r.note}` : r.reason}
+                    >
+                      <div className="flex items-start gap-1.5">
+                        <OriginTag origin={r.origin} />
+                        <span className="min-w-0 truncate text-slate-700">{r.reason}</span>
+                      </div>
                       {r.note && (
-                        <div className="text-xs text-slate-400 truncate mt-0.5" title={r.note}>
+                        <div className="mt-0.5 text-xs text-slate-400 truncate" title={r.note}>
                           {r.note}
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3.5 text-slate-700 whitespace-nowrap font-medium">
-                      {r.bookingReference}
+                    <td className="px-4 py-3.5 min-w-0">
+                      <div className="truncate text-xs font-medium text-slate-700">{r.bookingReference}</div>
+                      <div className="mt-0.5 truncate text-[11px] text-slate-400" title={r.productName}>
+                        {r.productName}
+                      </div>
                     </td>
-                    <td className="px-4 py-3.5 text-slate-700 whitespace-nowrap">{r.productName}</td>
-                    <td className="px-4 py-3.5 text-slate-800 whitespace-nowrap font-semibold text-right">
-                      {formatCurrency(r.bookingValue)}
+                    <td className="px-4 py-3.5 text-right">
+                      <div className="whitespace-nowrap text-xs font-semibold text-slate-800">
+                        {formatCurrency(r.bookingValue)}
+                      </div>
+                      <div className="mt-0.5 whitespace-nowrap text-[11px] text-slate-400">
+                        {r.refundAmount != null ? `Refunded ${formatCurrency(r.refundAmount)}` : "No refund"}
+                      </div>
                     </td>
-                    <td className="px-4 py-3.5 text-slate-600 whitespace-nowrap text-right">
-                      {r.refundAmount != null ? formatCurrency(r.refundAmount) : "—"}
-                    </td>
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      {r.countsTowardRate === true && (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 px-2 py-0.5 rounded-full">
-                          Counts
-                        </span>
-                      )}
-                      {r.countsTowardRate === false && (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                          Excluded
-                        </span>
-                      )}
-                      {r.countsTowardRate == null && (
-                        <span className="text-xs text-slate-400">—</span>
-                      )}
+                    <td className="px-4 py-3.5 text-center">
+                      <ImpactBadge value={r.countsTowardRate} />
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-2.5">
+                <label htmlFor="cancellation-sort" className="text-xs text-slate-400">
+                  Sort by
+                </label>
+                <select
+                  id="cancellation-sort"
+                  value={mobileSortValue}
+                  onChange={(event) => {
+                    const [field, dir] = event.target.value.split(":");
+                    changeSort(field, dir);
+                  }}
+                  className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-600 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                >
+                  {MOBILE_SORTS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <ul className="divide-y divide-slate-100">
+                {records.map((r) => (
+                  <li key={r.id} className="px-4 py-4 space-y-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <OriginTag origin={r.origin} />
+                          <p className="break-words text-sm font-medium text-slate-800">
+                            {r.reason}
+                          </p>
+                        </div>
+                        {r.note && (
+                          <p className="mt-1 text-xs leading-relaxed text-slate-400" title={r.note}>
+                            {r.note}
+                          </p>
+                        )}
+                      </div>
+                      <ImpactBadge value={r.countsTowardRate} />
+                    </div>
+
+                    <p className="break-words text-xs text-slate-500" title={r.productName}>
+                      {r.productName}
+                    </p>
+
+                    <div className="flex items-center justify-between gap-3 text-xs">
+                      <span className="font-medium text-slate-600">{r.bookingReference}</span>
+                      <span className="font-semibold text-slate-800">{formatCurrency(r.bookingValue)}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 text-[11px] text-slate-400">
+                      <span>
+                        Cancelled {r.cancelledOn || r.travelDate}
+                        <span className="mx-1 text-slate-300">·</span>
+                        Travelled {r.travelDate}
+                      </span>
+                      <span>
+                        {r.refundAmount != null ? `Refunded ${formatCurrency(r.refundAmount)}` : "No refund"}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
 
           {/* Footer */}
           <div className="px-5 sm:px-6 py-3.5 border-t border-slate-100 bg-teal-50/30 flex items-center justify-between">

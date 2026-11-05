@@ -3,27 +3,31 @@
  *
  * The backend sends the note on every record (`cancellationController`
  * returns `note: r.cancellationNote || null`) and this table renders it as a
- * second line beneath the structured reason code. A reason code alone tells a
- * supplier *what category* a cancellation fell into; the note is where the
- * customer's actual explanation lives.
+ * second line beneath the resolved reason. A reason alone tells a supplier
+ * *what* a cancellation was; the note is where the customer's explanation
+ * lives.
  *
  * The reason stays truncated on one line — notes are long free text and a
  * two-line record would break the table's rhythm — so the full reason+note
  * pair is carried in the cell's `title` for hover.
+ *
+ * These assertions run against the desktop layout; the card layout has its
+ * own suite.
  */
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import CancellationRecordsTable from "../components/CancellationRecordsTable";
 
 const baseRecord = {
-  // `id` keys the row (`<tr key={r.id}>`), and `reason` arrives as the
-  // backend's resolved label, not the raw cancellationCode.
+  // `id` keys the row, and `reason` arrives as the backend's resolved label
+  // (the customer's own choice for a customer cancel), never a raw code.
   id: "rec-1",
   travelDate: "2026-10-02",
   cancelledOn: "2026-09-30",
   reason: "Bad weather",
   note: null,
+  origin: "SUPPLIER",
   bookingReference: "TRG-90123456-2026-01",
   productName: "Shai Hills Safari",
   bookingValue: 420,
@@ -31,11 +35,26 @@ const baseRecord = {
   countsTowardRate: true,
 };
 
+function useDesktopLayout() {
+  window.matchMedia = vi.fn().mockImplementation((query) => ({
+    matches: true,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  }));
+}
+
+beforeEach(useDesktopLayout);
+
 /** Finds the reason cell for a row, identified by its booking reference. */
 function reasonCellFor(reference) {
   const refCell = screen.getByText(reference);
   const row = refCell.closest("tr");
-  return within(row).getAllByRole("cell")[2];
+  return within(row).getAllByRole("cell")[1];
 }
 
 function renderTable(records) {
@@ -43,9 +62,10 @@ function renderTable(records) {
     <CancellationRecordsTable
       records={records}
       pagination={{ currentPage: 1, totalPages: 1, totalCount: records.length }}
-      sortField="travelDate"
+      sortField="cancelledOn"
       sortDir="desc"
       onSort={vi.fn()}
+      onSortChange={vi.fn()}
       onPageChange={vi.fn()}
       onExportCSV={vi.fn()}
       days={90}
@@ -85,7 +105,7 @@ describe("CancellationRecordsTable — customer note", () => {
   });
 
   it("falls back to the bare reason when there is no note", () => {
-    // Most cancellations are a code and nothing else; the title must not
+    // Most cancellations are a reason and nothing else; the title must not
     // gain a dangling newline.
     renderTable([{ ...baseRecord, note: null }]);
 
@@ -109,10 +129,10 @@ describe("CancellationRecordsTable — customer note", () => {
     expect(
       screen.getByText("Car broke down two hours from the site.")
     ).toBeTruthy();
-    const firstRowNoteCells = within(
+    const firstRowReasonCell = within(
       screen.getByText("TRG-00000001-2026-01").closest("tr")
-    ).getAllByRole("cell")[2];
-    expect(firstRowNoteCells.children).toHaveLength(1);
+    ).getAllByRole("cell")[1];
+    expect(firstRowReasonCell.children).toHaveLength(1);
   });
 
   it("shows the cancellation date separately from the travel date", () => {
@@ -123,14 +143,14 @@ describe("CancellationRecordsTable — customer note", () => {
 
     const row = screen.getByText("TRG-90123456-2026-01").closest("tr");
     const cells = within(row).getAllByRole("cell");
-    expect(cells[0].textContent).toBe("2026-09-30");
-    expect(cells[1].textContent).toBe("2026-10-02");
+    expect(cells[0].textContent).toContain("2026-09-30");
+    expect(cells[0].textContent).toContain("Travelled 2026-10-02");
   });
 
   it("keeps the reason readable when the note is long", () => {
-    // The note is visually de-emphasised (small, muted, italic-free) so the
-    // reason stays the scannable field — a long note must not reflow the row
-    // height, which is why it carries the same truncation treatment.
+    // The note is visually de-emphasised (small, muted) so the reason stays
+    // the scannable field — a long note must not reflow the row height, which
+    // is why it carries the same truncation treatment.
     renderTable([
       {
         ...baseRecord,
