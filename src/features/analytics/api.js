@@ -6,18 +6,58 @@ export async function fetchSupplierAnalytics() {
 }
 
 /**
- * Per-product performance for this page's charts.
+ * Period-scoped KPIs for the Performance page.
  *
- * The page used to build them from the supplier's BOOKINGS LIST, which is
- * `bookings.view` (admin + editor) — so a finance member, who may open Analytics
- * but not the Bookings page, got a permission error instead of the charts. The
- * backend aggregates these under `analytics.view`, the key the page is gated by.
+ * Revenue is money paid inside the window; bookings are bookings created
+ * inside it; `previous*` describes the same-length window immediately before,
+ * which is what the deltas on the cards compare against. Rating is all-time
+ * and the card says so.
  */
-export async function fetchProductAnalytics() {
-  const response = await api.get("/suppliers/analytics/products", {
+export async function fetchAnalyticsSummary(period = "30d") {
+  const response = await api.get("/suppliers/analytics/summary", {
+    params: { period },
     skipGlobalErrorHandler: true,
   });
-  return response.data?.data?.products || [];
+  const data = response.data?.data;
+  // A server that predates this endpoint can answer the path with some other
+  // payload. Missing figures must surface as an error, not as an empty page.
+  if (!data || !data.revenue || !data.bookings) {
+    throw new Error("The performance summary is unavailable on this server.");
+  }
+  return data;
+}
+
+/**
+ * Revenue and bookings over time, bucketed to match the window (day / week /
+ * month), with the previous window aligned index-for-index for comparison.
+ */
+export async function fetchAnalyticsTimeseries(period = "30d") {
+  const response = await api.get("/suppliers/analytics/timeseries", {
+    params: { period },
+    skipGlobalErrorHandler: true,
+  });
+  const data = response.data?.data;
+  if (!data || !Array.isArray(data.buckets)) {
+    throw new Error("The performance trend is unavailable on this server.");
+  }
+  return data;
+}
+
+/**
+ * Per-product performance for this page. Aggregated under `analytics.view`,
+ * the key the page is gated by — the page used to read the BOOKINGS LIST,
+ * which is `bookings.view`, so a finance member saw a permission error.
+ */
+export async function fetchProductAnalytics(period) {
+  const response = await api.get("/suppliers/analytics/products", {
+    params: period ? { period } : undefined,
+    skipGlobalErrorHandler: true,
+  });
+  const products = response.data?.data?.products;
+  if (!Array.isArray(products)) {
+    throw new Error("Product performance is unavailable on this server.");
+  }
+  return products;
 }
 
 export async function fetchMonthlyRevenue(months = 12) {
@@ -25,10 +65,6 @@ export async function fetchMonthlyRevenue(months = 12) {
     params: { months },
     skipGlobalErrorHandler: true,
   });
-  // Normalise the backend's `grossAmount`/`bookingCount` onto the `revenue`/
-  // `bookings` keys the charts read. They used to look for `revenue`, which the
-  // endpoint has never returned, so the trend chart rendered "No revenue
-  // recorded in the last 12 months" for suppliers who had plenty.
   return (response.data?.data?.months || []).map((month) => ({
     ...month,
     revenue: Number(month.revenue ?? month.grossAmount) || 0,

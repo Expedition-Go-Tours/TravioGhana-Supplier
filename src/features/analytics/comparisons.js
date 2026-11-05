@@ -1,12 +1,19 @@
 /**
- * Period comparisons for the Analytics stat cards.
+ * Period comparisons for the Performance page.
  *
- * The cards used to read "vs previous period" with no calculation behind them —
- * a label implying a trend the page never computed. A comparison is only shown
- * when the monthly series actually supports one, and it names the two buckets
- * it compares ("Oct vs Sep") so the supplier knows exactly what the number
- * means. When there is nothing to compare, the label is simply not printed.
+ * Every delta on the page compares one window with the window immediately
+ * before it, of the same length. These helpers only do the arithmetic; the
+ * windows themselves come from the API so the card, the chart and the table
+ * cannot disagree about what "previous" means.
  */
+
+/** Percentage change, or null when the previous window was empty. */
+export function percentChange(current, previous) {
+  const now = Number(current) || 0;
+  const before = Number(previous) || 0;
+  if (before === 0) return now > 0 ? null : 0;
+  return ((now - before) / before) * 100;
+}
 
 function monthLabel(value) {
   const [, month] = String(value ?? "").split("-");
@@ -18,9 +25,8 @@ function monthLabel(value) {
  * Compare the two most recent monthly buckets in a series shaped like
  * `{ month: '2026-10', revenue|grossAmount, bookingCount|bookings }`.
  *
- * Returns null when the series cannot support a comparison — fewer than two
- * buckets, or nothing at all. Percent change is null when the earlier bucket is
- * zero (a move from 0 to 5 is not "+∞%", it is "new").
+ * Kept for callers that only have a monthly series. The Performance page uses
+ * the API's period pair instead, which is not limited to months.
  */
 export function compareLastTwoMonths(series) {
   const months = (series || [])
@@ -35,15 +41,11 @@ export function compareLastTwoMonths(series) {
   if (months.length < 2) return null;
 
   const [previous, current] = months.slice(-2);
-  const pct = (now, before) => {
-    if (before === 0) return now > 0 ? null : 0;
-    return ((now - before) / before) * 100;
-  };
 
   return {
     label: `${monthLabel(current.month)} vs ${monthLabel(previous.month)}`,
-    revenuePct: pct(current.revenue, previous.revenue),
-    bookingsPct: pct(current.bookings, previous.bookings),
+    revenuePct: percentChange(current.revenue, previous.revenue),
+    bookingsPct: percentChange(current.bookings, previous.bookings),
     currentRevenue: current.revenue,
     previousRevenue: previous.revenue,
     currentBookings: current.bookings,

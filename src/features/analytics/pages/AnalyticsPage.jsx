@@ -1,451 +1,300 @@
-import { useState, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import {
-  DollarSign, ShoppingCart, Star, TrendingUp, Loader2, RefreshCw, AlertTriangle,
-  Image as ImageIcon,
+  AlertTriangle,
+  Ban,
+  Loader2,
+  Percent,
+  RefreshCw,
+  ShoppingCart,
+  Star,
+  Wallet,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
-import OptimizedImage from "@/components/shared/OptimizedImage";
-import { getAuthToken } from "@/stores/authStore";
-import { fetchSupplierAnalytics, fetchMonthlyRevenue, fetchProductAnalytics } from "../api";
+import { cn } from "@/lib/utils";
+import {
+  fetchAnalyticsSummary,
+  fetchAnalyticsTimeseries,
+  fetchGa4Funnel,
+  fetchProductAnalytics,
+} from "../api";
+import { fetchCancellationSummary } from "@/features/cancellation/api";
+import KpiCard from "../components/KpiCard";
+import { percentChange } from "../comparisons";
+import PerformanceChart from "../components/PerformanceChart";
+import ProductPerformanceTable from "../components/ProductPerformanceTable";
 import Ga4FunnelPanel from "../components/Ga4FunnelPanel";
-import { compareLastTwoMonths, formatDelta } from "../comparisons";
 
-const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const PERIODS = [
+  { key: "30d", label: "30 days", full: "Last 30 days", days: 30 },
+  { key: "90d", label: "90 days", full: "Last 90 days", days: 90 },
+  { key: "12m", label: "12 months", full: "Last 12 months", days: 365 },
+];
 
-/**
- * The API buckets revenue as YYYY-MM ("2026-10"). Render it the way a person
- * reads a trend: "Oct 26", falling back to the raw value if it isn't a bucket.
- */
-const formatMonthLabel = (value) => {
-  const [year, month] = String(value ?? "").split("-");
-  const index = Number(month) - 1;
-  if (!year || !MONTH_LABELS[index]) return String(value ?? "");
-  return `${MONTH_LABELS[index]} ${year.slice(-2)}`;
-};
+const isoDay = (date) => date.toISOString().slice(0, 10);
 
-/** Axis money: "$820" below a thousand, "$12.5k" above. */
-const formatAxisCurrency = (value) => {
-  const n = Number(value) || 0;
-  if (Math.abs(n) >= 1000) {
-    return `$${(n / 1000).toLocaleString("en-US", { maximumFractionDigits: 1 })}k`;
-  }
-  return `$${n.toLocaleString("en-US")}`;
-};
+const formatPercent = (value) =>
+  value == null ? "—" : `${Number(value).toFixed(1)}%`;
 
-const CustomTooltip = ({ active, payload, label }) => {
-  if (active && payload?.length) {
-    return (
-      <div className="bg-white border border-slate-200 rounded-xl shadow-lg p-3">
-        <p className="text-xs font-medium text-slate-500 mb-1">{formatMonthLabel(label)}</p>
-        <p className="text-sm font-semibold text-slate-800">{formatCurrency(payload[0].value)}</p>
-      </div>
-    );
-  }
-  return null;
-};
-
-/**
- * Best Selling Products thumbnail. The products endpoint carries the tour's cover
- * photo, so show the real image — with a neutral placeholder if a tour has none
- * or the image fails to load, never an initial.
- */
-function ProductThumb({ src, alt }) {
-  const [failed, setFailed] = useState(false);
-  const showImage = Boolean(src) && !failed;
-
-  return (
-    <div className="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200/70 flex items-center justify-center shrink-0 overflow-hidden">
-      {showImage ? (
-        <OptimizedImage
-          src={src}
-          alt={alt}
-          width={36}
-          height={36}
-          className="w-full h-full object-cover"
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        <ImageIcon size={14} className="text-slate-300" />
-      )}
-    </div>
-  );
-}
-
-const PIE_COLORS = ["#059669", "#0f766e", "#0891b2", "#ca8a04", "#94a3b8"];
+/** The server's message when it sent one; the client's text otherwise. */
+const messageFor = (reason, fallback) =>
+  reason?.response?.data?.message || reason?.message || fallback;
 
 export default function AnalyticsPage() {
   const navigate = useNavigate();
-  const [data, setData] = useState(null);
+  const [period, setPeriod] = useState("30d");
+  const [metric, setMetric] = useState("revenue");
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const [summary, setSummary] = useState(null);
+  const [series, setSeries] = useState(null);
   const [products, setProducts] = useState([]);
+  const [ga4, setGa4] = useState(null);
+  const [cancellation, setCancellation] = useState(null);
+
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [monthlyRevenueData, setMonthlyRevenueData] = useState([]);
-  // A chart that failed to load must say so. These used to be swallowed with
-  // `.catch(() => [])`, which rendered "No booking data" — indistinguishable
-  // from a supplier who genuinely has none.
-  const [partialErrors, setPartialErrors] = useState([]);
+  const [errors, setErrors] = useState({});
+  const [lastUpdated, setLastUpdated] = useState(null);
 
-  const fetchData = () => {
-    if (!getAuthToken()) { setLoading(false); return; }
-    setLoading(true); setError(null);
-    fetchSupplierAnalytics()
-      .then(async (d) => {
-        const [productsResult, monthlyResult] = await Promise.allSettled([
-          fetchProductAnalytics(),
-          fetchMonthlyRevenue(12),
-        ]);
+  const requestRef = useRef(0);
 
-        const failed = [];
-        const nextProducts =
-          productsResult.status === "fulfilled" ? productsResult.value : [];
-        const nextMonthly =
-          monthlyResult.status === "fulfilled" ? monthlyResult.value : [];
-        if (productsResult.status !== "fulfilled") failed.push("per-product charts");
-        if (monthlyResult.status !== "fulfilled") failed.push("revenue trend");
+  const load = useCallback(async () => {
+    const config = PERIODS.find((entry) => entry.key === period) || PERIODS[0];
+    const requestId = ++requestRef.current;
+    const to = new Date();
+    const from = new Date(Date.now() - config.days * 86_400_000);
 
-        setData(d);
-        setProducts(nextProducts);
-        setMonthlyRevenueData(nextMonthly);
-        setPartialErrors(failed);
-      })
-      .catch((err) => {
-        if (err.code === "AUTH_REQUIRED") return;
-        setError(err.response?.data?.message || err.message || "Failed to load analytics");
-      })
-      .finally(() => setLoading(false));
-  };
+    setLoading(true);
+    setErrors({});
+
+    const [summaryResult, seriesResult, productsResult, ga4Result, cancellationResult] =
+      await Promise.allSettled([
+        fetchAnalyticsSummary(period),
+        fetchAnalyticsTimeseries(period),
+        fetchProductAnalytics(period),
+        fetchGa4Funnel({ from: isoDay(from), to: isoDay(to) }),
+        fetchCancellationSummary(undefined, config.days),
+      ]);
+
+    // A slower response for a previous period must not overwrite a newer one.
+    if (requestId !== requestRef.current) return;
+
+    const nextErrors = {};
+    if (summaryResult.status === "fulfilled") setSummary(summaryResult.value);
+    else nextErrors.summary = messageFor(summaryResult.reason, "Could not load the period summary.");
+
+    if (seriesResult.status === "fulfilled") setSeries(seriesResult.value);
+    else nextErrors.series = messageFor(seriesResult.reason, "Could not load the trend.");
+
+    if (productsResult.status === "fulfilled") setProducts(productsResult.value);
+    else nextErrors.products = messageFor(productsResult.reason, "Could not load product performance.");
+
+    if (ga4Result.status === "fulfilled") setGa4(ga4Result.value);
+    else nextErrors.ga4 = messageFor(ga4Result.reason, "Could not load Google Analytics.");
+
+    if (cancellationResult.status === "fulfilled") setCancellation(cancellationResult.value);
+    else nextErrors.cancellation = true;
+
+    setErrors(nextErrors);
+    setLastUpdated(new Date());
+    setLoading(false);
+  }, [period]);
 
   useEffect(() => {
+    // Deferred out of the effect body so the fetch (and its first setState)
+    // does not run during the effect itself.
     let cancelled = false;
-    // Defer the initial fetch out of the effect's synchronous body so no
-    // setState runs during the effect itself.
     Promise.resolve().then(() => {
-      if (cancelled) return;
-      fetchData();
+      if (!cancelled) load();
     });
-    return () => { cancelled = true; };
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [load, reloadKey]);
 
-  const dashboardData = data;
-  const tours = dashboardData?.tours || {};
-  const bookingsData = dashboardData?.bookings || {};
-  const earnings = dashboardData?.earnings || {};
+  const config = PERIODS.find((entry) => entry.key === period) || PERIODS[0];
 
-  const reviews = dashboardData?.reviews || {};
-  const totalRevenue = Number(earnings.totalEarnings) || 0;
-  const totalBookings = bookingsData.total || 0;
-  const activeTours = tours.active || 0;
+  const revenueDelta = summary?.revenue
+    ? percentChange(summary.revenue.gross, summary.revenue.previousGross)
+    : undefined;
+  const bookingsDelta = summary?.bookings
+    ? percentChange(summary.bookings.total, summary.bookings.previousTotal)
+    : undefined;
 
-  const avgRating = reviews.averageRating || 0;
+  const ga4Totals = ga4?.enabled === false ? null : ga4?.totals;
+  const conversionRate =
+    ga4Totals && Number(ga4Totals.itemsViewed) > 0
+      ? (Number(ga4Totals.itemsPurchased) / Number(ga4Totals.itemsViewed)) * 100
+      : null;
 
-  // One row per TOUR. Merging tours by title was wrong twice over: two
-  // different products called "City Tour" are two products (different prices,
-  // different calendars), and the merged row could show neither one's rating.
-  const productBookings = useMemo(
-    () =>
-      [...products]
-        .sort((a, b) => (b.bookings || 0) - (a.bookings || 0))
-        .slice(0, 5)
-        .map((p, i) => ({
-          name: (p.name || "Unknown").length > 12 ? p.name.slice(0, 12) + "…" : p.name,
-          value: p.bookings || 0,
-          color: PIE_COLORS[i],
-        })),
-    [products]
-  );
-
-  const productRevenue = useMemo(
-    () =>
-      [...products]
-        .sort((a, b) => (b.revenue || 0) - (a.revenue || 0))
-        .slice(0, 4)
-        .map((p) => ({
-          name: p.name || "Unknown",
-          revenue: Number(p.revenue) || 0,
-          bookings: Number(p.bookings) || 0,
-          photo: p.photo || "",
-          tourId: p.tourId || "",
-          // Each tour's OWN rating. The row used to print the account-wide
-          // average for every product, so a 3-star tour displayed 4.3★.
-          rating: p.rating != null ? Number(p.rating) : null,
-        })),
-    [products]
-  );
-
-  // Real comparison from the monthly series — named buckets, computed, and
-  // absent when the series cannot support one. "vs previous period" used to be
-  // printed with no calculation behind it at all.
-  const comparison = useMemo(() => compareLastTwoMonths(monthlyRevenueData), [monthlyRevenueData]);
-
-  // The endpoint returns a continuous month window (zeros included), so an
-  // "empty" trend means every bucket is zero — show that state instead of a
-  // flat chart with no bars.
-  const hasRevenue = useMemo(
-    () => monthlyRevenueData.some((m) => Number(m.revenue) > 0),
-    [monthlyRevenueData],
-  );
+  const cancellationRate = cancellation?.cancellationRate;
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="max-w-5xl space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-lg font-bold text-slate-800">Analytics</h1>
-          <p className="text-xs text-slate-400 mt-0.5">Track revenue, bookings and product growth with modern analytics.</p>
+          <h1 className="text-xl font-bold text-slate-900 md:text-2xl">Performance</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Revenue, bookings and conversion for your products.
+          </p>
         </div>
-        <button onClick={fetchData} disabled={loading}
-          className="flex items-center gap-1.5 px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-all disabled:opacity-40 shadow-sm"
-        >
-          {loading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-          Refresh
-        </button>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex rounded-lg bg-slate-100 p-0.5" role="group" aria-label="Reporting period">
+            {PERIODS.map((option) => (
+              <button
+                key={option.key}
+                type="button"
+                onClick={() => setPeriod(option.key)}
+                aria-pressed={period === option.key}
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                  period === option.key
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700",
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setReloadKey((key) => key + 1)}
+            disabled={loading}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40"
+          >
+            {loading ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+            Refresh
+          </button>
+        </div>
       </div>
 
-      {/* Error */}
-      {error && !loading && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center gap-2">
-          <AlertTriangle size={12} /> {error}
-          <button onClick={fetchData} className="ml-auto font-medium underline">Retry</button>
-        </div>
-      )}
+      <p className="text-[11px] text-slate-400">
+        {config.full} · compared with the {config.days} days before
+        {lastUpdated && ` · updated ${lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}
+      </p>
 
-      {/* A chart that failed is never the same thing as an empty chart. */}
-      {partialErrors.length > 0 && !loading && (
-        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center gap-2">
-          <AlertTriangle size={12} className="shrink-0" />
-          <span>
-            We couldn't load the {partialErrors.join(" and ")} — the rest of this page
-            is up to date, but those sections are missing, not empty.
-          </span>
-          <button onClick={fetchData} className="ml-auto font-medium underline">
+      {errors.summary && (
+        <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+          <AlertTriangle size={14} className="shrink-0" />
+          <span>{errors.summary} The cards below are missing, not zero.</span>
+          <button
+            type="button"
+            onClick={() => setReloadKey((key) => key + 1)}
+            className="ml-auto font-medium underline"
+          >
             Retry
           </button>
         </div>
       )}
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-white border border-slate-200 rounded-xl p-4 hover:shadow-md transition-all">
-          <div className="flex items-center justify-between mb-2.5">
-            <div className="w-9 h-9 rounded-lg bg-emerald-50 border border-emerald-200/60 flex items-center justify-center">
-              <DollarSign size={16} className="text-emerald-600" />
-            </div>
-            {!loading && (
-              <span className="text-[11px] text-slate-400 font-medium">
-                {comparison ? comparison.label : "Last 12 months"}
-              </span>
-            )}
-          </div>
-          {loading ? (
-            <div className="space-y-1.5"><div className="h-5 w-20 bg-slate-100 rounded animate-pulse" /><div className="h-3 w-16 bg-slate-100 rounded animate-pulse" /></div>
-          ) : (
-            <>
-              <p className="text-lg font-bold text-slate-800">{formatCurrency(totalRevenue)}</p>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                Earnings
-                {comparison && (
-                  <span className={comparison.revenuePct > 0 ? "text-emerald-600 ml-1" : comparison.revenuePct < 0 ? "text-red-600 ml-1" : "text-slate-400 ml-1"}>
-                    {formatDelta(comparison.revenuePct)}
-                  </span>
-                )}
-              </p>
-            </>
-          )}
-          <div className="mt-2 h-0.5 w-full rounded-full bg-emerald-200/40" />
-        </div>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+        <KpiCard
+          label="Revenue"
+          icon={Wallet}
+          definition="Gross value of bookings paid inside the period. Your payout after commission is shown underneath."
+          value={summary?.revenue ? formatCurrency(summary.revenue.gross) : "—"}
+          delta={revenueDelta}
+          deltaLabel="vs previous"
+          sub={summary?.revenue ? `Payout ${formatCurrency(summary.revenue.payout)}` : undefined}
+          loading={loading}
+        />
 
-        <div className="bg-white border border-slate-200 rounded-xl p-4 hover:shadow-md transition-all">
-          <div className="flex items-center justify-between mb-2.5">
-            <div className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-200/60 flex items-center justify-center">
-              <ShoppingCart size={16} className="text-blue-600" />
-            </div>
-            {!loading && (
-              <span className="text-[11px] text-slate-400 font-medium">
-                {comparison ? comparison.label : "Last 12 months"}
-              </span>
-            )}
-          </div>
-          {loading ? (
-            <div className="space-y-1.5"><div className="h-5 w-12 bg-slate-100 rounded animate-pulse" /><div className="h-3 w-16 bg-slate-100 rounded animate-pulse" /></div>
-          ) : (
-            <>
-              <p className="text-lg font-bold text-slate-800">{totalBookings}</p>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                Bookings
-                {comparison && (
-                  <span className={comparison.bookingsPct > 0 ? "text-emerald-600 ml-1" : comparison.bookingsPct < 0 ? "text-red-600 ml-1" : "text-slate-400 ml-1"}>
-                    {formatDelta(comparison.bookingsPct)}
-                  </span>
-                )}
-              </p>
-            </>
-          )}
-          <div className="mt-2 h-0.5 w-full rounded-full bg-blue-200/40" />
-        </div>
+        <KpiCard
+          label="Bookings"
+          icon={ShoppingCart}
+          definition="Bookings created inside the period, whatever their status."
+          value={summary?.bookings ? summary.bookings.total : "—"}
+          delta={bookingsDelta}
+          deltaLabel="vs previous"
+          sub={
+            summary?.bookings
+              ? `${summary.bookings.confirmed} confirmed · ${summary.bookings.pending} pending`
+              : undefined
+          }
+          loading={loading}
+        />
 
-        <div className="bg-white border border-slate-200 rounded-xl p-4 hover:shadow-md transition-all">
-          <div className="flex items-center justify-between mb-2.5">
-            <div className="w-9 h-9 rounded-lg bg-amber-50 border border-amber-200/60 flex items-center justify-center">
-              <Star size={16} className="text-amber-600" />
-            </div>
-            {!loading && <span className="text-[11px] text-slate-400 font-medium">Guest feedback</span>}
-          </div>
-          {loading ? (
-            <div className="space-y-1.5"><div className="h-5 w-14 bg-slate-100 rounded animate-pulse" /><div className="h-3 w-12 bg-slate-100 rounded animate-pulse" /></div>
-          ) : (
-            <><p className="text-lg font-bold text-slate-800">{avgRating} ★</p><p className="text-[11px] text-slate-400 mt-0.5">Rating</p></>
-          )}
-          <div className="mt-2 h-0.5 w-full rounded-full bg-amber-200/40" />
-        </div>
+        <KpiCard
+          label="Conversion"
+          icon={Percent}
+          definition="Booked divided by product views, from Google Analytics. Unavailable when GA4 is not connected."
+          value={ga4?.enabled === false ? "—" : formatPercent(conversionRate)}
+          sub={
+            ga4?.enabled === false
+              ? "Google Analytics not connected"
+              : ga4Totals
+                ? `${Number(ga4Totals.itemsViewed).toLocaleString("en-US")} views → ${Number(ga4Totals.itemsPurchased).toLocaleString("en-US")} booked`
+                : "No storefront activity"
+          }
+          loading={loading}
+        />
 
-        <div className="bg-white border border-slate-200 rounded-xl p-4 hover:shadow-md transition-all">
-          <div className="flex items-center justify-between mb-2.5">
-            <div className="w-9 h-9 rounded-lg bg-purple-50 border border-purple-200/60 flex items-center justify-center">
-              <TrendingUp size={16} className="text-purple-600" />
-            </div>
-            {!loading && <span className="text-[11px] text-slate-400 font-medium">Published catalogue</span>}
-          </div>
-          {loading ? (
-            <div className="space-y-1.5"><div className="h-5 w-16 bg-slate-100 rounded animate-pulse" /><div className="h-3 w-16 bg-slate-100 rounded animate-pulse" /></div>
-          ) : (
-            <><p className="text-lg font-bold text-slate-800">{activeTours}</p><p className="text-[11px] text-slate-400 mt-0.5">Active Tours</p></>
-          )}
-          <div className="mt-2 h-0.5 w-full rounded-full bg-purple-200/40" />
-        </div>
+        <KpiCard
+          label="Rating"
+          icon={Star}
+          definition="All-time average of approved reviews. Not limited to the selected period."
+          value={summary?.rating ? `${Number(summary.rating.average).toFixed(1)} ★` : "—"}
+          sub={
+            summary?.rating
+              ? `${summary.rating.count} review${summary.rating.count === 1 ? "" : "s"} · ${formatPercent(summary.rating.lowShare)} at 3★ or below`
+              : undefined
+          }
+          loading={loading}
+        />
+
+        <KpiCard
+          className="col-span-2 md:col-span-1"
+          label="Cancellation rate"
+          icon={Ban}
+          definition="Supplier-caused cancellations divided by the bookings that were at risk in the period."
+          value={cancellation ? formatPercent(cancellationRate) : "—"}
+          sub={
+            cancellation
+              ? `${cancellation.supplierCausedCount} of ${cancellation.eligibleBookings} eligible bookings`
+              : "Not available"
+          }
+          loading={loading}
+        >
+          <button
+            type="button"
+            onClick={() => navigate("/cancellation-rate")}
+            className="mt-3 text-[11px] font-medium text-emerald-700 hover:underline"
+          >
+            View cancellations
+          </button>
+        </KpiCard>
       </div>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Revenue Trend */}
-        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-slate-800">Revenue Trend</h3>
-            <span className="text-[10px] text-slate-400">Monthly performance</span>
-          </div>
-          {loading ? (
-            <div className="h-[240px] bg-slate-50 rounded-lg animate-pulse" />
-          ) : hasRevenue ? (
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={monthlyRevenueData} barCategoryGap="24%">
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                <XAxis dataKey="month" interval={1} tickFormatter={formatMonthLabel} tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} tickFormatter={formatAxisCurrency} />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: "#f8fafc" }} />
-                <Bar dataKey="revenue" fill="#059669" radius={[4, 4, 0, 0]} maxBarSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-[240px] text-center">
-              <TrendingUp size={22} className="text-slate-200 mb-2" />
-              <p className="text-xs text-slate-400">No revenue recorded in the last 12 months</p>
-            </div>
-          )}
-        </div>
+      <PerformanceChart
+        buckets={series?.buckets || []}
+        previous={series?.previous || []}
+        metric={metric}
+        onMetricChange={setMetric}
+        loading={loading}
+        error={errors.series}
+        onRetry={() => setReloadKey((key) => key + 1)}
+        periodLabel={config.full}
+      />
 
-        {/* Bookings by Product */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5">
-          <h3 className="text-sm font-semibold text-slate-800 mb-4">Bookings by Product</h3>
-          {loading ? (
-            <div className="h-[200px] bg-slate-50 rounded-lg animate-pulse" />
-          ) : productBookings.length > 0 ? (
-            <>
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie data={productBookings} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value">
-                    {productBookings.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="mt-3 space-y-1.5">
-                {productBookings.map((p, i) => (
-                  <div key={`${p.name}-${i}`} className="flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
-                      {/* Two tours can share a title; the value beside the name
-                          is what distinguishes them, so the name is not a key. */}
-                      <span className="text-slate-500">{p.name}</span>
-                    </span>
-                    <span className="font-medium text-slate-700">{p.value}</span>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : partialErrors.length > 0 ? (
-            <div className="flex items-center justify-center h-[200px] text-xs text-amber-700">
-              Couldn't load this chart
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-[200px] text-xs text-slate-400">No booking data</div>
-          )}
-        </div>
-      </div>
+      <ProductPerformanceTable
+        products={products}
+        ga4Rows={ga4?.enabled === false ? [] : ga4?.rows || []}
+        loading={loading}
+        error={errors.products}
+        onRetry={() => setReloadKey((key) => key + 1)}
+        periodLabel={config.full}
+      />
 
-      {/* Best Selling Products Table */}
-      <div className="bg-white border border-slate-200 rounded-xl p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-sm font-semibold text-slate-800">Best Selling Products</h3>
-            <p className="text-[10px] text-slate-400 mt-0.5">Top performing tours by revenue</p>
-          </div>
-        </div>
-        {loading ? (
-          <div className="space-y-3">{[1, 2, 3].map(i => <div key={i} className="h-14 bg-slate-50 rounded-lg animate-pulse" />)}</div>
-        ) : productRevenue.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-slate-100">
-                  <th className="text-left py-2.5 pr-3 text-[10px] font-medium text-slate-400 uppercase tracking-wider">Product</th>
-                  <th className="text-right py-2.5 px-3 text-[10px] font-medium text-slate-400 uppercase tracking-wider">Revenue</th>
-                  <th className="text-right py-2.5 px-3 text-[10px] font-medium text-slate-400 uppercase tracking-wider">Bookings</th>
-                  <th className="text-right py-2.5 pl-3 text-[10px] font-medium text-slate-400 uppercase tracking-wider">Rating</th>
-                  <th className="text-right py-2.5 pl-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {productRevenue.map((p, i) => (
-                  <tr key={i} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors">
-                    <td className="py-3 pr-3">
-                      <div className="flex items-center gap-3">
-                        <ProductThumb src={p.photo} alt={p.name} />
-                        <p className="text-[11px] text-slate-700 font-medium leading-relaxed line-clamp-2">{p.name}</p>
-                      </div>
-                    </td>
-                    <td className="py-3 px-3 text-right text-[11px] text-slate-800 font-medium">{formatCurrency(p.revenue)}</td>
-                    <td className="py-3 px-3 text-right text-[11px] text-slate-600">{p.bookings}</td>
-                    <td className="py-3 pl-3 text-right text-[11px] text-amber-600">
-                      {p.rating != null && p.rating > 0 ? `${p.rating.toFixed(2)} ★` : <span className="text-slate-400">Not rated</span>}
-                    </td>
-                    <td className="py-3 pl-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => p.tourId && navigate(`/products/${p.tourId}`)}
-                        disabled={!p.tourId}
-                        className="text-[11px] text-emerald-700 font-medium hover:underline whitespace-nowrap disabled:text-slate-300 disabled:no-underline disabled:cursor-not-allowed"
-                      >
-                        View details
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : partialErrors.length > 0 ? (
-          <p className="text-xs text-amber-700 text-center py-8">
-            We couldn't load the per-product figures. They are missing, not zero.
-          </p>
-        ) : (
-          <p className="text-xs text-slate-400 text-center py-8">No product data available yet</p>
-        )}
-      </div>
-
-      {/* The storefront funnel only GA4 can see: who looked at a product and
-          never booked is invisible in every table we own. */}
-      <Ga4FunnelPanel />
+      <Ga4FunnelPanel
+        data={ga4}
+        loading={loading}
+        error={errors.ga4}
+        onRetry={() => setReloadKey((key) => key + 1)}
+        periodLabel={config.full}
+      />
     </div>
   );
 }

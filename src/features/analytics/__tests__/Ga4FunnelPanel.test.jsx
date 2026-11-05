@@ -7,166 +7,104 @@
  *   not configured  → an explanation, NEVER a table of zeros
  *   request failed  → an error with Retry, never an empty funnel
  *   no activity     → an explicit "measured zero", with the dates
+ *
+ * The page owns the request and the period; the panel only renders props.
  */
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, cleanup } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
-const fetchGa4Funnel = vi.fn();
-
-vi.mock('../api', () => ({
-  fetchGa4Funnel: (...args) => fetchGa4Funnel(...args),
-}));
-
-import Ga4FunnelPanel from '../components/Ga4FunnelPanel';
+import Ga4FunnelPanel from "../components/Ga4FunnelPanel";
 
 const ROWS = [
   {
-    itemId: 'tour-1',
-    itemName: 'Accra Guided City Tour: Cultural and Historical Experience',
+    itemId: "tour-1",
+    itemName: "Accra Guided City Tour",
     itemsViewed: 120,
-    itemsAddedToCart: 9,
-    itemsPurchased: 1,
-    itemRevenue: 70,
-    itemRevenueSharePct: 11.08,
-    itemsPurchasedSharePct: 16.67,
+    itemsAddedToCart: 30,
+    itemsPurchased: 6,
+    itemRevenue: 420,
   },
   {
-    itemId: 'tour-2',
-    itemName: 'From Accra : Waterfalls, Aburi Gardens & Cocoa Farm Tour',
-    itemsViewed: 60,
-    itemsAddedToCart: 4,
-    itemsPurchased: 2,
+    itemId: "tour-2",
+    itemName: "Waterfalls & Aburi Gardens",
+    itemsViewed: 80,
+    itemsAddedToCart: 20,
+    itemsPurchased: 4,
     itemRevenue: 320,
-    itemRevenueSharePct: 50.63,
-    itemsPurchasedSharePct: 33.33,
   },
 ];
 
-const SUMMARY = {
+const DATA = {
   enabled: true,
-  from: '2026-09-22',
-  to: '2026-10-22',
+  from: "2026-10-06",
+  to: "2026-11-05",
   rows: ROWS,
-  totals: { itemsViewed: 180, itemsAddedToCart: 13, itemsPurchased: 3, itemRevenue: 390 },
-  excludedCount: 1,
+  totals: { itemsViewed: 200, itemsAddedToCart: 50, itemsPurchased: 10, itemRevenue: 740 },
+  excludedCount: 0,
 };
 
-beforeEach(() => {
-  fetchGa4Funnel.mockReset().mockResolvedValue(SUMMARY);
-});
+const renderPanel = (props = {}) =>
+  render(
+    <Ga4FunnelPanel
+      data={DATA}
+      loading={false}
+      error={null}
+      onRetry={vi.fn()}
+      periodLabel="Last 30 days"
+      {...props}
+    />,
+  );
 
-afterEach(() => {
-  cleanup();
-});
+describe("Ga4FunnelPanel", () => {
+  it("shows the three funnel steps with step-to-step conversion", () => {
+    renderPanel();
 
-describe('when this server cannot see GA4', () => {
-  it('says so instead of rendering a table of zeros', async () => {
-    fetchGa4Funnel.mockResolvedValue({
-      enabled: false,
-      from: '2026-09-22',
-      to: '2026-10-22',
-      rows: [],
-      totals: { itemsViewed: 0, itemsAddedToCart: 0, itemsPurchased: 0, itemRevenue: 0 },
-      reason: 'GA4 reporting is not configured on this server.',
-    });
-
-    render(<Ga4FunnelPanel />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/not connected to google analytics yet/i)).toBeInTheDocument();
-    });
-    // The exact misreading this guards against: zeros that read as "nobody
-    // looked at my products".
-    expect(screen.queryByText('Total')).toBeNull();
-    expect(screen.queryByText('No product activity in this period')).toBeNull();
-    expect(screen.getByText(/not configured on this server/i)).toBeInTheDocument();
-  });
-});
-
-describe('when the request fails', () => {
-  it('shows an error with Retry — never an empty funnel', async () => {
-    fetchGa4Funnel.mockRejectedValue({ response: { data: { message: 'Could not load the GA4 funnel: quota exceeded' } } });
-
-    render(<Ga4FunnelPanel />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/couldn't load the storefront funnel/i)).toBeInTheDocument();
-    });
-    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
-    expect(screen.queryByText('Total')).toBeNull();
-
-    fetchGa4Funnel.mockResolvedValue(SUMMARY);
-    await userEvent.click(screen.getByRole('button', { name: /retry/i }));
-    await waitFor(() => {
-      expect(screen.getByText(/Accra Guided City Tour/)).toBeInTheDocument();
-    });
-  });
-});
-
-describe('when GA4 has data', () => {
-  it('shows each product down the funnel with its shares and a totals row', async () => {
-    render(<Ga4FunnelPanel />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/Accra Guided City Tour/)).toBeInTheDocument();
-    });
-    expect(screen.getByText(/Waterfalls, Aburi Gardens/)).toBeInTheDocument();
-
-    // Purchased carries its share of the supplier's own totals.
-    expect(screen.getByText('1 (16.67%)')).toBeInTheDocument();
-    expect(screen.getByText('2 (33.33%)')).toBeInTheDocument();
-    // Revenue likewise, in the supplier's currency.
-    expect(screen.getByText(/70\.00/)).toBeInTheDocument();
-    expect(screen.getByText(/320\.00/)).toBeInTheDocument();
-
-    // Totals agree with the rows: 120+60 viewed, 1+2 purchased, 70+320 revenue.
-    const totalsRow = screen.getByText('Total').closest('tr');
-    expect(totalsRow.textContent).toContain('180');
-    expect(totalsRow.textContent).toContain('3');
-    expect(totalsRow.textContent).toContain('390');
+    expect(screen.getAllByText("Viewed").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Added to cart").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Booked").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("200").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("50").length).toBeGreaterThan(0);
+    expect(screen.getByText(/25\.0% of previous step/)).toBeInTheDocument();
+    expect(screen.getByText(/20\.0% of previous step/)).toBeInTheDocument();
   });
 
-  it('does not invent a share percentage for the count columns', async () => {
-    render(<Ga4FunnelPanel />);
+  it("names the biggest drop-off", () => {
+    renderPanel();
 
-    await waitFor(() => {
-      expect(screen.getByText(/Accra Guided City Tour/)).toBeInTheDocument();
-    });
-    // Views and carts are counts only (GA4 prints "–" there too). A "0.00%"
-    // next to a real count would read as a conversion rate nobody measured.
-    expect(screen.getByText('120')).toBeInTheDocument();
-    expect(screen.queryByText('120 (0.00%)')).toBeNull();
+    expect(screen.getByText(/Biggest drop-off/)).toBeInTheDocument();
+    // 50 carted → 10 booked is the weaker step (80% lost vs 75%).
+    expect(screen.getByText(/Added to cart → Booked/)).toBeInTheDocument();
   });
 
-  it('says how many products were hidden — hidden must not look like nothing', async () => {
-    render(<Ga4FunnelPanel />);
+  it("lists every product with its revenue", () => {
+    renderPanel();
 
-    await waitFor(() => {
-      expect(screen.getByText(/1 product on the property were hidden/i)).toBeInTheDocument();
-    });
-    expect(screen.getByText(/from google analytics for 2026-09-22/i)).toBeInTheDocument();
+    expect(screen.getByText("Accra Guided City Tour")).toBeInTheDocument();
+    expect(screen.getByText("Waterfalls & Aburi Gardens")).toBeInTheDocument();
+    expect(screen.getAllByText("$420.00").length).toBeGreaterThan(0);
   });
-});
 
-describe('when GA4 measured nothing', () => {
-  it('says so explicitly, with the window, rather than showing an empty table', async () => {
-    fetchGa4Funnel.mockResolvedValue({
-      enabled: true,
-      from: '2026-09-22',
-      to: '2026-10-22',
-      rows: [],
-      totals: { itemsViewed: 0, itemsAddedToCart: 0, itemsPurchased: 0, itemRevenue: 0 },
-      excludedCount: 0,
-    });
+  it("explains a missing GA4 connection instead of printing zeros", () => {
+    renderPanel({ data: { enabled: false, reason: "GA4 reporting is not configured." } });
 
-    render(<Ga4FunnelPanel />);
+    expect(screen.getByText("Not connected to Google Analytics")).toBeInTheDocument();
+    expect(screen.getByText("GA4 reporting is not configured.")).toBeInTheDocument();
+    expect(screen.queryByText("0")).toBeNull();
+  });
 
-    await waitFor(() => {
-      expect(screen.getByText(/no product activity in this period/i)).toBeInTheDocument();
-    });
-    expect(screen.queryByText('Total')).toBeNull();
-    // Not the "not connected" state: the measurement happened, it is empty.
-    expect(screen.queryByText(/not connected to google analytics/i)).toBeNull();
+  it("offers a retry when the request failed", async () => {
+    const onRetry = vi.fn();
+    renderPanel({ error: "GA4 timeout", onRetry });
+
+    expect(screen.getByText("Couldn't load the storefront funnel")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /retry/i }));
+    expect(onRetry).toHaveBeenCalled();
+  });
+
+  it("says there was no activity rather than showing an empty table", () => {
+    renderPanel({ data: { ...DATA, rows: [], totals: { itemsViewed: 0, itemsAddedToCart: 0, itemsPurchased: 0, itemRevenue: 0 } } });
+
+    expect(screen.getByText("No product activity in this period")).toBeInTheDocument();
   });
 });

@@ -28,7 +28,7 @@ const allNavItems = [
   { label: "Reviews", path: "/reviews", icon: <Star size={20} />, permission: PAGE_ACCESS["/reviews"] },
   { label: "Notifications", path: "/notifications", icon: <Bell size={20} />, permission: PAGE_ACCESS["/notifications"] },
   { label: "Verification", path: "/verification", icon: <ShieldCheck size={20} />, permission: PAGE_ACCESS["/verification"] },
-  { label: "Analytics", path: "/analytics", icon: <BarChart3 size={20} />, permission: PAGE_ACCESS["/analytics"] },
+  { label: "Performance", path: "/analytics", icon: <BarChart3 size={20} />, permission: PAGE_ACCESS["/analytics"] },
   { label: "Settings", path: "/settings", icon: <Settings size={20} />, permission: PAGE_ACCESS["/settings"] },
 ];
 

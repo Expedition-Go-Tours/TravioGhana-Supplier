@@ -64,7 +64,7 @@ import { PAGE_ACCESS } from '@/config/pageAccess';
 const NAV_LABELS = [
   'Dashboard', 'Products', 'Bookings', 'Pickup Planner', 'Special Offers',
   'Cancellation', 'Availability', 'Customers', 'Finance', 'Reviews',
-  'Notifications', 'Verification', 'Analytics', 'Settings',
+  'Notifications', 'Verification', 'Performance', 'Settings',
 ];
 
 /**
@@ -125,7 +125,7 @@ describe('sidebar navigation per team role', () => {
     renderSidebar();
 
     const shown = shownNav();
-    expect(shown).toEqual(expect.arrayContaining(['Products', 'Bookings', 'Special Offers', 'Analytics']));
+    expect(shown).toEqual(expect.arrayContaining(['Products', 'Bookings', 'Special Offers', 'Performance']));
     expect(shown).not.toContain('Finance');
     expect(shown).not.toContain('Verification');
     expect(shown).not.toContain('Customers');
@@ -136,7 +136,7 @@ describe('sidebar navigation per team role', () => {
     renderSidebar();
 
     const shown = shownNav();
-    expect(shown).toEqual(expect.arrayContaining(['Finance', 'Analytics']));
+    expect(shown).toEqual(expect.arrayContaining(['Finance', 'Performance']));
     expect(shown).not.toContain('Products');
     expect(shown).toContain('Bookings');
     expect(shown).not.toContain('Customers');
