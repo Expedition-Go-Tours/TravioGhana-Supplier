@@ -59,7 +59,27 @@ const CANCELLATION_DECISION_TYPES = [
   "CANCELLATION_REQUEST_REJECTED",
 ];
 
+/**
+ * Supplier refund requests are decided by our team and reported on the Refunds
+ * tab, not on the booking: that tab is where the request, its status and the
+ * balance effect live. A booking link would land on a trip whose booking page
+ * says nothing about the decision.
+ */
+const SUPPLIER_REFUND_TYPES = [
+  "SUPPLIER_REFUND_APPROVED",
+  "SUPPLIER_REFUND_REJECTED",
+  "SUPPLIER_REFUND_FAILED",
+];
+
 function getNotificationRoute(type, data = {}) {
+  if (SUPPLIER_REFUND_TYPES.includes(type)) {
+    return {
+      path: data.refundRequestId
+        ? `/finance?tab=refunds&refundRequestId=${data.refundRequestId}`
+        : "/finance?tab=refunds",
+      label: "View refund request",
+    };
+  }
   if (CANCELLATION_DECISION_TYPES.includes(type)) {
     if (data.bookingId) {
       return { path: `/bookings?bookingId=${data.bookingId}`, label: "View booking" };

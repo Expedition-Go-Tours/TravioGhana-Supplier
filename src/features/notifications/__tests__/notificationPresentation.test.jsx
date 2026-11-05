@@ -268,9 +268,10 @@ describe("notificationPresentation — supplier refund decisions", () => {
       },
     });
 
-  it("opens the booking each decision is about", () => {
+  it("opens the refunds tab on the request each decision is about", () => {
     for (const type of ["SUPPLIER_REFUND_APPROVED", "SUPPLIER_REFUND_REJECTED", "SUPPLIER_REFUND_FAILED"]) {
-      expect(map(type).action).toBe("/bookings?bookingId=BK-9");
+      expect(map(type).action).toBe("/finance?tab=refunds&refundRequestId=SR-1");
+      expect(map(type).actionLabel).toBe("View refund request");
     }
   });
 

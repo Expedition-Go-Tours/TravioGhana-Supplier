@@ -56,6 +56,12 @@ vi.mock('@/stores/authStore', () => ({
   useAuthStore: () => ({ user: { id: 'u1', name: 'Expedition-Go Tours' } }),
 }));
 
+// The refunds tab also loads the supplier's own refund requests; keep that
+// call local so the tab's dispute assertions are not affected by real I/O.
+vi.mock('@/features/bookings/api', () => ({
+  fetchRefundRequests: vi.fn(() => Promise.resolve({ requests: [], total: 0, page: 1, limit: 10 })),
+}));
+
 vi.mock('@/features/refund-claims/pages/RefundClaimsPage', () => ({ default: () => null }));
 vi.mock('../../components/PayoutMethodFormSheet', () => ({ default: () => null }));
 

@@ -26,10 +26,21 @@ import {
 } from "../api";
 import { getAuthToken } from "@/stores/authStore";
 import { useTeamRole } from "@/hooks/useTeamRole";
+import { fetchRefundRequests } from "@/features/bookings/api";
 import { DENIED_ACTION_REASON } from "@/config/pageAccess";
 import { moneyLine, moneyTotal, hasPositiveAmount } from "../money";
 import { COUNTRIES, PAYOUT_METHOD_TYPES, maskTail } from "../config/payoutMethodForm";
 import { describeActionError } from "@/lib/errorHandler";
+
+/** Status pills for the supplier's own refund requests (separate from disputes). */
+const REFUND_REQUEST_STATUS = {
+  PENDING_APPROVAL: { label: "Pending review", cls: "border-amber-200 bg-amber-50 text-amber-700" },
+  EXECUTING: { label: "Processing", cls: "border-sky-200 bg-sky-50 text-sky-700" },
+  COMPLETED: { label: "Approved", cls: "border-emerald-200 bg-emerald-50 text-emerald-700" },
+  REJECTED: { label: "Declined", cls: "border-rose-200 bg-rose-50 text-rose-700" },
+  FAILED: { label: "Failed", cls: "border-rose-200 bg-rose-50 text-rose-700" },
+  WITHDRAWN: { label: "Withdrawn", cls: "border-slate-200 bg-slate-100 text-slate-600" },
+};
 
 const TABS = [
   { key: "earnings", label: "Earnings", icon: DollarSign },
@@ -274,6 +285,8 @@ export default function FinancePage() {
   const focusPayoutRequestId = searchParams.get("payoutRequestId") || null;
   const focusDisputeId = searchParams.get("disputeId") || null;
   const focusInvoiceId = searchParams.get("invoiceId") || null;
+  // A supplier refund decision lands on the Refunds tab and names the request.
+  const focusRefundRequestId = searchParams.get("refundRequestId") || null;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [summary, setSummary] = useState(null);
@@ -302,6 +315,11 @@ export default function FinancePage() {
   });
   const [cancellingRequestId, setCancellingRequestId] = useState(null);
   const [disputes, setDisputes] = useState([]);
+  // The supplier's own refund requests (supplier asks, admin decides). They
+  // are filed from a booking but live here, on the Refunds tab, which is where
+  // the decision email/notification sends the supplier.
+  const [refundRequests, setRefundRequests] = useState([]);
+  const [refundRequestsError, setRefundRequestsError] = useState(null);
   const [disputeStatusFilter, setDisputeStatusFilter] = useState("");
   const [expandedDispute, setExpandedDispute] = useState(null);
   const [withdrawingDisputeId, setWithdrawingDisputeId] = useState(null);
@@ -362,13 +380,26 @@ export default function FinancePage() {
         setInvoices(invResult.invoices || []);
         setInvoicesPagination(invResult.pagination || null);
       } else if (activeTab === "refunds") {
-        const result = await fetchFinanceDisputes({
-          page,
-          limit: PAGE_SIZE,
-          ...(disputeStatusFilter ? { status: disputeStatusFilter } : {}),
-        });
+        const [result, mine] = await Promise.all([
+          fetchFinanceDisputes({
+            page,
+            limit: PAGE_SIZE,
+            ...(disputeStatusFilter ? { status: disputeStatusFilter } : {}),
+          }),
+          fetchRefundRequests({ limit: 10 }).catch((err) => ({ __error: err })),
+        ]);
         setDisputes(result.disputes || []);
         setDisputesPagination(result.pagination || null);
+        if (mine.__error) {
+          setRefundRequestsError(
+            mine.__error.response?.data?.message ||
+              mine.__error.message ||
+              "Could not load your refund requests.",
+          );
+        } else {
+          setRefundRequestsError(null);
+          setRefundRequests(mine.requests || []);
+        }
       } else if (activeTab === "methods") {
         const result = await fetchPayoutMethods();
         setMethods(result);
@@ -466,17 +497,29 @@ export default function FinancePage() {
   // The highlight is a one-off: the param goes after 8s so a reload does not
   // re-scroll to a target the supplier has long since moved past.
   useEffect(() => {
-    if (!focusPayoutRequestId && !focusDisputeId) return undefined;
+    if (!focusPayoutRequestId && !focusDisputeId && !focusRefundRequestId) return undefined;
     const timer = setTimeout(() => {
       setSearchParams((prev) => {
         const next = new URLSearchParams(prev);
         next.delete("payoutRequestId");
         next.delete("disputeId");
+        next.delete("refundRequestId");
         return next;
       }, { replace: true });
     }, 8000);
     return () => clearTimeout(timer);
-  }, [focusPayoutRequestId, focusDisputeId, setSearchParams]);
+  }, [focusPayoutRequestId, focusDisputeId, focusRefundRequestId, setSearchParams]);
+
+  // Scroll the deep-linked refund request into view once its list has loaded.
+  useEffect(() => {
+    if (!focusRefundRequestId || loading || activeTab !== "refunds") return undefined;
+    const timer = setTimeout(() => {
+      document
+        .getElementById(`refund-request-${focusRefundRequestId}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [focusRefundRequestId, loading, activeTab, refundRequests]);
 
   // Cancellation-fee ledger (shown on the payouts tab)
   const loadCharges = useCallback(async () => {
@@ -1653,6 +1696,73 @@ export default function FinancePage() {
         {/* REFUNDS TAB — supplier-initiated refund requests */}
         {activeTab === "refunds" && (
           <motion.div key="refunds" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }} className="space-y-4">
+            {/* The supplier's own refund requests — filed from a booking, decided
+                by our team. This is where the decision email and notification land. */}
+            <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white">
+              <div className="border-b border-slate-200 px-4 py-3 sm:px-5">
+                <h3 className="text-sm font-semibold text-slate-900">Your refund requests</h3>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Requests you filed for a traveller refund. Our team reviews each one.
+                </p>
+              </div>
+              {refundRequestsError ? (
+                <p className="px-4 py-3 text-xs text-rose-600 sm:px-5">{refundRequestsError}</p>
+              ) : refundRequests.length === 0 ? (
+                <p className="px-4 py-4 text-xs text-slate-500 sm:px-5">
+                  No refund requests filed. You can request one from a completed booking.
+                </p>
+              ) : (
+                <ul className="divide-y divide-slate-100">
+                  {refundRequests.map((r) => {
+                    const meta = REFUND_REQUEST_STATUS[r.status] || {
+                      label: r.status?.replace(/_/g, " "),
+                      cls: "border-slate-200 bg-slate-100 text-slate-600",
+                    };
+                    return (
+                      <li
+                        key={r.id}
+                        id={`refund-request-${r.id}`}
+                        className={cn(
+                          "flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5",
+                          focusRefundRequestId === r.id && "bg-emerald-50/60 ring-2 ring-inset ring-emerald-300",
+                        )}
+                      >
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-mono text-xs font-medium text-emerald-700">{r.requestNumber}</span>
+                            <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-semibold", meta.cls)}>
+                              {meta.label}
+                            </span>
+                          </div>
+                          <p className="mt-0.5 truncate text-xs text-slate-500">
+                            {r.booking?.bookingNumber || "Booking"}
+                            {r.booking?.tourTitle ? ` · ${r.booking.tourTitle}` : ""}
+                          </p>
+                          {r.status === "REJECTED" && r.decisionNote ? (
+                            <p className="mt-1 text-[11px] text-slate-500">Reason: {r.decisionNote}</p>
+                          ) : null}
+                          {r.status === "FAILED" ? (
+                            <p className="mt-1 text-[11px] text-rose-600">
+                              Our team is retrying this refund — you are not charged.
+                            </p>
+                          ) : null}
+                        </div>
+                        <div className="text-right">
+                          <p className="tnum text-sm font-semibold text-slate-900">
+                            {formatCurrency(
+                              Number(r.preview?.proposed || r.refundedAmount || 0),
+                              r.preview?.currency || r.booking?.currency || "USD",
+                            )}
+                          </p>
+                          <p className="text-[11px] text-slate-500">{formatDate(r.createdAt)}</p>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-center gap-2 flex-wrap">
                 {REFUND_STATUS_FILTERS.map((pill) => (
