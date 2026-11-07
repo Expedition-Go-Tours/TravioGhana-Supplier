@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { fetchSpecialOffers, deleteSpecialOffer, toggleSpecialOffer } from "@/features/special-offers/api";
 import { startPriceOf } from "@/features/special-offers/utils/catalogue";
-import { STATUS_CONFIG } from "@/features/special-offers/utils/status";
+import { STATUS_CONFIG, computeOfferStatus, statusIfActivated } from "@/features/special-offers/utils/status";
 import CountdownBadge from "@/components/shared/CountdownBadge";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { cn } from "@/lib/utils";
@@ -39,6 +39,25 @@ import {
 import { describeActionError } from "@/lib/errorHandler";
 
 const OFFER_TYPE_LABELS = { LIMITED_TIME: "Limited Time", EARLY_BIRD: "Early Bird", LAST_MINUTE: "Last Minute" };
+
+/**
+ * True when the offer's dates alone stop it from running. Both a past end date
+ * and a switched-off offer read as "Expired", but only the switch can be fixed
+ * from the list — flipping a date-expired offer on leaves it expired.
+ */
+function hasEnded(offer) {
+  return statusIfActivated(offer) === "expired";
+}
+
+/** The toggle's toast must describe the state it actually produced: switching
+ *  on a future-dated offer schedules it, it does not make it live now. */
+function toggleMessage(updated) {
+  if (!updated?.isActive) return "Offer deactivated";
+  const status = updated?.status || computeOfferStatus(updated || {});
+  if (status === "scheduled") return "Offer switched on — it goes live on its start date";
+  if (status === "expired") return "Offer switched on, but its end date has passed";
+  return "Offer activated";
+}
 
 // Suppliers come here to manage what's running, so the list opens on the
 // offers a customer can actually claim rather than every dead row they've
@@ -124,7 +143,7 @@ export default function SpecialOffersListPage() {
     try {
       const res = await toggleSpecialOffer(id);
       const updated = res.data?.data?.offer;
-      toast.success(updated?.isActive ? "Offer activated" : "Offer deactivated");
+      toast.success(toggleMessage(updated));
       load();
     } catch (err) { toast.error(describeActionError(err, "Couldn't toggle offer")); }
   };
@@ -366,6 +385,7 @@ export default function SpecialOffersListPage() {
               const firstTarget = offer.targets?.[0];
               const tour = firstTarget?.tour || firstTarget;
               const tourTitle = firstTarget ? (tour?.title || firstTarget.tourTitle || "Tour") : offer.name;
+              const ended = hasEnded(offer);
 
               return (
                 <motion.article
@@ -457,9 +477,11 @@ export default function SpecialOffersListPage() {
                             <DropdownMenuItem onClick={() => navigate(`/special-offers/build/${offer.id}`)} className="sm:hidden">
                               <Edit size={15} /> Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleToggle(offer.id)}>
-                              <Power size={15} /> {offer.isActive ? "Deactivate" : "Activate"}
-                            </DropdownMenuItem>
+                            {(offer.isActive || !ended) && (
+                              <DropdownMenuItem onClick={() => handleToggle(offer.id)}>
+                                <Power size={15} /> {offer.isActive ? "Deactivate" : "Activate"}
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => setDeleteTarget(offer.id)} className="text-red-600 focus:bg-red-50 focus:text-red-600">
                               <Trash2 size={15} /> Delete
@@ -555,13 +577,14 @@ export default function SpecialOffersListPage() {
           const capped = o.capacityType === "CAPPED";
           const spotsUsed = capped ? Math.round((o.spotsSold / o.maxSpots) * 100) : 0;
           const typeLabel = OFFER_TYPE_LABELS[o.offerType] || o.offerType;
+          const ended = hasEnded(o);
 
           const handleModalEdit = () => { setSelectedOffer(null); navigate(`/special-offers/build/${o.id}`); };
           const handleModalToggle = async () => {
             try {
               const res = await toggleSpecialOffer(o.id);
               const updated = res.data?.data?.offer;
-              toast.success(updated?.isActive ? "Offer activated" : "Offer deactivated");
+              toast.success(toggleMessage(updated));
               setSelectedOffer(null);
               load();
             } catch (err) { toast.error(describeActionError(err, "Couldn't toggle offer")); }
@@ -644,6 +667,15 @@ export default function SpecialOffersListPage() {
                     {o.offerType === "LAST_MINUTE" && <DetailItem label="Booking window" value={`Within ${o.lastMinuteWindowHours || 72}h`} />}
                   </div>
 
+                  {ended && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5">
+                      <p className="text-xs font-semibold text-amber-800">This offer has ended</p>
+                      <p className="mt-0.5 text-xs text-amber-700">
+                        Switching it on won't make it live. Edit the offer and extend the end date to run it again.
+                      </p>
+                    </div>
+                  )}
+
                   {capped && o.maxSpots > 0 && (
                     <div>
                       <div className="mb-1.5 flex items-center justify-between text-xs">
@@ -719,13 +751,15 @@ export default function SpecialOffersListPage() {
                     <Edit size={15} />
                     Edit offer
                   </button>
-                  <button
-                    onClick={handleModalToggle}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
-                  >
-                    <Power size={15} />
-                    {o.isActive ? "Deactivate" : "Activate"}
-                  </button>
+                  {(!ended || o.isActive) && (
+                    <button
+                      onClick={handleModalToggle}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
+                    >
+                      <Power size={15} />
+                      {o.isActive ? "Deactivate" : "Activate"}
+                    </button>
+                  )}
                   <button
                     onClick={handleModalDelete}
                     className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500"

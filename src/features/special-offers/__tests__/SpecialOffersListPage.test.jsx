@@ -177,3 +177,78 @@ describe('SpecialOffersListPage status filter', () => {
     expect(await screen.findByText('Dead Sale')).toBeInTheDocument();
   });
 });
+
+describe('SpecialOffersListPage activation affordance', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const ENDED = new Date(Date.now() - DAY).toISOString();
+  const FUTURE = new Date(Date.now() + 7 * DAY).toISOString();
+
+  beforeEach(() => {
+    localStorage.clear();
+    localStorage.setItem('auth_token', 'test-token');
+  });
+
+  afterEach(() => {
+    server.resetHandlers();
+  });
+
+  it('does not offer Activate on an offer whose end date has passed', async () => {
+    useOffers([
+      offer({ id: 'o-1', name: 'Live Sale', status: 'active', endDate: FUTURE }),
+      offer({ id: 'o-2', name: 'Ended Sale', status: 'expired', isActive: false, endDate: ENDED }),
+    ]);
+    renderWithProviders(<SpecialOffersListPage />);
+    const user = userEvent.setup();
+
+    await screen.findByText('Live Sale');
+    await user.click(screen.getByRole('button', { name: /^Expired\s*1$/ }));
+    await screen.findByText('Ended Sale');
+
+    await user.click(screen.getByLabelText('Actions for Ended Sale'));
+
+    // Edit is still the way out; the switch would only lie about the result.
+    expect(await screen.findByRole('menuitem', { name: /edit/i })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /^activate$/i })).toBeNull();
+    expect(screen.getByRole('menuitem', { name: /delete/i })).toBeInTheDocument();
+  });
+
+  it('still offers Activate when only the switch is off and the window is open', async () => {
+    useOffers([
+      offer({ id: 'o-1', name: 'Live Sale', status: 'active', endDate: FUTURE }),
+      offer({ id: 'o-2', name: 'Switched Off Sale', status: 'expired', isActive: false, endDate: FUTURE }),
+    ]);
+    renderWithProviders(<SpecialOffersListPage />);
+    const user = userEvent.setup();
+
+    await screen.findByText('Live Sale');
+    await user.click(screen.getByRole('button', { name: /^Expired\s*1$/ }));
+    await screen.findByText('Switched Off Sale');
+
+    await user.click(screen.getByLabelText('Actions for Switched Off Sale'));
+
+    expect(await screen.findByRole('menuitem', { name: /^activate$/i })).toBeInTheDocument();
+  });
+
+  it('explains why an ended offer cannot be switched on in the detail modal', async () => {
+    useOffers([
+      offer({
+        id: 'o-1',
+        name: 'Ended Sale',
+        status: 'expired',
+        isActive: false,
+        endDate: ENDED,
+        targets: [{ id: 't-1', tourId: 'tour-1', tour: { id: 'tour-1', title: 'Old Trek', photos: [], coverPhoto: null } }],
+      }),
+    ]);
+    renderWithProviders(<SpecialOffersListPage />);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: /^Expired\s*1$/ }));
+    const [cardTitle] = await screen.findAllByRole('button', { name: 'Old Trek' });
+    await user.click(cardTitle);
+
+    expect(await screen.findByText(/This offer has ended/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^activate$/i })).toBeNull();
+    expect(screen.getByRole('button', { name: /edit offer/i })).toBeInTheDocument();
+  });
+});
