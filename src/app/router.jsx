@@ -32,6 +32,7 @@ import SupplierStatusPage from "@/features/supplier/pages/SupplierStatusPage";
 import VerificationPage from "@/features/supplier/pages/VerificationPage";
 
 import TeamInvitePage from "@/pages/TeamInvitePage";
+import ReviewLinkSharePage from "@/pages/ReviewLinkSharePage";
 import NoAccessPage from "@/pages/NoAccessPage";
 
 import NotFoundPage from "@/pages/errors/NotFoundPage";
@@ -54,6 +55,9 @@ export const router = createBrowserRouter([
       // itself decides whether to show sign-up, sign-in or Google. The token in
       // the query string is the secret.
       { path: "/team/invite", element: <TeamInvitePage /> },
+      // Public: the review-invite email links here so the browser can perform
+      // the clipboard write that the email itself is not allowed to do.
+      { path: "/share/review-link", element: <ReviewLinkSharePage /> },
       { path: "/supplier/status", element: <SupplierStatusPage /> },
       { path: "/error/404", element: <NotFoundPage /> },
       { path: "/error/500", element: <ServerErrorPage /> },
