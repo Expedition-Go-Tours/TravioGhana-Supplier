@@ -192,7 +192,7 @@ export default function SpecialOffersListPage() {
         </div>
         <button
           onClick={() => navigate("/special-offers/build/new")}
-          className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-medium text-white transition-colors hover:bg-emerald-700 sm:mt-0.5"
+          className="inline-flex h-9 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-medium text-white transition-colors hover:bg-emerald-700 sm:mt-0.5 sm:w-auto"
         >
           <Plus size={16} />
           Create offer
