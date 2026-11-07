@@ -91,7 +91,10 @@ export const router = createBrowserRouter([
                 { path: "analytics/:tourId", element: <ProductPerformancePage /> },
                 { path: "cancellation-rate", element: <CancellationRatePage /> },
                 { path: "special-offers", element: <SpecialOffersListPage /> },
-                { path: "special-offers/build/:id?/:step?", element: <SpecialOfferBuilderPage /> },
+                // Steps live in the pathname, so the transition must key the
+                // wizard by offer rather than by URL. Otherwise every Next
+                // remounts the page, refetches the offer and resets the step.
+                { path: "special-offers/build/:id?/:step?", element: <SpecialOfferBuilderPage />, handle: { pageKey: "special-offer-builder" } },
               ] },
               // A role with no allowed page must have a terminal destination,
               // not a redirect back to a page it cannot open.

@@ -64,6 +64,31 @@ describe('specialOfferBuilderStore.loadOffer', () => {
   it('maps a missing isActive to true so legacy rows stay on', () => {
     expect(loadOffer({ id: 'o-1', name: 'Sale', targets: [] }).isActive).toBe(true);
   });
+
+  // The builder can reload the offer it is already editing (remount, refetch,
+  // StrictMode). That must not throw the supplier back to step 1 mid-flow.
+  it('keeps the active step when the same offer is loaded again', () => {
+    const state = () => useSpecialOfferBuilderStore.getState();
+    state().loadOffer({ id: 'o-1', name: 'Sale', targets: [] });
+    state().goToStep(1);
+    state().nextStep();
+
+    state().loadOffer({ id: 'o-1', name: 'Sale refreshed', targets: [] });
+
+    expect(state().currentStep).toBe(2);
+    expect(state().completedSteps).toEqual([1]);
+  });
+
+  it('starts at step 1 when a different offer is loaded', () => {
+    const state = () => useSpecialOfferBuilderStore.getState();
+    state().loadOffer({ id: 'o-1', name: 'Sale', targets: [] });
+    state().goToStep(2);
+
+    state().loadOffer({ id: 'o-2', name: 'Other sale', targets: [] });
+
+    expect(state().currentStep).toBe(0);
+    expect(state().completedSteps).toEqual([]);
+  });
 });
 
 describe('specialOfferBuilderStore validation', () => {

@@ -183,49 +183,56 @@ export const useSpecialOfferBuilderStore = create(
         errors: {},
       }),
 
-      loadOffer: (offer) => set({
-        offer: {
-          name: offer.name || "",
-          offerType: offer.offerType || "LIMITED_TIME",
-          discountType: offer.discountType || "PERCENTAGE",
-          discountPercentage: offer.discountPercentage || 10,
-          fixedDiscountValue: offer.fixedDiscountValue || null,
-          startDate: offer.startDate ? new Date(offer.startDate) : null,
-          endDate: offer.endDate ? new Date(offer.endDate) : null,
-          isActive: offer.isActive !== false,
-          capacityType: offer.capacityType || "UNLIMITED",
-          maxSpots: offer.maxSpots || null,
-          timeSlotMode: offer.timeSlotMode || "ALL_DAYS",
-          specificWeekdays: offer.specificWeekdays || [],
-          targets: (offer.targets || []).map((t) => ({
-            tourId: t.tour?.id || t.tourId,
-            tourTitle: t.tour?.title || "",
-            // `photos || coverPhoto ? [coverPhoto] : []` (the old form) parsed
-            // as `(photos || coverPhoto) ? [coverPhoto] : []`, so a tour WITH
-            // photos threw away every one of them and rendered the single
-            // cover — or nothing, when only `photos` existed. Prefer the real
-            // list and fall back to the cover.
-            tourPhotos: t.tour?.photos?.length
-              ? t.tour.photos
-              : t.tour?.coverPhoto
-                ? [t.tour.coverPhoto]
-                : [],
-            tourOptionKey: t.tourOptionKey || null,
-            tourOptionLabel: t.tourOptionLabel || null,
-          })),
-          earlyBirdAdvanceDays: offer.earlyBirdAdvanceDays || 7,
-          lastMinuteWindowHours: offer.lastMinuteWindowHours || 72,
-          promoCode: offer.promoCode || "",
-          minQuantity: offer.minQuantity || null,
-          minSpendAmount: offer.minSpendAmount || null,
-          maxRedemptionsPerCustomer: offer.maxRedemptionsPerCustomer || null,
-          stackable: offer.stackable || false,
-        },
-        editingId: offer.id,
-        currentStep: 0,
-        completedSteps: [],
-        isDirty: false,
-        errors: {},
+      loadOffer: (offer) => set((state) => {
+        // The builder page can be remounted (transitions, StrictMode, a
+        // refetch when returning to the same offer). Reloading the offer must
+        // not yank the supplier back to step 1 for the offer they were already
+        // editing; a different offer still starts from the beginning.
+        const sameOffer = state.editingId === offer.id;
+        return {
+          offer: {
+            name: offer.name || "",
+            offerType: offer.offerType || "LIMITED_TIME",
+            discountType: offer.discountType || "PERCENTAGE",
+            discountPercentage: offer.discountPercentage || 10,
+            fixedDiscountValue: offer.fixedDiscountValue || null,
+            startDate: offer.startDate ? new Date(offer.startDate) : null,
+            endDate: offer.endDate ? new Date(offer.endDate) : null,
+            isActive: offer.isActive !== false,
+            capacityType: offer.capacityType || "UNLIMITED",
+            maxSpots: offer.maxSpots || null,
+            timeSlotMode: offer.timeSlotMode || "ALL_DAYS",
+            specificWeekdays: offer.specificWeekdays || [],
+            targets: (offer.targets || []).map((t) => ({
+              tourId: t.tour?.id || t.tourId,
+              tourTitle: t.tour?.title || "",
+              // `photos || coverPhoto ? [coverPhoto] : []` (the old form) parsed
+              // as `(photos || coverPhoto) ? [coverPhoto] : []`, so a tour WITH
+              // photos threw away every one of them and rendered the single
+              // cover — or nothing, when only `photos` existed. Prefer the real
+              // list and fall back to the cover.
+              tourPhotos: t.tour?.photos?.length
+                ? t.tour.photos
+                : t.tour?.coverPhoto
+                  ? [t.tour.coverPhoto]
+                  : [],
+              tourOptionKey: t.tourOptionKey || null,
+              tourOptionLabel: t.tourOptionLabel || null,
+            })),
+            earlyBirdAdvanceDays: offer.earlyBirdAdvanceDays || 7,
+            lastMinuteWindowHours: offer.lastMinuteWindowHours || 72,
+            promoCode: offer.promoCode || "",
+            minQuantity: offer.minQuantity || null,
+            minSpendAmount: offer.minSpendAmount || null,
+            maxRedemptionsPerCustomer: offer.maxRedemptionsPerCustomer || null,
+            stackable: offer.stackable || false,
+          },
+          editingId: offer.id,
+          currentStep: sameOffer ? state.currentStep : 0,
+          completedSteps: sameOffer ? state.completedSteps : [],
+          isDirty: false,
+          errors: {},
+        };
       }),
     }),
     {

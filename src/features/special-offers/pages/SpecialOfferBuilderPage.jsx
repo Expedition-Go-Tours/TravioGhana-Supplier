@@ -351,62 +351,64 @@ function WizardProgressBar() {
 
   return (
     <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm px-5 md:px-8 py-6">
-      <div className="flex items-start justify-between">
+      {/* Equal thirds keep every circle centred in its own column, and the
+          connector is positioned out of the flow so it can run between circle
+          centres without dragging the label off-centre on narrow screens. */}
+      <div className="grid grid-cols-3 items-start">
         {steps.map((step, index) => {
           const isCompleted = completedSteps.includes(index);
           const isCurrent = currentStep === index;
           const isLast = index === steps.length - 1;
 
           return (
-            <div key={step.id} className={`flex flex-col items-center ${isLast ? 'shrink-0' : 'flex-1 min-w-0'}`}>
-              <div className="flex items-center w-full">
-                <motion.button
-                  type="button"
-                  onClick={() => {
-                    // The progress bar used to jump anywhere unconditionally,
-                    // so a supplier could skip straight past an unfinished step
-                    // and only discover it at save time. Forward jumps validate
-                    // everything in between first and land on the first
-                    // problem; stepping backwards stays free.
-                    const s = useSpecialOfferBuilderStore.getState();
-                    const { ok, firstInvalid } = s.validateAll();
-                    if (!ok && index > firstInvalid) {
-                      s.goToStep(firstInvalid);
-                      toast.error("Please fix the highlighted errors");
-                      return;
-                    }
-                    s.goToStep(index);
-                  }}
-                  className={cn(
-                    "relative w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 cursor-pointer shrink-0",
-                    isCompleted && "bg-emerald-600 text-white shadow-md shadow-emerald-600/20",
-                    isCurrent && "bg-white border-2 border-emerald-600 text-emerald-600 ring-4 ring-emerald-100 shadow-sm",
-                    !isCompleted && !isCurrent && "bg-slate-50 border-2 border-slate-200 text-slate-400 hover:border-emerald-300 hover:text-emerald-500"
-                  )}
-                  whileTap={{ scale: 0.95 }}
+            <div key={step.id} className="relative flex min-w-0 flex-col items-center px-1">
+              {!isLast && (
+                <div
+                  aria-hidden="true"
+                  className="absolute left-1/2 top-[20.5px] h-[3px] w-full overflow-hidden rounded-full bg-slate-100"
                 >
-                  {isCompleted ? (
-                    <Check size={17} strokeWidth={3} />
-                  ) : (
-                    <span className="text-sm font-bold">{step.number}</span>
-                  )}
-                </motion.button>
-                {!isLast && (
-                  <div className="flex-1 h-[3px] mx-4 self-center mb-7">
-                    <div className="relative h-full rounded-full overflow-hidden bg-slate-100">
-                      <motion.div
-                        className="absolute inset-y-0 left-0 bg-emerald-500"
-                        initial={{ width: '0%' }}
-                        animate={{ width: isCompleted ? '100%' : '0%' }}
-                        transition={{ duration: 0.4, ease: 'easeOut' }}
-                      />
-                    </div>
-                  </div>
+                  <motion.div
+                    className="absolute inset-y-0 left-0 bg-emerald-500"
+                    initial={{ width: '0%' }}
+                    animate={{ width: isCompleted ? '100%' : '0%' }}
+                    transition={{ duration: 0.4, ease: 'easeOut' }}
+                  />
+                </div>
+              )}
+              <motion.button
+                type="button"
+                onClick={() => {
+                  // The progress bar used to jump anywhere unconditionally,
+                  // so a supplier could skip straight past an unfinished step
+                  // and only discover it at save time. Forward jumps validate
+                  // everything in between first and land on the first
+                  // problem; stepping backwards stays free.
+                  const s = useSpecialOfferBuilderStore.getState();
+                  const { ok, firstInvalid } = s.validateAll();
+                  if (!ok && index > firstInvalid) {
+                    s.goToStep(firstInvalid);
+                    toast.error("Please fix the highlighted errors");
+                    return;
+                  }
+                  s.goToStep(index);
+                }}
+                className={cn(
+                  "relative z-10 w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 cursor-pointer shrink-0",
+                  isCompleted && "bg-emerald-600 text-white shadow-md shadow-emerald-600/20",
+                  isCurrent && "bg-white border-2 border-emerald-600 text-emerald-600 ring-4 ring-emerald-100 shadow-sm",
+                  !isCompleted && !isCurrent && "bg-slate-50 border-2 border-slate-200 text-slate-400 hover:border-emerald-300 hover:text-emerald-500"
                 )}
-              </div>
-              <div className="mt-3 text-center">
+                whileTap={{ scale: 0.95 }}
+              >
+                {isCompleted ? (
+                  <Check size={17} strokeWidth={3} />
+                ) : (
+                  <span className="text-sm font-bold">{step.number}</span>
+                )}
+              </motion.button>
+              <div className="mt-2.5 w-full text-center">
                 <span className={cn(
-                  "block text-[11px] font-semibold whitespace-nowrap transition-colors",
+                  "block text-[11px] font-semibold leading-tight transition-colors",
                   isCompleted && "text-emerald-600",
                   isCurrent && "text-slate-900",
                   !isCompleted && !isCurrent && "text-slate-400"
@@ -414,7 +416,7 @@ function WizardProgressBar() {
                   {step.label}
                 </span>
                 <span className={cn(
-                  "block text-[10px] mt-0.5 transition-colors",
+                  "block text-[10px] mt-0.5 leading-tight transition-colors",
                   isCurrent ? "text-emerald-600 font-medium" : "text-slate-400"
                 )}>
                   {isCurrent ? 'In progress' : isCompleted ? 'Completed' : 'Pending'}
