@@ -172,7 +172,7 @@ export default function ReviewLinkSharePage() {
         {copied
           ? "Link copied. Paste it into WhatsApp, SMS or an email."
           : manual
-            ? "Couldn't copy automatically. The link is selected — press Cmd/Ctrl+C."
+            ? "Couldn't copy automatically. The link is selected — copy it manually (Cmd/Ctrl+C, or long-press)."
             : " "}
       </p>
 
