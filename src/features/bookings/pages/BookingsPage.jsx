@@ -49,6 +49,7 @@ import CreateBookingDrawer from "../components/CreateBookingDrawer";
 import { listMyProducts } from "@/features/products/api";
 import { describeActionError } from "@/lib/errorHandler";
 import { sortBookings } from "../lib/sortBookings";
+import { mailtoHrefFor } from "../messageCustomer";
 
 const QUICK_FILTERS = [
   { key: "ALL", label: "All bookings" },
@@ -498,6 +499,17 @@ export default function BookingsPage() {
 
   const handleMessageCustomer = useCallback(
     (booking) => {
+      // A guest checkout has no account, so there is no conversation to open.
+      // The backend still gives the supplier a working relay address; mail it
+      // directly instead of navigating to a thread that cannot exist.
+      if (!booking?.customerId) {
+        const href = mailtoHrefFor(booking);
+        if (href) {
+          window.location.href = href;
+          return;
+        }
+      }
+
       const params = new URLSearchParams();
       if (booking?.customerId) params.set("customerId", booking.customerId);
       if (booking?.id) params.set("bookingId", booking.id);
