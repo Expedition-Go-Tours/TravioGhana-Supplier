@@ -52,6 +52,10 @@ const BACKEND_TYPE_TO_UI = {
   // Supplier cancellation approval flow (admin decided on a parked request).
   CANCELLATION_REQUEST_APPROVED: "cancellation_approved",
   CANCELLATION_REQUEST_REJECTED: "cancellation_rejected",
+  // Same-day customer cancellation: the supplier decides, no refund.
+  CUSTOMER_CANCELLATION_REQUESTED: "booking",
+  CUSTOMER_CANCELLATION_APPROVED: "booking",
+  CUSTOMER_CANCELLATION_DECLINED: "booking",
 };
 
 const CANCELLATION_DECISION_TYPES = [

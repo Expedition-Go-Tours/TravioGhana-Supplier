@@ -32,7 +32,9 @@ import {
   updateBookingNotes,
   rescheduleBooking,
   sendBookingPaymentLink,
+  decideCustomerCancellation,
 } from "../api";
+import { isCancellationClosed } from "../lib/cancellationWindow";
 import BookingAttentionPanel, { AttentionBadge } from "./BookingAttention";
 import {
   formatPartySummary,
@@ -341,9 +343,7 @@ function StatusActions({ booking, onStatusUpdate, isUpdating, onChanged }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const travelDatePassed = new Date(booking.travelDate) < today;
-  const travelDay = new Date(booking.travelDate);
-  travelDay.setHours(0, 0, 0, 0);
-  const travelDayStarted = travelDay <= today;
+  const cancellationClosed = isCancellationClosed(booking);
   const payLaterUnpaid =
     booking.paymentTiming === "later" &&
     booking.status === "PENDING" &&
@@ -373,8 +373,8 @@ function StatusActions({ booking, onStatusUpdate, isUpdating, onChanged }) {
       value: "CANCELLED",
       label: "Cancel booking",
       variant: "danger",
-      disabled: travelDayStarted,
-      disabledReason: "Cancellation is closed on the day of the activity.",
+      disabled: cancellationClosed,
+      disabledReason: "Cancellation is closed after the activity start time.",
     });
   } else if (booking.status === "CONFIRMED") {
     actions.push({
@@ -395,8 +395,8 @@ function StatusActions({ booking, onStatusUpdate, isUpdating, onChanged }) {
       value: "CANCELLED",
       label: "Cancel booking",
       variant: "danger",
-      disabled: travelDayStarted,
-      disabledReason: "Cancellation is closed on the day of the activity.",
+      disabled: cancellationClosed,
+      disabledReason: "Cancellation is closed after the activity start time.",
     });
   } else if ((booking.status === "COMPLETED" || booking.status === "NO_SHOW") && canRequestRefund) {
     // Post-activity refund: the supplier asks, an admin approves, and the
@@ -477,6 +477,7 @@ export default function BookingDetailDrawer({
   const canSeeRevenue = !teamRole
     || teamRole.hasPermission?.("bookings.revenue.view") !== false
     || teamRole.hasPermission?.("earnings.view") !== false;
+  const canManage = !teamRole || teamRole.hasPermission?.("bookings.manage") !== false;
   // The API sends a dash when there is no separate booker, and repeating the
   // lead traveler's own name as "Booked by" says nothing.
   const leadName = (booking?.leadTravelerName || "").trim();
@@ -521,6 +522,38 @@ export default function BookingDetailDrawer({
       cancelled = true;
     };
   }, [load]);
+
+  const [cancellationDecisionPending, setCancellationDecisionPending] = useState(false);
+  const [cancellationDecisionNote, setCancellationDecisionNote] = useState("");
+  const currentBookingId = booking?.id;
+
+  const handleCustomerCancellationDecision = useCallback(async (decision) => {
+    if (!currentBookingId) return;
+    setCancellationDecisionPending(true);
+    try {
+      await decideCustomerCancellation(
+        currentBookingId,
+        decision,
+        cancellationDecisionNote.trim() || undefined,
+      );
+      toast.success(
+        decision === "APPROVE"
+          ? "Cancellation approved — no refund applies."
+          : "Cancellation request declined.",
+      );
+      setCancellationDecisionNote("");
+      await load({ silent: true });
+      onRefresh?.();
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message
+        || err.message
+        || "Could not record the cancellation decision.",
+      );
+    } finally {
+      setCancellationDecisionPending(false);
+    }
+  }, [currentBookingId, cancellationDecisionNote, load, onRefresh]);
 
   // Dialog semantics: Escape closes, focus starts on the close button and is
   // returned to the trigger by the caller, and the panel traps nothing behind
@@ -707,6 +740,76 @@ export default function BookingDetailDrawer({
                   variant="drawer"
                 />
               </div>
+
+              {["PENDING", "APPROVED", "DECLINED"].includes(booking.customerCancellationStatus) && (
+                <Section title="Customer cancellation" icon={Ban}>
+                  {booking.customerCancellationStatus === "PENDING" ? (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                      <p className="text-sm font-semibold text-amber-900">
+                        The customer asked to cancel on the activity date.
+                      </p>
+                      <p className="mt-1 text-xs leading-relaxed text-amber-800">
+                        Approval cancels the booking with <strong>no refund</strong> and does not
+                        affect your cancellation rate. Decline to keep the booking active.
+                        {booking.customerCancellationReason && (
+                          <> Reason: {booking.customerCancellationReason}.</>
+                        )}
+                      </p>
+                      {booking.customerCancellationNote && (
+                        <p className="mt-1 text-xs italic text-amber-800">
+                          “{booking.customerCancellationNote}”
+                        </p>
+                      )}
+                      {canManage ? (
+                        <>
+                          <textarea
+                            rows={2}
+                            value={cancellationDecisionNote}
+                            onChange={(e) => setCancellationDecisionNote(e.target.value)}
+                            maxLength={1000}
+                            placeholder="Optional note to the customer"
+                            className="mt-2 w-full rounded-lg border border-amber-200 bg-white px-2.5 py-2 text-xs text-slate-700 outline-none focus:border-amber-400"
+                          />
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              disabled={cancellationDecisionPending}
+                              onClick={() => handleCustomerCancellationDecision("APPROVE")}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+                            >
+                              {cancellationDecisionPending ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                              Approve — no refund
+                            </button>
+                            <button
+                              type="button"
+                              disabled={cancellationDecisionPending}
+                              onClick={() => handleCustomerCancellationDecision("DECLINE")}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+                            >
+                              <Ban size={13} /> Decline
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <p className="mt-2 text-xs text-amber-800">
+                          View-only access — deciding this needs the bookings.manage permission.
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+                      {booking.customerCancellationStatus === "APPROVED"
+                        ? "Approved — the booking was cancelled with no refund."
+                        : "Declined — the booking remains active."}
+                      {booking.customerCancellationDecisionNote && (
+                        <span className="mt-1 block text-xs text-slate-500">
+                          Note: {booking.customerCancellationDecisionNote}
+                        </span>
+                      )}
+                    </p>
+                  )}
+                </Section>
+              )}
 
               <Section title="Activity" icon={CalendarDays}>
                 <div className="flex items-start gap-3">

@@ -28,6 +28,7 @@ import {
   getTravelerDetails,
 } from "../lib/formatTravelers";
 import { pickupDisplay } from "../lib/pickupHelpers";
+import { isCancellationClosed } from "../lib/cancellationWindow";
 import {
   PendingCancellationBadge,
   WithdrawCancellationButton,
@@ -218,11 +219,9 @@ export default function BookingCard({
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const travelDatePassed = new Date(booking.travelDate) < today;
-  // Cancellation closes at 00:00 on the activity day; the server enforces the
-  // same rule, so this is the button matching the API rather than preventing it.
-  const travelDay = new Date(booking.travelDate);
-  travelDay.setHours(0, 0, 0, 0);
-  const travelDayStarted = travelDay <= today;
+  // The activity date itself is not the cutoff: the supplier can cancel on
+  // the morning of the tour, and only loses the option once it starts.
+  const cancellationClosed = isCancellationClosed(booking);
   // Reserve-now-pay-later bookings start PENDING with no money captured; payment
   // is the gate, so don't offer a manual "Accept booking" until the charge lands.
   // A PAID PENDING booking (pay-later charged, or a manual-confirmation tour)
@@ -236,8 +235,8 @@ export default function BookingCard({
     // Post-activity states: only after the activity date has passed.
     (a) => !((a.value === 'COMPLETED' || a.value === 'NO_SHOW') && !travelDatePassed)
   ).filter((a) => a.value !== 'REFUND_REQUEST' || canRequestRefund)
-    .map((a) => (a.value === 'CANCELLED' && travelDayStarted
-      ? { ...a, disabled: true, disabledReason: 'Cancellation is closed on the day of the activity. Mark it completed or no-show.' }
+    .map((a) => (a.value === 'CANCELLED' && cancellationClosed
+      ? { ...a, disabled: true, disabledReason: 'Cancellation is closed after the activity start time. Mark it completed or no-show.' }
       : a));
   const pickup = booking.pickup || {};
   // The card and the detail panel must read the same snapshot the same way:
@@ -325,6 +324,11 @@ export default function BookingCard({
                   size="sm"
                 />
                 <AttentionBadge attention={booking.attention} />
+                {booking.customerCancellationStatus === "PENDING" && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200">
+                    Cancellation requested
+                  </span>
+                )}
               </div>
             </div>
             {partySummary && (
@@ -462,6 +466,11 @@ export default function BookingCard({
         <div className="ml-1 flex shrink-0 flex-col items-end gap-1.5">
           <div className="flex items-center gap-1.5">
             <AttentionBadge attention={booking.attention} />
+            {booking.customerCancellationStatus === "PENDING" && (
+              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200">
+                Cancellation requested
+              </span>
+            )}
             <StatusBadge
               status={booking.status}
               label={BOOKING_STATUSES[booking.status]?.label || booking.status}

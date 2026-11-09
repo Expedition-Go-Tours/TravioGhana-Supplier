@@ -38,6 +38,13 @@ export function mapBookingRow(booking) {
     // `contactPhone` for anything the supplier will act on.
     leadTravelerEmail: booking.leadTravelerEmail || "",
     leadTravelerPhone: booking.leadTravelerPhone || "",
+    // Same-day customer cancellation request (supplier decides, no refund).
+    customerCancellationStatus: booking.customerCancellationStatus || null,
+    customerCancellationReason: booking.customerCancellationReason || null,
+    customerCancellationNote: booking.customerCancellationNote || null,
+    customerCancellationRequestedAt: booking.customerCancellationRequestedAt || null,
+    customerCancellationDecidedAt: booking.customerCancellationDecidedAt || null,
+    customerCancellationDecisionNote: booking.customerCancellationDecisionNote || null,
     tourName: booking.tour?.title || "—",
     // Per-tour confirmation mode (from bookingAndTickets). Missing/unset => instant.
     instantConfirmation: booking.tour?.bookingAndTickets?.instantConfirmation !== false,
@@ -148,6 +155,20 @@ export function updateBookingNotes(id, supplierNotes) {
   return api.patch(
     `/bookings/${id}/status`,
     { supplierNotes },
+    { skipGlobalErrorHandler: true }
+  );
+}
+
+/**
+ * POST /bookings/supplier/bookings/:id/customer-cancellation
+ *
+ * Same-day customer request: the supplier approves (cancel, no refund) or
+ * declines (booking stays active). Approval never raises a fee or a rate hit.
+ */
+export function decideCustomerCancellation(id, decision, note) {
+  return api.post(
+    `/bookings/supplier/bookings/${id}/customer-cancellation`,
+    { decision, note },
     { skipGlobalErrorHandler: true }
   );
 }

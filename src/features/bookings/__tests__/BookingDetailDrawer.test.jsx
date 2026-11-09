@@ -18,6 +18,7 @@ import userEvent from '@testing-library/user-event';
 const fetchBookingDetail = vi.fn();
 const updateBookingNotes = vi.fn();
 const rescheduleBooking = vi.fn();
+const decideCustomerCancellation = vi.fn();
 
 vi.mock('../api', async (importOriginal) => ({
   // mapBookingRow is the real mapper: the panel is only as truthful as the
@@ -26,6 +27,7 @@ vi.mock('../api', async (importOriginal) => ({
   fetchBookingDetail: (...args) => fetchBookingDetail(...args),
   updateBookingNotes: (...args) => updateBookingNotes(...args),
   rescheduleBooking: (...args) => rescheduleBooking(...args),
+  decideCustomerCancellation: (...args) => decideCustomerCancellation(...args),
 }));
 
 const { toast } = vi.hoisted(() => ({
@@ -83,6 +85,7 @@ beforeEach(() => {
   fetchBookingDetail.mockReset();
   updateBookingNotes.mockReset().mockResolvedValue({});
   rescheduleBooking.mockReset().mockResolvedValue({ data: { data: { booking: {} } } });
+  decideCustomerCancellation.mockReset().mockResolvedValue({ data: { data: { booking: {} } } });
   toast.success.mockReset();
   toast.error.mockReset();
 });
@@ -401,5 +404,36 @@ describe('moving a booking to another date', () => {
     await waitFor(() => expect(toast.error).toHaveBeenCalled());
     expect(toast.error.mock.calls[0][0]).toMatch(/priced \$500\.00 instead of \$420\.00/i);
     expect(toast.success).not.toHaveBeenCalled();
+  });
+});
+
+describe('same-day customer cancellation request', () => {
+  it('shows the supplier the request and approves it with no refund', async () => {
+    fetchBookingDetail.mockResolvedValue(mapBookingRow(rawBooking({
+      customerCancellationStatus: 'PENDING',
+      customerCancellationReason: 'SCHEDULE_CHANGED',
+      customerCancellationNote: 'Flight was moved',
+    })));
+
+    renderDrawer();
+
+    expect(await screen.findByText(/customer asked to cancel on the activity date/i)).toBeInTheDocument();
+    expect(screen.getByText(/Flight was moved/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /approve — no refund/i }));
+
+    await waitFor(() => expect(decideCustomerCancellation).toHaveBeenCalledWith('b-1', 'APPROVE', undefined));
+  });
+
+  it('declines without cancelling the booking', async () => {
+    fetchBookingDetail.mockResolvedValue(mapBookingRow(rawBooking({
+      customerCancellationStatus: 'PENDING',
+    })));
+
+    renderDrawer();
+
+    await userEvent.click(await screen.findByRole('button', { name: /^decline$/i }));
+
+    await waitFor(() => expect(decideCustomerCancellation).toHaveBeenCalledWith('b-1', 'DECLINE', undefined));
   });
 });
