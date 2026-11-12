@@ -6,6 +6,7 @@ import {
   RefreshCw,
   Download,
   Calendar,
+  CalendarPlus,
   CalendarX2,
   Loader2,
   ShoppingCart,
@@ -634,16 +635,22 @@ export default function BookingsPage() {
 
   // Rendered in two slots: beside the title on phones, in the toolbar from
   // `sm` up. Exactly one is ever visible, so there is no duplicate focus stop.
+  // On phones it is icon-only: a full "Create booking" pill next to the title
+  // took about 160px of a 360px row and squeezed the heading into a narrow
+  // column. The label returns from `sm`, where the button moves into the
+  // toolbar and has room.
   const createBookingButton = canCreateBooking ? (
     <button
       type="button"
       disabled={!coverReady}
       title={coverTitle}
+      aria-label="Create booking"
       aria-disabled={!coverReady}
       onClick={openCreateBooking}
-      className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-emerald-600 sm:h-auto sm:py-2"
+      className="inline-flex h-11 w-11 items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-0 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-emerald-600 sm:h-auto sm:w-auto sm:px-4 sm:py-2"
     >
-      <Calendar size={14} /> Create booking
+      <CalendarPlus size={16} />
+      <span className="hidden sm:inline">Create booking</span>
     </button>
   ) : null;
 

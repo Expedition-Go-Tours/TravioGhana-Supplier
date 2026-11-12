@@ -239,4 +239,24 @@ describe("the create-booking entry point", () => {
     const button = await screen.findByRole("button", { name: /Create booking/ });
     await waitFor(() => expect(button).not.toBeDisabled());
   });
+
+  it("is icon-only on phones so the page title keeps its width", async () => {
+    renderPage();
+
+    const button = await screen.findByRole("button", { name: "Create booking" });
+    // A full-width pill beside the title took ~160px of a 360px row and
+    // squeezed the heading; the label returns from sm, where the button sits
+    // in the toolbar instead.
+    expect(button.className).toContain("w-11");
+    expect(button.className).toContain("px-0");
+    expect(button.className).toContain("sm:w-auto");
+    expect(button.className).toContain("sm:px-4");
+    expect(button.className).toContain("h-11");
+
+    const label = button.querySelector("span");
+    expect(label).toBeTruthy();
+    expect(label.className).toContain("hidden");
+    expect(label.className).toContain("sm:inline");
+    expect(label.textContent).toBe("Create booking");
+  });
 });
