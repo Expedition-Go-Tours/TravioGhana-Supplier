@@ -63,33 +63,32 @@ const STATUS_ACTIONS = {
 const PAYMENT_META = {
   SUCCEEDED: {
     label: "Paid",
-    hint: "Payment completed",
     icon: Check,
-    styles: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    dot: "bg-emerald-500",
+    tone: "text-emerald-600",
+    pill: "border-emerald-200 bg-emerald-50 text-emerald-700",
   },
   RESERVE_LATER: {
     // Payment status is authoritative: a reservation is not paid until Stripe
     // settles it. Never phrase this as if the money had already been taken.
-    label: "Payment unconfirmed",
-    hint: "Reserved; no successful charge yet",
+    label: "Payment pending",
+    hint: "Not charged yet",
     icon: Clock,
-    styles: "bg-amber-50 text-amber-700 border-amber-200",
-    dot: "bg-amber-500",
+    tone: "text-amber-700",
+    pill: "border-amber-200 bg-amber-50 text-amber-700",
   },
   FAILED: {
     label: "Payment failed",
-    hint: "No charge was made",
+    hint: "No charge was taken",
     icon: Ban,
-    styles: "bg-red-50 text-red-700 border-red-200",
-    dot: "bg-red-500",
+    tone: "text-red-700",
+    pill: "border-red-200 bg-red-50 text-red-700",
   },
   REFUNDED: {
     label: "Refunded",
-    hint: "Charge was returned",
+    hint: "Returned to the customer",
     icon: CreditCard,
-    styles: "bg-sky-50 text-sky-700 border-sky-200",
-    dot: "bg-sky-500",
+    tone: "text-slate-600",
+    pill: "border-slate-200 bg-slate-50 text-slate-600",
   },
 };
 
@@ -134,29 +133,37 @@ function PaymentStatus({ paymentStatus, paymentTiming }) {
             : paymentStatus;
   const meta = PAYMENT_META[key] || {
     label: key || "Unknown",
-    hint: "",
     icon: CreditCard,
-    styles: "bg-slate-50 text-slate-600 border-slate-200",
-    dot: "bg-slate-400",
+    tone: "text-slate-600",
+    pill: "border-slate-200 bg-slate-50 text-slate-600",
   };
   const Icon = meta.icon;
+
+  // Paid is the expected state on most cards — plain text with a check, no
+  // background, no border. Only states that need action get a pill, so the
+  // eye lands on "Payment pending"/"Payment failed" instead of the default.
+  if (key === "SUCCEEDED") {
+    return (
+      <span className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-slate-700">
+        <Icon size={15} className={meta.tone} aria-hidden />
+        {meta.label}
+      </span>
+    );
+  }
+
   return (
-    <div
+    <span
       className={cn(
-        "flex items-center gap-2.5 px-3 py-2 rounded-lg border",
-        meta.styles
+        "inline-flex w-fit items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-semibold",
+        meta.pill
       )}
     >
-      <span className={cn("w-2 h-2 rounded-full shrink-0", meta.dot)} />
-      <span className="flex items-center gap-1.5 text-sm font-semibold">
-        <Icon size={15} /> {meta.label}
-      </span>
+      <Icon size={12} aria-hidden />
+      {meta.label}
       {meta.hint && (
-        <span className="hidden sm:inline text-xs opacity-80">
-          {meta.hint}
-        </span>
+        <span className="hidden font-normal opacity-80 sm:inline">· {meta.hint}</span>
       )}
-    </div>
+    </span>
   );
 }
 
@@ -180,6 +187,17 @@ function PanelFact({ label, children }) {
     <div className="min-w-0">
       <p className="text-[11px] text-slate-400">{label}</p>
       <div className="mt-0.5 text-sm font-medium text-slate-800">{children}</div>
+    </div>
+  );
+}
+
+/** A label/value pair on one line, for rows where the value should read
+ *  inline with the label (status, money). Wraps instead of stacking. */
+function PanelInline({ label, children }) {
+  return (
+    <div className="flex min-w-0 items-baseline gap-1.5">
+      <span className="shrink-0 text-[11px] text-slate-400">{label}</span>
+      <span className="min-w-0 text-sm font-medium text-slate-800">{children}</span>
     </div>
   );
 }
@@ -261,7 +279,7 @@ export default function BookingCard({
     booking.paymentStatus === "FAILED"
       ? { label: "Payment failed", className: "border-red-200 bg-red-50 text-red-700" }
       : payLaterUnpaid
-        ? { label: "Payment unconfirmed", className: "border-amber-200 bg-amber-50 text-amber-700" }
+        ? { label: "Payment pending", className: "border-amber-200 bg-amber-50 text-amber-700" }
         : null;
 
   const toggleExpand = useCallback(() => {
@@ -362,8 +380,14 @@ export default function BookingCard({
         {/* Row 3: price + chips + chevron */}
         <div className="flex items-center gap-2 mt-2.5 pt-2.5 border-t border-slate-100">
           {canSeeRevenue && (
-            <p className="text-base font-bold text-slate-900 whitespace-nowrap shrink-0">
+            <p
+              className="flex items-center gap-1 text-base font-bold text-slate-900 whitespace-nowrap shrink-0"
+              title={booking.paymentStatus === "SUCCEEDED" ? "Paid in full" : undefined}
+            >
               {formatCurrency(booking.total, booking.currency)}
+              {booking.paymentStatus === "SUCCEEDED" && (
+                <Check size={13} className="text-emerald-600" aria-label="Paid in full" role="img" />
+              )}
             </p>
           )}
           <div className="flex flex-1 min-w-0 flex-wrap items-center gap-1.5">
@@ -373,7 +397,7 @@ export default function BookingCard({
               </span>
             ) : payLaterUnpaid ? (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200/60 text-[10px] font-semibold text-amber-700 whitespace-nowrap">
-                <Clock size={10} className="shrink-0" /> Payment unconfirmed
+                <Clock size={10} className="shrink-0" /> Payment pending
               </span>
             ) : null}
             {canSeeRevenue && booking.discount > 0 && (
@@ -489,8 +513,14 @@ export default function BookingCard({
               </span>
             )}
             {canSeeRevenue && (
-              <p className="text-base font-bold tabular-nums text-slate-900">
+              <p
+                className="flex items-center gap-1 text-base font-bold tabular-nums text-slate-900"
+                title={booking.paymentStatus === "SUCCEEDED" ? "Paid in full" : undefined}
+              >
                 {formatCurrency(booking.total, booking.currency)}
+                {booking.paymentStatus === "SUCCEEDED" && (
+                  <Check size={13} className="text-emerald-600" aria-label="Paid in full" role="img" />
+                )}
               </p>
             )}
           </div>
@@ -607,31 +637,31 @@ export default function BookingCard({
               <div className="mt-1 divide-y divide-slate-100">
                 {/* ── Payment ── */}
                 <PanelSection label="Payment">
-                  <div className="flex flex-wrap items-start gap-x-10 gap-y-3">
-                    <PanelFact label="Status">
+                  <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2">
+                    <PanelInline label="Status">
                       <PaymentStatus paymentStatus={booking.paymentStatus} paymentTiming={booking.paymentTiming} />
-                    </PanelFact>
+                    </PanelInline>
                     {canSeeRevenue && (
-                      <PanelFact label="Total charged">
+                      <PanelInline label="Total charged">
                         <span className="text-base font-bold tabular-nums text-slate-900">
                           {formatCurrency(booking.total, booking.currency)}
                         </span>
-                      </PanelFact>
+                      </PanelInline>
                     )}
                     {canSeeRevenue && booking.discount > 0 && (
                       <>
                         {booking.subtotal > 0 && (
-                          <PanelFact label="Subtotal">
+                          <PanelInline label="Subtotal">
                             <span className="tabular-nums">{formatCurrency(booking.subtotal, booking.currency)}</span>
-                          </PanelFact>
+                          </PanelInline>
                         )}
-                        <PanelFact label="Discount">
+                        <PanelInline label="Discount">
                           <span className="tabular-nums text-red-600">
                             −{formatCurrency(booking.discount, booking.currency)}
                           </span>
-                        </PanelFact>
+                        </PanelInline>
                         {booking.offerName && (
-                          <PanelFact label="Applied offer">
+                          <PanelInline label="Applied offer">
                             <span className="text-xs text-slate-600">
                               {booking.offerName}
                               {booking.offerDiscountType === 'PERCENTAGE' && booking.offerDiscountPct && (
@@ -641,11 +671,11 @@ export default function BookingCard({
                                 <span className="ml-1 font-medium text-red-600">({formatCurrency(booking.offerDiscountFix, booking.currency)} off)</span>
                               )}
                             </span>
-                          </PanelFact>
+                          </PanelInline>
                         )}
-                        <PanelFact label="Total paid">
+                        <PanelInline label="Total paid">
                           <span className="tabular-nums">{formatCurrency(booking.total, booking.currency)}</span>
-                        </PanelFact>
+                        </PanelInline>
                       </>
                     )}
                   </div>
