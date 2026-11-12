@@ -71,13 +71,23 @@ export default function NotificationBell() {
   };
 
   useEffect(() => {
-    function handleClickOutside(event) {
-      if (open && panelRef.current && !panelRef.current.contains(event.target)) {
+    if (!open) return;
+    // pointerdown (not mousedown) so a tap outside closes on touch devices.
+    // Listeners only exist while the panel is open.
+    function handlePointerDown(event) {
+      if (panelRef.current && !panelRef.current.contains(event.target)) {
         closePanel();
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    function handleKeyDown(event) {
+      if (event.key === "Escape") closePanel();
+    }
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
   }, [open]);
 
   const handleNotificationClick = (notification) => {
@@ -134,9 +144,9 @@ export default function NotificationBell() {
             initial="initial"
             animate="animate"
             exit="exit"
-            className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-xl border border-emerald-100/60 shadow-lg shadow-emerald-900/5 z-50 overflow-hidden"
+            className="fixed left-4 right-4 top-[calc(var(--preview-banner-height)_+_4.5rem)] z-50 flex max-h-[calc(100dvh_-_var(--preview-banner-height)_-_6rem)] flex-col overflow-hidden rounded-xl border border-emerald-100/60 bg-white shadow-lg shadow-emerald-900/5 sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:max-h-none sm:w-96"
           >
-            <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-emerald-50">
+            <div className="flex shrink-0 items-center justify-between px-5 pt-4 pb-3 border-b border-emerald-50">
               <div>
                 <h3 className="text-sm font-semibold text-slate-800">Notifications</h3>
                 <p className="text-xs text-slate-500 mt-0.5">
@@ -166,7 +176,7 @@ export default function NotificationBell() {
               )}
             </div>
 
-            <div className="max-h-80 overflow-y-auto">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
               {isLoading ? (
                 <div className="px-5 py-6 space-y-4">
                   {[1, 2, 3].map((i) => (
@@ -245,7 +255,7 @@ export default function NotificationBell() {
               )}
             </div>
 
-            <div className="border-t border-emerald-50">
+            <div className="shrink-0 border-t border-emerald-50">
               <Link
                 to="/notifications"
                 onClick={closePanel}
