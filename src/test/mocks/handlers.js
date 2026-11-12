@@ -760,7 +760,74 @@ export const handlers = [
       });
     }
 
+    // A weak/fuzzy match: the free provider returns Accra for a specific
+    // market name it does not really know.
+    if (q.toLowerCase().includes('kaneshie')) {
+      return HttpResponse.json({
+        data: {
+          results: [
+            {
+              formatted: 'Accra, Ghana',
+              city: 'Accra',
+              country: 'Ghana',
+              region: 'Greater Accra',
+              latitude: 5.6037,
+              longitude: -0.187,
+              source: 'nominatim',
+            },
+          ],
+        },
+      });
+    }
+
     return HttpResponse.json({ data: { results: [] } });
+  }),
+
+  // Backend SerpApi Google Maps fallback (proxy). Deliberately credit-safe:
+  // the client only calls it after the user clicks "Search Google Maps".
+  http.get(`${API_BASE_URL}/locations/google-search`, ({ request }) => {
+    const url = new URL(request.url);
+    const q = (url.searchParams.get('q') || '').trim().toLowerCase();
+
+    if (q.includes('quota')) {
+      return HttpResponse.json({
+        status: 'success',
+        data: { ok: false, reason: 'quota' },
+      });
+    }
+
+    if (q.includes('not-configured')) {
+      return HttpResponse.json({
+        status: 'success',
+        data: { ok: false, reason: 'not_configured' },
+      });
+    }
+
+    if (q.includes('kempinski')) {
+      return HttpResponse.json({
+        status: 'success',
+        data: {
+          ok: true,
+          results: [
+            {
+              formatted:
+                'Kempinski Hotel Gold Coast City Accra, Gamel Abdul Naser Avenue, Accra, Ghana',
+              latitude: 5.5550811,
+              longitude: -0.1978947,
+              city: 'Accra',
+              country: 'Ghana',
+              region: 'Greater Accra Region',
+              postcode: null,
+              street: 'Gamel Abdul Naser Avenue',
+              source: 'google_maps',
+              externalId: 'ChIJAcTuKJuQ3w8Rl38ROfnzGGo',
+            },
+          ],
+        },
+      });
+    }
+
+    return HttpResponse.json({ status: 'success', data: { ok: true, results: [] } });
   }),
 
   // Backend reverse geocoding (proxy) — returns the coordinates it was given.

@@ -61,6 +61,7 @@ export default function Step01Location({ property, patch, onBack, onNext }) {
       city: result.city || property.city,
       region: result.region || property.region,
       country: result.country || property.country,
+      postcode: result.postcode || property.postcode,
       lat: result.latitude,
       lng: result.longitude,
       mapAddress: result.formatted || property.mapAddress,
@@ -120,6 +121,12 @@ export default function Step01Location({ property, patch, onBack, onNext }) {
               value={property.address || ""}
               onChange={(value) => patch({ address: value })}
               onSelect={handleAddressSelect}
+              googleMapsFallback
+              googleMapsOrigin={
+                property.lat != null && property.lng != null
+                  ? { lat: property.lat, lng: property.lng }
+                  : null
+              }
             />
             {errors.address && (
               <p className="mt-1 text-xs font-medium text-red-600">{errors.address}</p>

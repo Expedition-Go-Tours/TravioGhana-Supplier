@@ -126,6 +126,34 @@ describe("Step01Location — immersive location step", () => {
     });
   });
 
+  it("falls back to a Google Maps (SerpApi) search when the address search is empty", async () => {
+    const user = userEvent.setup();
+    const { patch } = renderStep();
+
+    await user.type(screen.getByPlaceholderText("Roman Ridge"), "Kempinski");
+    const googleCard = await screen.findByRole("button", {
+      name: /Search Google Maps for Kempinski/i,
+    });
+    await user.click(googleCard);
+
+    const googleResult = await screen.findByRole("button", {
+      name: /Kempinski Hotel Gold Coast City/i,
+    });
+    await user.click(googleResult);
+
+    expect(patch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        address: expect.stringContaining("Kempinski Hotel Gold Coast City"),
+        city: "Accra",
+        region: "Greater Accra Region",
+        country: "Ghana",
+        lat: 5.5550811,
+        lng: -0.1978947,
+        mapAddress: expect.stringContaining("Kempinski Hotel Gold Coast City"),
+      }),
+    );
+  });
+
   it("continues through the builder once the location is complete", async () => {
     const user = userEvent.setup();
     const { onNext } = renderStep({

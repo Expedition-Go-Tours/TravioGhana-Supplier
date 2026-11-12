@@ -131,10 +131,14 @@ const env = {
   VITE_STAYS_DATA_SOURCE: envString(import.meta.env.VITE_STAYS_DATA_SOURCE, 'api'),
 };
 
-// Warn in development if any critical values are missing or using defaults
+// Warn in development if any critical values are missing or using defaults.
+// Use static property accesses only: a bare `import.meta.env` is inlined by
+// Vite as the WHOLE env object, which would ship server-only secrets such as
+// VITE_SERP_API_KEY in the public bundle.
 if (isDev) {
-  const criticalKeys = ['VITE_API_BASE_URL', 'VITE_AUTH_PROVIDER'];
-  const missing = criticalKeys.filter((k) => !import.meta.env[k]);
+  const missing = [];
+  if (!import.meta.env.VITE_API_BASE_URL) missing.push('VITE_API_BASE_URL');
+  if (!import.meta.env.VITE_AUTH_PROVIDER) missing.push('VITE_AUTH_PROVIDER');
   if (missing.length > 0) {
     console.warn(
       '[config] Some environment variables are missing; using defaults for:',

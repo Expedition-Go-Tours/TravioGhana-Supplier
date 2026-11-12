@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import userEvent from '@testing-library/user-event';
 import { render, screen, fireEvent, act } from '@/test/utils';
 import LocationAutocomplete from '@/components/shared/LocationAutocomplete';
+import { clearGoogleMapsCache } from '@/lib/serpApiMapsSearch';
 
 function typeInto(input, value) {
   fireEvent.change(input, { target: { value } });
@@ -138,5 +140,111 @@ describe('LocationAutocomplete', () => {
     act(() => ref.current.reset());
     expect(input).toHaveValue('');
     expect(screen.queryByRole('listbox')).toBeNull();
+  });
+});
+
+describe('LocationAutocomplete — Google Maps (SerpApi) fallback', () => {
+  beforeEach(() => {
+    // The free-provider debounce is real here so the SerpApi click flow can use
+    // normal async waiting instead of fake-timer choreography.
+    vi.useRealTimers();
+    clearGoogleMapsCache();
+  });
+
+  it('offers the distinct Google Maps card when free results are empty', async () => {
+    const user = userEvent.setup();
+    render(<LocationAutocomplete onSelect={vi.fn()} googleMapsFallback />);
+    const input = screen.getByPlaceholderText(/Start typing a location/i);
+
+    await user.type(input, 'Zyzzx');
+
+    const card = await screen.findByRole('button', {
+      name: /Search Google Maps for Zyzzx/i,
+    });
+    expect(card).toBeInTheDocument();
+    expect(screen.getByText(/Can.t find your address\?/i)).toBeInTheDocument();
+    expect(screen.getByText(/Search Google Maps for places in Ghana/i)).toBeInTheDocument();
+  });
+
+  it('does not search Google Maps until the card is clicked', async () => {
+    const onSelect = vi.fn();
+    const user = userEvent.setup();
+    render(<LocationAutocomplete onSelect={onSelect} googleMapsFallback />);
+    const input = screen.getByPlaceholderText(/Start typing a location/i);
+
+    await user.type(input, 'Kempinski');
+
+    const card = await screen.findByRole('button', {
+      name: /Search Google Maps for Kempinski/i,
+    });
+    expect(screen.queryByText(/Google Maps · Ghana/i)).toBeNull();
+
+    await user.click(card);
+
+    expect(await screen.findByText(/Google Maps · Ghana/i)).toBeInTheDocument();
+    const result = await screen.findByRole('button', {
+      name: /Kempinski Hotel Gold Coast City/i,
+    });
+    await user.click(result);
+
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        formatted: expect.stringContaining('Kempinski Hotel Gold Coast City'),
+        city: 'Accra',
+        region: 'Greater Accra Region',
+        country: 'Ghana',
+        latitude: 5.5550811,
+        longitude: -0.1978947,
+      })
+    );
+  });
+
+  it('offers Google Maps when the free results are only fuzzy matches', async () => {
+    const user = userEvent.setup();
+    render(<LocationAutocomplete onSelect={vi.fn()} googleMapsFallback />);
+    const input = screen.getByPlaceholderText(/Start typing a location/i);
+
+    await user.type(input, 'Kaneshie Market');
+
+    expect(await screen.findByText('Accra, Ghana')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('button', { name: /Search Google Maps for Kaneshie Market/i })
+    ).toBeInTheDocument();
+  });
+
+  it('hides the Google Maps card when a free result matches what was typed', async () => {
+    const user = userEvent.setup();
+    render(<LocationAutocomplete onSelect={vi.fn()} googleMapsFallback />);
+    const input = screen.getByPlaceholderText(/Start typing a location/i);
+
+    await user.type(input, 'Arusha');
+
+    expect(await screen.findByRole('option', { name: /Arusha, Tanzania/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Search Google Maps/i })).toBeNull();
+  });
+
+  it('shows a retry message when the Google Maps quota is spent', async () => {
+    const user = userEvent.setup();
+    render(<LocationAutocomplete onSelect={vi.fn()} googleMapsFallback />);
+    const input = screen.getByPlaceholderText(/Start typing a location/i);
+
+    await user.type(input, 'quota');
+    await user.click(
+      await screen.findByRole('button', { name: /Search Google Maps for quota/i })
+    );
+
+    expect(await screen.findByText(/temporarily unavailable/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Try again/i })).toBeInTheDocument();
+  });
+
+  it('does not offer the fallback unless the caller opts in', async () => {
+    const user = userEvent.setup();
+    render(<LocationAutocomplete onSelect={vi.fn()} />);
+    const input = screen.getByPlaceholderText(/Start typing a location/i);
+
+    await user.type(input, 'Zyzzx');
+
+    await screen.findByText(/No locations found/i);
+    expect(screen.queryByRole('button', { name: /Search Google Maps/i })).toBeNull();
   });
 });
