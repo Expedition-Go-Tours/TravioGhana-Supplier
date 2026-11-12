@@ -641,42 +641,37 @@ export default function BookingCard({
                     <PanelInline label="Status">
                       <PaymentStatus paymentStatus={booking.paymentStatus} paymentTiming={booking.paymentTiming} />
                     </PanelInline>
+                    {canSeeRevenue && booking.subtotal > 0 && (
+                      <PanelInline label="Subtotal">
+                        <span className="tabular-nums">{formatCurrency(booking.subtotal, booking.currency)}</span>
+                      </PanelInline>
+                    )}
+                    {canSeeRevenue && booking.discount > 0 && (
+                      <PanelInline label="Discount">
+                        <span className="tabular-nums text-red-600">
+                          −{formatCurrency(booking.discount, booking.currency)}
+                        </span>
+                      </PanelInline>
+                    )}
+                    {canSeeRevenue && booking.offerName && (
+                      <PanelInline label="Applied offer">
+                        <span className="text-xs text-slate-600">
+                          {booking.offerName}
+                          {booking.offerDiscountType === 'PERCENTAGE' && booking.offerDiscountPct && (
+                            <span className="ml-1 font-medium text-red-600">({booking.offerDiscountPct}% off)</span>
+                          )}
+                          {booking.offerDiscountType === 'FIXED' && booking.offerDiscountFix && (
+                            <span className="ml-1 font-medium text-red-600">({formatCurrency(booking.offerDiscountFix, booking.currency)} off)</span>
+                          )}
+                        </span>
+                      </PanelInline>
+                    )}
                     {canSeeRevenue && (
                       <PanelInline label="Total charged">
                         <span className="text-base font-bold tabular-nums text-slate-900">
                           {formatCurrency(booking.total, booking.currency)}
                         </span>
                       </PanelInline>
-                    )}
-                    {canSeeRevenue && booking.discount > 0 && (
-                      <>
-                        {booking.subtotal > 0 && (
-                          <PanelInline label="Subtotal">
-                            <span className="tabular-nums">{formatCurrency(booking.subtotal, booking.currency)}</span>
-                          </PanelInline>
-                        )}
-                        <PanelInline label="Discount">
-                          <span className="tabular-nums text-red-600">
-                            −{formatCurrency(booking.discount, booking.currency)}
-                          </span>
-                        </PanelInline>
-                        {booking.offerName && (
-                          <PanelInline label="Applied offer">
-                            <span className="text-xs text-slate-600">
-                              {booking.offerName}
-                              {booking.offerDiscountType === 'PERCENTAGE' && booking.offerDiscountPct && (
-                                <span className="ml-1 font-medium text-red-600">({booking.offerDiscountPct}% off)</span>
-                              )}
-                              {booking.offerDiscountType === 'FIXED' && booking.offerDiscountFix && (
-                                <span className="ml-1 font-medium text-red-600">({formatCurrency(booking.offerDiscountFix, booking.currency)} off)</span>
-                              )}
-                            </span>
-                          </PanelInline>
-                        )}
-                        <PanelInline label="Total paid">
-                          <span className="tabular-nums">{formatCurrency(booking.total, booking.currency)}</span>
-                        </PanelInline>
-                      </>
                     )}
                   </div>
                 </PanelSection>

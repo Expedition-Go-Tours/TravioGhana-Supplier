@@ -121,5 +121,9 @@ describe("BookingCard — payment status presentation", () => {
     expect(status.className).toContain("text-[11px]");
     expect(total.className).toContain("text-[11px]");
     expect(status.closest("div")?.className).toContain("items-baseline");
+    // One total only: "Total charged" and "Total paid" showed the same figure
+    // twice on a discounted booking.
+    expect(screen.queryByText("Total paid")).toBeNull();
+    expect(screen.getAllByText("Total charged")).toHaveLength(1);
   });
 });
