@@ -45,7 +45,11 @@ describe("StaysAnalyticsPage — experiences-parity analytics", () => {
       screen.getByText("Track revenue, bookings and property growth with modern analytics."),
     ).toBeTruthy();
 
-    await screen.findAllByText(formatCurrency(summary.earnings.totalEarnings));
+    const money = (value, currency) =>
+      formatCurrency(value, currency).replace(/\u00a0/g, " ");
+    await screen.findAllByText((content) =>
+      String(content).replace(/\u00a0/g, " ") === money(summary.earnings.totalEarnings, summary.earnings.currency || "GHS"),
+    );
     expect(screen.getAllByText(String(summary.bookings.total)).length).toBeGreaterThan(0);
     expect(
       screen.getAllByText(`${summary.reviews.averageRating} ★`).length,
@@ -67,7 +71,13 @@ describe("StaysAnalyticsPage — experiences-parity analytics", () => {
 
     // The best-sellers table row: full name + USD revenue + the drill-in action.
     expect((await screen.findAllByText(first.name)).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(formatCurrency(first.revenue)).length).toBeGreaterThan(0);
+    const money = (value, currency) =>
+      formatCurrency(value, currency).replace(/\u00a0/g, " ");
+    expect(
+      screen.getAllByText((content) =>
+        String(content).replace(/\u00a0/g, " ") === money(first.revenue, first.currency || "GHS"),
+      ).length,
+    ).toBeGreaterThan(0);
     expect(await screen.findByRole("button", { name: "View details" })).toBeTruthy();
   });
 

@@ -115,6 +115,8 @@ export default function AnalyticsPage() {
 
   const reviews = dashboardData?.reviews || {};
   const totalRevenue = Number(earnings.totalEarnings) || 0;
+  const earningsCurrency = earnings.currency || "GHS";
+  const earningsByCurrency = Array.isArray(earnings.currencies) ? earnings.currencies : [];
   const totalBookings = bookingsData.total || 0;
   const liveProperties = propertiesData.active || 0;
 
@@ -203,7 +205,13 @@ export default function AnalyticsPage() {
           {loading ? (
             <div className="space-y-1.5"><div className="h-5 w-20 bg-slate-100 rounded animate-pulse" /><div className="h-3 w-16 bg-slate-100 rounded animate-pulse" /></div>
           ) : (
-            <><p className="text-lg font-bold text-slate-800">{formatCurrency(totalRevenue)}</p><p className="text-[11px] text-slate-400 mt-0.5">Earnings</p></>
+            <><p className="text-lg font-bold text-slate-800">{formatCurrency(totalRevenue, earningsCurrency)}</p><p className="text-[11px] text-slate-400 mt-0.5">Earnings</p>
+              {earningsByCurrency.length > 1 && (
+                <p className="text-[10px] text-slate-400 mt-1">
+                  {earningsByCurrency.map((row) => formatCurrency(row.totalEarnings, row.currency)).join(" · ")}
+                </p>
+              )}
+            </>
           )}
           <div className="mt-2 h-0.5 w-full rounded-full bg-emerald-200/40" />
         </div>
@@ -346,7 +354,7 @@ export default function AnalyticsPage() {
                         <p className="text-[11px] text-slate-700 font-medium leading-relaxed line-clamp-2">{p.name}</p>
                       </div>
                     </td>
-                    <td className="py-3 px-3 text-right text-[11px] text-slate-800 font-medium">{formatCurrency(p.revenue)}</td>
+                    <td className="py-3 px-3 text-right text-[11px] text-slate-800 font-medium">{formatCurrency(p.revenue, p.currency || earningsCurrency)}</td>
                     <td className="py-3 px-3 text-right text-[11px] text-slate-600">{p.bookings}</td>
                     <td className="py-3 pl-3 text-right text-[11px] text-amber-600">{p.rating.toFixed(2)} ★</td>
                     <td className="py-3 pl-3 text-right">

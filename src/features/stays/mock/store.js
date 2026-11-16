@@ -214,6 +214,8 @@ export const staysMock = {
         grossBookingValue: gross,
       },
       currency: "GHS",
+      mixedCurrencies: false,
+      currencies: [{ currency: "GHS", grossBookingValue: gross, bookings: nonCancelled().length }],
       cancellation: {
         rate: db.bookings.length ? Math.round((cancelled / db.bookings.length) * 1000) / 10 : 0,
         cancelled,
@@ -1012,13 +1014,27 @@ export const staysMock = {
       // Every earnings row is USD; the summary carries the currency so the
       // finance page never falls back to GHS for these amounts.
       currency: "USD",
-      availableBalance: { amount: sum(eligible), bookingCount: eligible.length },
-      pendingClearance: { amount: sum(pending), bookingCount: pending.length },
+      mixedCurrencies: false,
+      availableBalance: { amount: sum(eligible), bookingCount: eligible.length, currency: "USD" },
+      pendingClearance: { amount: sum(pending), bookingCount: pending.length, currency: "USD" },
       inReview: {
         total: requests.reduce((total, request) => total + request.amount, 0),
         count: requests.length,
+        requestCount: requests.length,
+        currency: "USD",
       },
-      paidOut: { total: sum(paid), count: paid.length },
+      paidOut: { total: sum(paid), count: paid.length, currency: "USD" },
+      currencies: [{
+        currency: "USD",
+        availableBalance: { amount: sum(eligible), bookingCount: eligible.length },
+        pendingClearance: { amount: sum(pending), bookingCount: pending.length },
+        inReview: {
+          total: requests.reduce((total, request) => total + request.amount, 0),
+          count: requests.length,
+          requestCount: requests.length,
+        },
+        paidOut: { total: sum(paid), count: paid.length },
+      }],
       withdrawalWindow: {
         open: true,
         opensAt: dayOffsetISO(-1),
@@ -1266,13 +1282,19 @@ export const staysMock = {
       ? Math.round((reviews.reduce((total, review) => total + review.rating, 0) / reviews.length) * 10) /
         10
       : 0;
+    const totalEarnings = valid.reduce((total, booking) => total + booking.amount, 0);
     return {
       properties: {
         active: db.properties.filter((property) => property.status === "Live").length,
         total: db.properties.length,
       },
       bookings: { total: valid.length },
-      earnings: { totalEarnings: valid.reduce((total, booking) => total + booking.amount, 0) },
+      earnings: {
+        totalEarnings,
+        currency: "GHS",
+        mixedCurrencies: false,
+        currencies: [{ currency: "GHS", totalEarnings, bookings: valid.length }],
+      },
       reviews: { averageRating, total: reviews.length },
     };
   },
@@ -1286,11 +1308,14 @@ export const staysMock = {
           booking.status !== "Cancelled" &&
           booking.status !== "No-show",
       );
+      const revenue = rows.reduce((total, booking) => total + booking.amount, 0);
       return {
         propertyId: property.id,
         name: property.name,
         bookings: rows.length,
-        revenue: rows.reduce((total, booking) => total + booking.amount, 0),
+        revenue,
+        currency: "GHS",
+        revenueByCurrency: { GHS: revenue },
         photo: property.photos?.[0] || "",
       };
     });
@@ -1326,6 +1351,9 @@ export const staysMock = {
       totalBookings: count,
       grossBookingValue: gross,
       averageBookingValue: count ? Math.round(gross / count) : 0,
+      currency: "GHS",
+      mixedCurrencies: false,
+      currencies: [{ currency: "GHS", grossBookingValue: gross, bookings: count }],
       liveProperties: db.properties.filter((p) => p.status === "Live").length,
       // Illustrative series — matches the prototype's chart while the real
       // reporting endpoint is built (it is labelled as such in the UI).
