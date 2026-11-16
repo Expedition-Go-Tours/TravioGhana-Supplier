@@ -26,7 +26,20 @@ async function fetchSupplierStatusPayload(authToken) {
 
 export async function loadSupplierProfile(authToken = getAuthToken()) {
   const data = await fetchSupplierStatusPayload(authToken);
-  return data?.supplierProfile || data || null;
+  const profile = data?.supplierProfile || null;
+  if (!profile) return data || null;
+
+  // The endpoint returns the OWNER's business identity alongside the profile.
+  // It has to live on the returned object because the shell reads
+  // `supplierProfile.logoUrl` — and a team member's own account has no logo,
+  // name or join date of its own. Dropping these fields left every team
+  // member's sidebar card showing an initial instead of the company logo.
+  return {
+    ...profile,
+    logoUrl: data.logoUrl ?? profile.logoUrl ?? null,
+    businessName: data.businessName ?? profile.businessName ?? null,
+    supplierSince: data.supplierSince ?? profile.supplierSince ?? null,
+  };
 }
 
 /**
