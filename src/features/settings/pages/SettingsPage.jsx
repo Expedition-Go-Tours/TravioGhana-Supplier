@@ -246,9 +246,12 @@ function ProfileTab() {
             tourCategories: Array.isArray(oi.tourCategories) ? oi.tourCategories : [],
           });
           setRepresentativeInfo({
-            fullName: ri.fullName || user.name || "",
-            email: ri.email || user.email || "",
-            phoneNumber: ri.phoneNumber || user.phone || "",
+            // Submitted identity only. Falling back to the viewer's own account
+            // made a team member's name/email appear as the business's verified
+            // representative — a read-only card that read as someone else's ID.
+            fullName: ri.fullName || "",
+            email: ri.email || "",
+            phoneNumber: ri.phoneNumber || "",
             dateOfBirth: ri.dateOfBirth || "",
             idType: ri.idType || "",
             idNumber: ri.idNumber || "",
