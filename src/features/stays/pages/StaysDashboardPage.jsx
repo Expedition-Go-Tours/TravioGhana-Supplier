@@ -80,6 +80,7 @@ export default function StaysDashboardPage() {
   }
 
   const { stats, currency, cancellation, actionRequired, recentBookings, topProperties } = data;
+  const currencyRows = Array.isArray(data.currencies) ? data.currencies : [];
   const draft = actionRequired.draftProperties > 0;
 
   return (
@@ -125,7 +126,9 @@ export default function StaysDashboardPage() {
           icon={<TrendingUp size={16} />}
           label="Gross booking value"
           value={formatMoney(stats.grossBookingValue, currency)}
-          hint="Sample bookings"
+          hint={currencyRows.length > 1
+            ? currencyRows.map((row) => formatMoney(row.grossBookingValue, row.currency)).join(" · ")
+            : "Sample bookings"}
         />
       </div>
 

@@ -532,6 +532,47 @@ export default function StaysFinancePage() {
         </div>
       </div>
 
+      {Array.isArray(summary?.currencies) && summary.currencies.length > 1 && (
+        <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5">
+          <h3 className="text-sm font-semibold text-gray-900">Balances by currency</h3>
+          <p className="text-xs text-gray-500 mt-0.5">
+            This account holds more than one currency. The cards above show {financeCurrency}; the full split is below.
+          </p>
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-gray-400">
+                  <th className="py-2 pr-4 font-medium">Currency</th>
+                  <th className="py-2 pr-4 font-medium text-right">Available</th>
+                  <th className="py-2 pr-4 font-medium text-right">Pending</th>
+                  <th className="py-2 pr-4 font-medium text-right">In review</th>
+                  <th className="py-2 font-medium text-right">Paid out</th>
+                </tr>
+              </thead>
+              <tbody>
+                {summary.currencies.map((row) => (
+                  <tr key={row.currency} className="border-t border-gray-100">
+                    <td className="py-2 pr-4 font-medium text-gray-700">{row.currency}</td>
+                    <td className="py-2 pr-4 text-right tabular-nums">
+                      {formatCurrency(row.availableBalance?.amount || 0, row.currency)}
+                    </td>
+                    <td className="py-2 pr-4 text-right tabular-nums">
+                      {formatCurrency(row.pendingClearance?.amount || 0, row.currency)}
+                    </td>
+                    <td className="py-2 pr-4 text-right tabular-nums">
+                      {formatCurrency(row.inReview?.total || 0, row.currency)}
+                    </td>
+                    <td className="py-2 text-right tabular-nums">
+                      {formatCurrency(row.paidOut?.total || 0, row.currency)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Payout section — an automated schedule for enrolled suppliers, the
           legacy withdrawal window for everyone else. */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

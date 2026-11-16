@@ -2,7 +2,8 @@
  * Stays finance API — the Stays mirror of `features/finance/api.js`: the same
  * function names and shapes the finance page consumes, backed by the stays
  * mock today and the `/stays/supplier/finance/...` endpoints when the backend
- * ships. Amounts are USD, like the Experiences finance page.
+ * ships. Amounts are denominated per booking/property currency (GHS for the
+ * Ghana workspace).
  */
 import api from "@/lib/axios";
 import { formatCurrency } from "@/lib/utils";
@@ -34,7 +35,7 @@ export async function fetchFinanceEarnings(params = {}) {
       supplierPayout: Number(item.supplierPayout) || 0,
       commissionAmount: Number(item.platformCommission) || 0,
       commissionRate: Number(item.commissionRate) || 0,
-      currency: item.currency || "USD",
+      currency: item.currency || "GHS",
       payoutStatus: item.payoutStatus,
       status: item.status,
       property: item.property?.name || "—",
@@ -57,7 +58,7 @@ export async function fetchPayoutRequests(params = {}) {
       id: request.id,
       requestNumber: request.requestNumber,
       amount: Number(request.amount) || 0,
-      currency: request.currency || "USD",
+      currency: request.currency || "GHS",
       bookingCount: request.bookingCount || 0,
       status: request.status,
       cycleLabel: request.cycleLabel,
@@ -105,7 +106,7 @@ export async function getFinanceCharges() {
   const charges = (payload.charges || []).map((charge) => ({
     id: charge.id,
     amount: Number(charge.amount) || 0,
-    currency: charge.currency || "USD",
+    currency: charge.currency || "GHS",
     reason: charge.reason || "",
     status: charge.status,
     notes: charge.notes || "",
@@ -142,7 +143,7 @@ export async function fetchFinanceDisputes(params = {}) {
       propertyTitle: dispute.booking?.property?.name || "—",
       travelDate: dispute.booking?.travelDate,
       grossAmount: Number(dispute.booking?.grossAmount) || 0,
-      currency: dispute.booking?.currency || "USD",
+      currency: dispute.booking?.currency || "GHS",
     })),
     pagination: payload.pagination || null,
   };
@@ -203,7 +204,7 @@ export function mapClaim(claim) {
     booking: {
       bookingNumber: booking.bookingNumber || "",
       total: Number(booking.grossAmount) || 0,
-      currency: booking.currency || "USD",
+      currency: booking.currency || "GHS",
       customerName: booking.customer?.name || "Guest",
       customerEmail: booking.customer?.email || "",
       propertyTitle: booking.property?.name || "",
