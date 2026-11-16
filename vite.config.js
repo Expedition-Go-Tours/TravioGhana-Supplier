@@ -79,6 +79,11 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks: (id) => {
             if (id.includes('node_modules')) {
+              // The Stays-only Phosphor icon family would otherwise match the
+              // `react` substring below and bloat the React vendor chunk.
+              if (id.includes('@phosphor-icons')) {
+                return 'phosphor-vendor';
+              }
               if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
                 return 'react-vendor';
               }

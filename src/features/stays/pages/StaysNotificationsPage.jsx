@@ -8,7 +8,7 @@ import {
   Send,
   MessageSquare,
   ArrowUpRight,
-} from "lucide-react";
+} from "@/features/stays/icons";
 import { motion } from "framer-motion";
 import { formatDateTime, formatDate } from "@/lib/utils";
 import { STAYS_NOTIFICATION_TYPES } from "../notifications/constants";

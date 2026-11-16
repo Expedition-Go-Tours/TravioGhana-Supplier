@@ -10,7 +10,7 @@ import {
   Layers,
   Users,
   Power,
-} from "lucide-react";
+} from "@/features/stays/icons";
 import { useStaysOfferBuilderStore } from "../../stores/staysOfferBuilderStore";
 import {
   OFFER_STATUS_CONFIG,

@@ -1,4 +1,4 @@
-import { Check, ChevronLeft } from "lucide-react";
+import { Check, ChevronLeft } from "@/features/stays/icons";
 import StaysButton from "../components/StaysButton";
 import { FACILITY_GROUPS } from "../config/constants";
 
@@ -19,7 +19,7 @@ function AmenityRow({ label, checked, onToggle }) {
           checked ? "border-emerald-600 bg-emerald-600" : "border-slate-300 bg-white"
         }`}
       >
-        {checked && <Check size={14} strokeWidth={3} />}
+        {checked && <Check size={14} weight="bold" />}
       </span>
       <span className="min-w-0 flex-1 text-base text-slate-800">{label}</span>
     </label>

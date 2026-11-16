@@ -13,7 +13,7 @@ import {
   ChevronRight,
   RefreshCw,
   XCircle,
-} from "lucide-react";
+} from "@/features/stays/icons";
 import {
   Select,
   SelectContent,

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { X, Calendar, Users, Clock, Ticket, Hash, Phone, Mail, Circle } from "lucide-react";
+import { X, Calendar, Users, Clock, Ticket, Hash, Phone, Mail, Circle } from "@/features/stays/icons";
 import { listStaysBookings } from "../../api";
 import { useNavigate } from "react-router-dom";
 import OptimizedImage from "@/components/shared/OptimizedImage";
@@ -115,7 +115,7 @@ export default function StaysCustomerDetailsPanel({ conversation, currentUserId,
                   <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${
                     cu.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"
                   }`}>
-                    <Circle size={4} fill="currentColor" />
+                    <Circle size={4} weight="fill" />
                     {cu.status}
                   </span>
                 )}

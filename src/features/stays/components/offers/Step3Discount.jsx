@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Infinity as InfinityIcon, Target, ChevronRight, DollarSign, Percent } from "lucide-react";
+import { Infinity as InfinityIcon, Target, ChevronRight, DollarSign, Percent } from "@/features/stays/icons";
 import { useStaysOfferBuilderStore } from "../../stores/staysOfferBuilderStore";
 import { cn } from "@/lib/utils";
 import { listProperties } from "../../api";

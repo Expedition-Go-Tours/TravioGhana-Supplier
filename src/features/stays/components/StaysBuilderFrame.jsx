@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { X } from "lucide-react";
+import { X } from "@/features/stays/icons";
 import { SHELL_GUTTER } from "@/components/layout/shell";
 import PropertyBuilderSidebar from "./PropertyBuilderSidebar";
 import { STAYS_BUILDER_STEPS, STAYS_BUILDER_STEP_COUNT } from "../config/staysSteps";

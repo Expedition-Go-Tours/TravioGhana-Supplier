@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import PropertyDetailsView from "../PropertyDetailsView";
 
@@ -106,6 +106,11 @@ const property = {
   pricePerNight: "750",
 };
 
+const FIVE_PHOTOS = Array.from(
+  { length: 5 },
+  (_, index) => `https://example.com/gallery-${index + 1}.jpg`,
+);
+
 function renderView({ canEdit = true, onEdit = vi.fn(), overrides = {} } = {}) {
   render(
     <PropertyDetailsView
@@ -134,14 +139,107 @@ describe("PropertyDetailsView", () => {
     expect(screen.getByRole("link", { name: /Open in Google Maps/ })).toBeTruthy();
   });
 
-  it("switches the gallery photo", async () => {
+  it("renders the overview facts in the summary card", () => {
+    renderView();
+
+    const heading = screen.getByRole("heading", { name: "Overview" });
+    const overview = within(heading.closest("section"));
+
+    expect(heading.querySelector("svg")).toBeNull();
+    expect(overview.getAllByTestId("overview-fact-icon")).toHaveLength(6);
+    expect(overview.getByText("Live")).toBeTruthy();
+    expect(overview.getByText("Individual rooms")).toBeTruthy();
+    expect(overview.getByText("Guests")).toBeTruthy();
+    expect(overview.getByText("Bedrooms")).toBeTruthy();
+    expect(overview.getByText("Bathrooms")).toBeTruthy();
+    expect(overview.getByText("Room types")).toBeTruthy();
+    expect(overview.getByText("Size")).toBeTruthy();
+    expect(overview.getByText("Nightly price")).toBeTruthy();
+    expect(overview.getByText("4")).toBeTruthy();
+    expect(overview.getByText("2")).toBeTruthy();
+    expect(overview.getByText("80 square metres")).toBeTruthy();
+    expect(overview.getByText("GHS 750")).toBeTruthy();
+  });
+
+  it("places listing and booking settings directly after About this property", () => {
+    renderView();
+
+    const headings = screen.getAllByRole("heading", { level: 3 });
+    const about = headings.findIndex((heading) => heading.textContent.trim() === "About this property");
+    const listing = headings.findIndex(
+      (heading) => heading.textContent.trim() === "Listing and booking settings",
+    );
+
+    expect(about).toBeGreaterThanOrEqual(0);
+    expect(listing).toBe(about + 1);
+  });
+
+  it("places amenities and services directly after Rooms", () => {
+    renderView();
+
+    const headings = screen.getAllByRole("heading", { level: 3 });
+    const rooms = headings.findIndex((heading) => heading.textContent.trim() === "Rooms");
+    const amenities = headings.findIndex(
+      (heading) => heading.textContent.trim() === "Amenities and services",
+    );
+
+    expect(rooms).toBeGreaterThanOrEqual(0);
+    expect(amenities).toBe(rooms + 1);
+  });
+
+  it("renders the five-photo mosaic and browses it in the lightbox", async () => {
+    const user = userEvent.setup();
+    renderView({ overrides: { photos: FIVE_PHOTOS } });
+
+    expect(screen.getByTestId("preview-main-photo")).toHaveAttribute("src", FIVE_PHOTOS[0]);
+    expect(screen.getByRole("button", { name: "View all 5 photos" })).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "View all 5 photos" }));
+
+    const dialog = await screen.findByRole("dialog", {
+      name: /Photos of Akwaaba Coast Hotel/i,
+    });
+    expect(within(dialog).getByText("1 / 5")).toBeTruthy();
+    expect(within(dialog).getByRole("img", { name: /photo 1/i })).toHaveAttribute(
+      "src",
+      FIVE_PHOTOS[0],
+    );
+
+    await user.click(within(dialog).getByRole("button", { name: "Next photo" }));
+    expect(within(dialog).getByText("2 / 5")).toBeTruthy();
+    expect(within(dialog).getByRole("img", { name: /photo 2/i })).toHaveAttribute(
+      "src",
+      FIVE_PHOTOS[1],
+    );
+
+    await user.click(within(dialog).getByRole("button", { name: "Close photo viewer" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+  });
+
+  it("uses a simple grid and opens the lightbox for fewer than five photos", async () => {
     const user = userEvent.setup();
     renderView();
 
-    const main = screen.getByTestId("preview-main-photo");
-    expect(main.getAttribute("src")).toBe(property.photos[0]);
-    await user.click(screen.getByRole("button", { name: "Show photo 2" }));
-    expect(screen.getByTestId("preview-main-photo").getAttribute("src")).toBe(property.photos[1]);
+    expect(screen.getByTestId("preview-main-photo")).toHaveAttribute("src", property.photos[0]);
+    expect(screen.queryByRole("button", { name: /View all .* photos/ })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Open photo 2" }));
+
+    const dialog = await screen.findByRole("dialog", {
+      name: /Photos of Akwaaba Coast Hotel/i,
+    });
+    expect(within(dialog).getByText("2 / 2")).toBeTruthy();
+    expect(within(dialog).getByRole("img", { name: /photo 2/i })).toHaveAttribute(
+      "src",
+      property.photos[1],
+    );
+
+    await user.click(within(dialog).getByRole("button", { name: "Close photo viewer" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
   });
 
   it("deep-links every edit action to its builder step", async () => {

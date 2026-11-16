@@ -1,4 +1,4 @@
-import { Check, ChevronLeft, Minus, Plus, PlusCircle } from "lucide-react";
+import { Check, ChevronLeft, Minus, Plus, PlusCircle } from "@/features/stays/icons";
 import StaysButton from "../components/StaysButton";
 import RoomTypesSection from "../components/RoomTypesSection";
 import { StaysField, StaysInput, StaysSelect, StaysTextarea } from "../components/StaysForm";
@@ -290,7 +290,7 @@ export default function Step08PropertyDetails({
                 excludeInfants ? "border-emerald-600 bg-emerald-600" : "border-slate-300 bg-white"
               }`}
             >
-              {excludeInfants && <Check size={14} strokeWidth={3} />}
+              {excludeInfants && <Check size={14} weight="bold" />}
             </span>
             <span className="text-sm text-slate-800 md:text-base">
               Exclude infants (0–2 years old) from total number of guests

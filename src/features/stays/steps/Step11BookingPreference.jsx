@@ -1,4 +1,4 @@
-import { Check, ChevronLeft, Info } from "lucide-react";
+import { Check, ChevronLeft, Info } from "@/features/stays/icons";
 import StaysButton from "../components/StaysButton";
 
 /**
@@ -60,7 +60,7 @@ export default function Step11BookingPreference({
               <li key={point} className="flex items-start gap-3">
                 <Check
                   size={18}
-                  strokeWidth={2.5}
+                  weight="bold"
                   aria-hidden="true"
                   className="mt-1 shrink-0 text-emerald-700"
                 />

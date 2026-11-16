@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckCircle2, ChevronLeft, Info, Users } from "lucide-react";
+import { CheckCircle2, ChevronLeft, Info, Users } from "@/features/stays/icons";
 import StaysButton from "../components/StaysButton";
 import { StaysInput, StaysSelect } from "../components/StaysForm";
 import { formatMoney } from "../utils/money";
@@ -61,7 +61,7 @@ function PlanBullet({ children }) {
     <li className="flex items-start gap-3 text-sm text-slate-800 md:text-base">
       <CheckCircle2
         size={20}
-        strokeWidth={1.6}
+        weight="light"
         aria-hidden="true"
         className="mt-0.5 shrink-0 text-slate-700"
       />

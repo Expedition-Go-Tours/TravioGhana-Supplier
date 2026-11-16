@@ -15,7 +15,7 @@ import {
   CalendarClock,
   Eye,
   UserCheck,
-} from "lucide-react";
+} from "@/features/stays/icons";
 import {
   loadStaysVerification,
   replaceStaysDocument,

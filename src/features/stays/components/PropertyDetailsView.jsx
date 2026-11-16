@@ -1,18 +1,26 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import * as Dialog from "@radix-ui/react-dialog";
 import {
+  Banknote,
+  Bath,
   BedDouble,
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   CircleDollarSign,
+  DoorOpen,
   Image as ImageIcon,
+  Images,
   MapPin,
   Pencil,
+  Ruler,
   ScrollText,
   Settings2,
-  Sparkles,
   UserRound,
   Users,
   Utensils,
-} from "lucide-react";
+  X,
+} from "@/features/stays/icons";
 import { cn } from "@/lib/utils";
 import StaysButton from "./StaysButton";
 import StaysPill from "./StaysPill";
@@ -108,11 +116,32 @@ function PreviewSection({ title, icon: Icon, edit, canEdit, onEdit, children }) 
   );
 }
 
-function Fact({ label, value }) {
+function Fact({ label, value, icon: Icon }) {
+  if (!Icon) {
+    return (
+      <div className="min-w-0">
+        <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</dt>
+        <dd className="mt-0.5 break-words text-sm font-medium leading-snug text-slate-800">
+          {value || "—"}
+        </dd>
+      </div>
+    );
+  }
+
   return (
-    <div>
-      <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</dt>
-      <dd className="mt-0.5 text-sm font-medium text-slate-800">{value || "—"}</dd>
+    <div className="min-w-0">
+      <dt className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+        <span
+          data-testid="overview-fact-icon"
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"
+        >
+          <Icon size={16} aria-hidden="true" />
+        </span>
+        <span className="min-w-0 break-words">{label}</span>
+      </dt>
+      <dd className="ml-12 mt-1 break-words text-sm font-medium leading-snug text-slate-800">
+        {value || "—"}
+      </dd>
     </div>
   );
 }
@@ -146,12 +175,121 @@ function SettingRow({ label, value, edit, canEdit, onEdit }) {
   );
 }
 
+function PhotoLightbox({ photos, index, propertyName, onIndexChange, onClose }) {
+  const open = index !== null && Boolean(photos[index]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        onIndexChange((index - 1 + photos.length) % photos.length);
+      } else if (event.key === "ArrowRight") {
+        event.preventDefault();
+        onIndexChange((index + 1) % photos.length);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, index, photos.length, onIndexChange]);
+
+  const previous = () => onIndexChange((index - 1 + photos.length) % photos.length);
+  const next = () => onIndexChange((index + 1) % photos.length);
+
+  return (
+    <Dialog.Root
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) onClose();
+      }}
+    >
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-[60] bg-black/95" />
+        <Dialog.Content className="fixed inset-0 z-[70] flex flex-col items-center justify-center p-4 focus:outline-none md:p-8">
+          <Dialog.Title className="sr-only">
+            Photos of {propertyName || "the property"}
+          </Dialog.Title>
+          <Dialog.Description className="sr-only">
+            Use the arrow keys to browse photos, or press Escape to close.
+          </Dialog.Description>
+
+          <div className="absolute inset-0" onClick={onClose} aria-hidden="true" />
+
+          <Dialog.Close asChild>
+            <button
+              type="button"
+              aria-label="Close photo viewer"
+              className="absolute right-4 top-4 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              <X size={22} />
+            </button>
+          </Dialog.Close>
+
+          {photos.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={previous}
+                aria-label="Previous photo"
+                className="absolute left-3 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white/80 transition-colors hover:bg-white/10 hover:text-white md:left-6"
+              >
+                <ChevronLeft size={26} />
+              </button>
+              <button
+                type="button"
+                onClick={next}
+                aria-label="Next photo"
+                className="absolute right-3 top-1/2 z-20 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white/80 transition-colors hover:bg-white/10 hover:text-white md:right-6"
+              >
+                <ChevronRight size={26} />
+              </button>
+            </>
+          )}
+
+          <div className="relative z-10 flex max-h-full w-full max-w-6xl flex-col items-center gap-4">
+            <img
+              src={photos[index]}
+              alt={`${propertyName || "Property"} photo ${index + 1}`}
+              className="max-h-[72vh] w-auto max-w-full rounded-xl object-contain shadow-2xl md:max-h-[78vh]"
+            />
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1.5">
+                {photos.map((photo, photoIndex) => (
+                  <button
+                    key={`${photo}-${photoIndex}`}
+                    type="button"
+                    aria-label={`Show photo ${photoIndex + 1}`}
+                    aria-pressed={photoIndex === index}
+                    onClick={() => onIndexChange(photoIndex)}
+                    className={cn(
+                      "h-1.5 rounded-full transition-all",
+                      photoIndex === index ? "w-4 bg-white" : "w-1.5 bg-white/30 hover:bg-white/60",
+                    )}
+                  />
+                ))}
+              </div>
+              <span className="text-sm font-medium text-white/60">
+                {index + 1} / {photos.length}
+              </span>
+            </div>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
 function Gallery({ property, photos, edit, canEdit, onEdit }) {
-  const [activePhoto, setActivePhoto] = useState(0);
-  const active = photos.length ? Math.min(activePhoto, photos.length - 1) : 0;
+  const [lightboxIndex, setLightboxIndex] = useState(null);
+  const photoCount = photos.length;
+  // 5+ photos get the storefront's hero mosaic; fewer photos use a clean grid
+  // so a two-photo listing never shows empty mosaic holes.
+  const isMosaic = photoCount >= 5;
+  const visiblePhotos = photos.slice(0, 5);
+
   return (
     <PreviewSection title="Photos" icon={ImageIcon} edit={edit} canEdit={canEdit} onEdit={onEdit}>
-      {photos.length === 0 ? (
+      {photoCount === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/60 px-6 py-10 text-center">
           <ImageIcon size={30} className="text-slate-400" aria-hidden="true" />
           <p className="mt-3 text-sm font-medium text-slate-700">No photos uploaded yet</p>
@@ -160,39 +298,69 @@ function Gallery({ property, photos, edit, canEdit, onEdit }) {
           </p>
         </div>
       ) : (
-        <div>
-          <img
-            data-testid="preview-main-photo"
-            src={photos[active]}
-            alt={`${property.name || "Property"} photo ${active + 1}`}
-            className="aspect-[16/9] w-full rounded-xl bg-slate-100 object-cover"
-          />
-          {photos.length > 1 && (
-            <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-              {photos.map((photo, index) => (
-                <button
-                  key={`${photo}-${index}`}
-                  type="button"
-                  aria-label={`Show photo ${index + 1}`}
-                  aria-pressed={index === active}
-                  onClick={() => setActivePhoto(index)}
-                  className={cn(
-                    "shrink-0 overflow-hidden rounded-lg border-2 transition-colors",
-                    index === active ? "border-emerald-600" : "border-transparent hover:border-emerald-200",
-                  )}
-                >
-                  <img
-                    src={photo}
-                    alt=""
-                    className="h-16 w-24 object-cover"
-                    loading="lazy"
-                  />
-                </button>
-              ))}
-            </div>
+        <div
+          className={cn(
+            "grid gap-1.5 overflow-hidden rounded-xl",
+            isMosaic
+              ? "grid-cols-2 md:grid-cols-4 md:grid-rows-2"
+              : photoCount === 1
+                ? "grid-cols-1"
+                : "grid-cols-2",
           )}
+        >
+          {visiblePhotos.map((photo, index) => {
+            const isMain = isMosaic && index === 0;
+            const hasMore = isMosaic && index === 4 && photoCount > 5;
+            return (
+              <button
+                key={`${photo}-${index}`}
+                type="button"
+                onClick={() => setLightboxIndex(index)}
+                aria-label={isMain ? `View all ${photoCount} photos` : `Open photo ${index + 1}`}
+                className={cn(
+                  "group relative overflow-hidden bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500",
+                  isMain
+                    ? "col-span-2 aspect-[16/9] md:row-span-2 md:aspect-auto"
+                    : photoCount === 3 && index === 0
+                      ? "col-span-2 aspect-[16/9]"
+                      : photoCount === 1
+                        ? "aspect-[16/9]"
+                        : "aspect-[4/3]",
+                  isMosaic && index > 0 && "md:aspect-[5/4]",
+                )}
+              >
+                <img
+                  src={photo}
+                  alt=""
+                  data-testid={index === 0 ? "preview-main-photo" : undefined}
+                  loading={index === 0 ? "eager" : "lazy"}
+                  decoding="async"
+                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+                {isMain && photoCount > 1 && (
+                  <span className="absolute bottom-3 left-3 inline-flex items-center gap-2 rounded-lg bg-black/55 px-3 py-2 text-xs font-semibold text-white shadow-sm backdrop-blur-sm transition-colors group-hover:bg-black/65">
+                    <Images size={14} aria-hidden="true" />
+                    View all {photoCount} photos
+                  </span>
+                )}
+                {hasMore && (
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/55 text-sm font-semibold text-white">
+                    +{photoCount - 5} more
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
+
+      <PhotoLightbox
+        photos={photos}
+        index={lightboxIndex}
+        propertyName={property.name}
+        onIndexChange={setLightboxIndex}
+        onClose={() => setLightboxIndex(null)}
+      />
     </PreviewSection>
   );
 }
@@ -326,7 +494,7 @@ export default function PropertyDetailsView({
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)]">
+      <div className="grid grid-cols-1 items-stretch gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)]">
         <Gallery
           key={property.id}
           property={property}
@@ -338,7 +506,6 @@ export default function PropertyDetailsView({
 
         <PreviewSection
           title="Overview"
-          icon={Sparkles}
           edit={{ label: "Edit property details", path: builder("property-setup", "property-details") }}
           canEdit={canEditResolved}
           onEdit={onEdit}
@@ -349,16 +516,17 @@ export default function PropertyDetailsView({
               {property.bookingType || "Booking type not set"}
             </span>
           </div>
-          <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
-            <Fact label="Guests" value={property.maxGuests || 2} />
-            <Fact label="Bedrooms" value={bedrooms.length} />
-            <Fact label="Bathrooms" value={property.bathrooms || 1} />
-            <Fact label="Room types" value={rooms.length} />
+          <dl className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Fact icon={Users} label="Guests" value={property.maxGuests || 2} />
+            <Fact icon={BedDouble} label="Bedrooms" value={bedrooms.length} />
+            <Fact icon={Bath} label="Bathrooms" value={property.bathrooms || 1} />
+            <Fact icon={DoorOpen} label="Room types" value={rooms.length} />
             <Fact
+              icon={Ruler}
               label="Size"
               value={property.size ? `${property.size} ${property.sizeUnit || "square metres"}` : ""}
             />
-            <Fact label="Nightly price" value={formatMoney(nightlyPrice, currency)} />
+            <Fact icon={Banknote} label="Nightly price" value={formatMoney(nightlyPrice, currency)} />
           </dl>
         </PreviewSection>
       </div>
@@ -376,6 +544,87 @@ export default function PropertyDetailsView({
           <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-slate-600">
             {property.description || "No description provided yet."}
           </p>
+        </PreviewSection>
+
+        <PreviewSection
+          title="Listing and booking settings"
+          icon={Settings2}
+          canEdit={false}
+          onEdit={onEdit}
+        >
+          <dl>
+            <SettingRow
+              label="Property name"
+              value={property.name}
+              edit={{ label: "Edit property name", path: builder("property-setup", "identity") }}
+              canEdit={canEditResolved}
+              onEdit={onEdit}
+            />
+            <SettingRow
+              label="Type and category"
+              value={property.type}
+              edit={{ label: "Edit type and category", path: categoryPath }}
+              canEdit={canEditResolved}
+              onEdit={onEdit}
+            />
+            <SettingRow
+              label="Booking type"
+              value={property.bookingType}
+              edit={{ label: "Edit booking type", path: categoryPath }}
+              canEdit={canEditResolved}
+              onEdit={onEdit}
+            />
+            <SettingRow
+              label="Listing scope"
+              value={property.listingScope}
+              edit={{ label: "Edit listing scope", path: categoryPath }}
+              canEdit={canEditResolved}
+              onEdit={onEdit}
+            />
+            <SettingRow
+              label="Channel manager"
+              value={
+                property.channelManager?.connected
+                  ? property.channelManager?.name || "Connected"
+                  : "Not connected"
+              }
+              edit={{ label: "Edit channel manager", path: builder("basic-information", "channel-manager") }}
+              canEdit={canEditResolved}
+              onEdit={onEdit}
+            />
+            <SettingRow
+              label="Booking preference"
+              value={
+                property.bookingPreference === "request"
+                  ? "Guests request to book"
+                  : "Instant booking"
+              }
+              edit={{ label: "Edit booking preference", path: builder("property-setup", "booking-preference") }}
+              canEdit={canEditResolved}
+              onEdit={onEdit}
+            />
+            <SettingRow
+              label="Payments"
+              value={property.payments?.mode}
+              edit={{ label: "Edit payments", path: builder("property-setup", "payments") }}
+              canEdit={canEditResolved}
+              onEdit={onEdit}
+            />
+            <SettingRow
+              label="Nightly price"
+              value={formatMoney(nightlyPrice, currency)}
+              edit={{ label: "Edit nightly price", path: builder("pricing-calendar", "price-per-night") }}
+              canEdit={canEditResolved}
+              onEdit={onEdit}
+            />
+            <SettingRow
+              label="Publish status"
+              value={property.status}
+              edit={{ label: "Edit publish status", path: builder("review-submit", "review") }}
+              canEdit={canEditResolved}
+              onEdit={onEdit}
+            />
+          </dl>
         </PreviewSection>
 
         <PreviewSection
@@ -399,6 +648,65 @@ export default function PropertyDetailsView({
               ))}
             </div>
           )}
+        </PreviewSection>
+
+        <PreviewSection
+          title="Amenities and services"
+          icon={Utensils}
+          canEdit={false}
+          onEdit={onEdit}
+        >
+          <div className="space-y-5">
+            <div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Amenities
+                </h4>
+                <EditAction
+                  label="Edit amenities"
+                  path={builder("property-setup", "amenities")}
+                  canEdit={canEditResolved}
+                  onEdit={onEdit}
+                />
+              </div>
+              <div className="mt-2">
+                <ChipList items={facilities} empty="No amenities selected." />
+              </div>
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Services
+                </h4>
+                <EditAction
+                  label="Edit services"
+                  path={builder("property-setup", "services")}
+                  canEdit={canEditResolved}
+                  onEdit={onEdit}
+                />
+              </div>
+              <dl className="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Fact label="Breakfast" value={services.breakfast || "No"} />
+                <Fact label="Parking" value={services.parking || "No"} />
+              </dl>
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Languages
+                </h4>
+                <EditAction
+                  label="Edit languages"
+                  path={builder("property-setup", "languages")}
+                  canEdit={canEditResolved}
+                  onEdit={onEdit}
+                />
+              </div>
+              <div className="mt-2">
+                <ChipList items={languages} empty="No languages selected." />
+              </div>
+            </div>
+          </div>
         </PreviewSection>
 
         <PreviewSection
@@ -532,64 +840,6 @@ export default function PropertyDetailsView({
           </dl>
         </PreviewSection>
 
-        <PreviewSection
-          title="Amenities and services"
-          icon={Utensils}
-          canEdit={false}
-          onEdit={onEdit}
-        >
-          <div className="space-y-5">
-            <div>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Amenities
-                </h4>
-                <EditAction
-                  label="Edit amenities"
-                  path={builder("property-setup", "amenities")}
-                  canEdit={canEditResolved}
-                  onEdit={onEdit}
-                />
-              </div>
-              <div className="mt-2">
-                <ChipList items={facilities} empty="No amenities selected." />
-              </div>
-            </div>
-            <div>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Services
-                </h4>
-                <EditAction
-                  label="Edit services"
-                  path={builder("property-setup", "services")}
-                  canEdit={canEditResolved}
-                  onEdit={onEdit}
-                />
-              </div>
-              <dl className="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Fact label="Breakfast" value={services.breakfast || "No"} />
-                <Fact label="Parking" value={services.parking || "No"} />
-              </dl>
-            </div>
-            <div>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Languages
-                </h4>
-                <EditAction
-                  label="Edit languages"
-                  path={builder("property-setup", "languages")}
-                  canEdit={canEditResolved}
-                  onEdit={onEdit}
-                />
-              </div>
-              <div className="mt-2">
-                <ChipList items={languages} empty="No languages selected." />
-              </div>
-            </div>
-          </div>
-        </PreviewSection>
 
         <PreviewSection
           title="Host profile"
@@ -644,87 +894,6 @@ export default function PropertyDetailsView({
               )}
             </div>
           )}
-        </PreviewSection>
-
-        <PreviewSection
-          title="Listing and booking settings"
-          icon={Settings2}
-          canEdit={false}
-          onEdit={onEdit}
-        >
-          <dl>
-            <SettingRow
-              label="Property name"
-              value={property.name}
-              edit={{ label: "Edit property name", path: builder("property-setup", "identity") }}
-              canEdit={canEditResolved}
-              onEdit={onEdit}
-            />
-            <SettingRow
-              label="Type and category"
-              value={property.type}
-              edit={{ label: "Edit type and category", path: categoryPath }}
-              canEdit={canEditResolved}
-              onEdit={onEdit}
-            />
-            <SettingRow
-              label="Booking type"
-              value={property.bookingType}
-              edit={{ label: "Edit booking type", path: categoryPath }}
-              canEdit={canEditResolved}
-              onEdit={onEdit}
-            />
-            <SettingRow
-              label="Listing scope"
-              value={property.listingScope}
-              edit={{ label: "Edit listing scope", path: categoryPath }}
-              canEdit={canEditResolved}
-              onEdit={onEdit}
-            />
-            <SettingRow
-              label="Channel manager"
-              value={
-                property.channelManager?.connected
-                  ? property.channelManager?.name || "Connected"
-                  : "Not connected"
-              }
-              edit={{ label: "Edit channel manager", path: builder("basic-information", "channel-manager") }}
-              canEdit={canEditResolved}
-              onEdit={onEdit}
-            />
-            <SettingRow
-              label="Booking preference"
-              value={
-                property.bookingPreference === "request"
-                  ? "Guests request to book"
-                  : "Instant booking"
-              }
-              edit={{ label: "Edit booking preference", path: builder("property-setup", "booking-preference") }}
-              canEdit={canEditResolved}
-              onEdit={onEdit}
-            />
-            <SettingRow
-              label="Payments"
-              value={property.payments?.mode}
-              edit={{ label: "Edit payments", path: builder("property-setup", "payments") }}
-              canEdit={canEditResolved}
-              onEdit={onEdit}
-            />
-            <SettingRow
-              label="Nightly price"
-              value={formatMoney(nightlyPrice, currency)}
-              edit={{ label: "Edit nightly price", path: builder("pricing-calendar", "price-per-night") }}
-              canEdit={canEditResolved}
-              onEdit={onEdit}
-            />
-            <SettingRow
-              label="Publish status"
-              value={property.status}
-              edit={{ label: "Edit publish status", path: builder("review-submit", "review") }}
-              canEdit={canEditResolved}
-              onEdit={onEdit}
-            />
-          </dl>
         </PreviewSection>
     </div>
   );

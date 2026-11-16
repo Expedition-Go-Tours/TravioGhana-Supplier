@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Search } from "lucide-react";
+import { Search } from "@/features/stays/icons";
 import { toast } from "sonner";
 import DeleteModal from "@/components/ui/DeleteModal";
 import StaysSurface from "../components/StaysSurface";

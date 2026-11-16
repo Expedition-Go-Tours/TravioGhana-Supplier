@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { Building2, CalendarRange, Percent } from "lucide-react";
+import { Building2, CalendarRange, Percent } from "@/features/stays/icons";
 
 /**
  * The Stays offer builder's step model and draft state — the Stays mirror of

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   CheckCircle2, XCircle, Loader2, MessageSquareText, Ticket, User,
-} from "lucide-react";
+} from "@/features/stays/icons";
 import { formatCurrency } from "@/lib/utils";
 import { REASON_LABELS } from "../../config/refundClaimReasons";
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, ChevronLeft, Info, Lightbulb, ThumbsDown, ThumbsUp, X } from "lucide-react";
+import { Check, ChevronLeft, Info, Lightbulb, ThumbsDown, ThumbsUp, X } from "@/features/stays/icons";
 import StaysButton from "../components/StaysButton";
 import { StaysField, StaysSelect } from "../components/StaysForm";
 import { formatMoney } from "../utils/money";
@@ -197,7 +197,7 @@ export default function Step13PricePerNight({
                   <li key={point} className="flex items-start gap-2.5 text-sm text-slate-700 md:text-base">
                     <Check
                       size={16}
-                      strokeWidth={2.5}
+                      weight="bold"
                       aria-hidden="true"
                       className="mt-1 shrink-0 text-emerald-700"
                     />
@@ -227,7 +227,7 @@ export default function Step13PricePerNight({
                   promotion ? "border-emerald-600 bg-emerald-600" : "border-slate-300 bg-white"
                 }`}
               >
-                {promotion && <Check size={14} strokeWidth={3} />}
+                {promotion && <Check size={14} weight="bold" />}
               </span>
               <span className="text-base font-bold text-slate-900 md:text-lg">
                 Get guests&apos; attention with a 20% discount

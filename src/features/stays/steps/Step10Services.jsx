@@ -1,4 +1,4 @@
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft } from "@/features/stays/icons";
 import StaysButton from "../components/StaysButton";
 import { SERVICE_CHOICES } from "../config/constants";
 

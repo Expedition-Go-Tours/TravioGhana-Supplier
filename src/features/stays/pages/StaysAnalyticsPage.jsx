@@ -4,7 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import {
   DollarSign, ShoppingCart, Star, TrendingUp, Loader2, RefreshCw, AlertTriangle,
   Image as ImageIcon,
-} from "lucide-react";
+} from "@/features/stays/icons";
 import { formatCurrency } from "@/lib/utils";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import { getAuthToken } from "@/stores/authStore";

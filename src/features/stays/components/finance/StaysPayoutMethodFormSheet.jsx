@@ -10,7 +10,7 @@ import {
   Smartphone,
   Wallet,
   X,
-} from "lucide-react";
+} from "@/features/stays/icons";
 
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";

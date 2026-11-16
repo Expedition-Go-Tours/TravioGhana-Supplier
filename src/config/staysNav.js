@@ -29,7 +29,7 @@ import {
   ShieldCheck,
   Settings,
   UserPlus,
-} from "lucide-react";
+} from "@/features/stays/icons";
 import { PAGE_ACCESS } from "@/config/pageAccess";
 
 export const STAYS_NAV_GROUPS = [

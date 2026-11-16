@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Loader2, RefreshCw, AlertTriangle, CheckCircle2, XCircle, Clock, Undo2, Ticket, MessageSquareText, DollarSign,
-} from "lucide-react";
+} from "@/features/stays/icons";
 import { toast } from "sonner";
 import { fetchSupplierClaims, approveClaim, declineClaim, formatCurrency } from "../financeApi";
 import RefundClaimDecisionModal from "../components/finance/StaysRefundClaimDecisionModal";

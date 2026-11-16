@@ -7,7 +7,7 @@ import {
   CalendarDays,
   Eye,
   CheckCircle2,
-} from "lucide-react";
+} from "@/features/stays/icons";
 import { STAYS_SECTIONS, STAYS_BUILDER_STEPS } from "../config/staysSteps";
 
 /**

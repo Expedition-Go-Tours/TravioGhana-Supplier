@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Check, ChevronLeft } from "lucide-react";
+import { Check, ChevronLeft } from "@/features/stays/icons";
 import StaysButton from "../components/StaysButton";
 import StaysBuilderFrame from "../components/StaysBuilderFrame";
 import PropertyScopeIcon from "../components/PropertyScopeIcon";
@@ -68,7 +68,7 @@ function BookTypeCard({ option, selected, onSelect }) {
           aria-hidden="true"
           className="pointer-events-none absolute -right-3 -top-3 grid h-7 w-7 place-items-center rounded-full bg-emerald-600 text-white shadow-sm ring-4 ring-white"
         >
-          <Check size={16} strokeWidth={3} />
+          <Check size={16} weight="bold" />
         </span>
       )}
     </label>

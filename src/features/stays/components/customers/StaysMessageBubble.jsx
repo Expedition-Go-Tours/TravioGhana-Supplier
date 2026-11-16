@@ -1,4 +1,4 @@
-﻿import { Check, CheckCheck, Loader2 } from "lucide-react";
+﻿import { Check, CheckCheck, Loader2 } from "@/features/stays/icons";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 
 function formatMessageTime(dateStr) {

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { CalendarDays, Home, Ticket, TrendingUp } from "lucide-react";
+import { CalendarDays, Home, Ticket, TrendingUp } from "@/features/stays/icons";
 import { StatCardSkeleton, TableSkeleton } from "@/components/shared/Skeleton";
 import StaysSurface from "../components/StaysSurface";
 import StaysPageHeader from "../components/StaysPageHeader";

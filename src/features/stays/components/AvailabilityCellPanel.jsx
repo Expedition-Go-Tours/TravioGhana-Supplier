@@ -1,6 +1,6 @@
 import { useId, useMemo, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { AlertTriangle, Ban, CalendarX2, CheckCircle2, ChevronLeft, Clock, Undo2, Users, Wallet, XCircle } from "lucide-react";
+import { AlertTriangle, Ban, CalendarX2, CheckCircle2, ChevronLeft, Clock, Undo2, Users, Wallet, XCircle } from "@/features/stays/icons";
 import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import StaysButton from "./StaysButton";

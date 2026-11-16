@@ -1,4 +1,4 @@
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon } from "@/features/stays/icons";
 import StaysCard from "./StaysCard";
 import { cellStateFor } from "../utils/availability";
 import { fromISODate } from "../utils/dates";
@@ -57,7 +57,7 @@ export default function AvailabilityCalendar({
 
       {visibleDays.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <CalendarIcon size={32} className="mb-2 text-slate-300" strokeWidth={1.5} />
+          <CalendarIcon size={32} className="mb-2 text-slate-300" weight="light" />
           <p className="text-sm text-slate-400">No dates match the current filters</p>
           {onResetFilters && (
             <button

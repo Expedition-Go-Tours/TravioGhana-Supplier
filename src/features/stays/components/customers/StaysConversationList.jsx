@@ -1,4 +1,4 @@
-import { Trash2 } from "lucide-react";
+import { Trash2 } from "@/features/stays/icons";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 
 function timeAgo(dateStr) {

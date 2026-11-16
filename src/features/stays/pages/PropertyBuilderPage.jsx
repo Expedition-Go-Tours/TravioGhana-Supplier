@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, RefreshCw, X } from "lucide-react";
+import { AlertTriangle, RefreshCw, X } from "@/features/stays/icons";
 import { toast } from "sonner";
 import { SHELL_GUTTER } from "@/components/layout/shell";
 import StaysPill from "../components/StaysPill";

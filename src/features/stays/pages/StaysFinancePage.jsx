@@ -8,7 +8,7 @@ import {
   TrendingUp, Landmark, Smartphone, Eye, EyeOff,
   CheckCircle2, AlertTriangle, X, ChevronDown, ChevronLeft, ChevronRight, Banknote,
   Calendar, Info, Search, Lock, XCircle, Undo2,
-} from "lucide-react";
+} from "@/features/stays/icons";
 import { toast } from "sonner";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";

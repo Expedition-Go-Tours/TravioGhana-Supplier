@@ -254,9 +254,9 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
         : location.pathname === item.path || location.pathname.startsWith(item.path + "/");
 
     // The Experiences nav stores ready-made elements; the Stays nav stores the
-    // lucide component itself (so search can reuse the config with iconName
-    // strings). lucide icons are forwardRef objects — `typeof` cannot tell them
-    // apart from elements, so use isValidElement and wrap the component form.
+    // icon component itself (so search can reuse the config with iconName
+    // strings). Icon components are forwardRef objects — `typeof` cannot tell
+    // them apart from elements, so use isValidElement and wrap the component form.
     const icon = isValidElement(item.icon) ? item.icon : <item.icon size={20} />;
 
     if (item.disabled) {

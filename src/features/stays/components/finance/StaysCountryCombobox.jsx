@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, Search } from "lucide-react";
+import { Check, ChevronDown, Search } from "@/features/stays/icons";
 
 import { cn } from "@/lib/utils";
 import { COUNTRIES } from "../../config/payoutMethodForm";

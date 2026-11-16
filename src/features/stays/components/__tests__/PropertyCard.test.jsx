@@ -86,6 +86,46 @@ describe("PropertyCard", () => {
     expect(onDelete).toHaveBeenCalledTimes(1);
   });
 
+  it("opens the preview when the card surface is clicked", async () => {
+    const user = userEvent.setup();
+    const { onPreview } = renderCard();
+
+    await user.click(screen.getByRole("button", { name: "View Akwaaba Coast Hotel" }));
+
+    expect(onPreview).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens the preview with the keyboard", async () => {
+    const user = userEvent.setup();
+    const { onPreview } = renderCard();
+
+    const card = screen.getByRole("button", { name: "View Akwaaba Coast Hotel" });
+    card.focus();
+    await user.keyboard("{Enter}");
+
+    expect(onPreview).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the action row independent from the card click", async () => {
+    const user = userEvent.setup();
+    const { onEdit, onPreview, onCreateOffer, onDelete } = renderCard();
+
+    await user.click(screen.getByRole("button", { name: "Edit property" }));
+    await user.click(screen.getByRole("button", { name: "Create special offer" }));
+    await user.click(screen.getByRole("button", { name: "Delete property" }));
+
+    expect(onEdit).toHaveBeenCalledTimes(1);
+    expect(onCreateOffer).toHaveBeenCalledTimes(1);
+    expect(onDelete).toHaveBeenCalledTimes(1);
+    expect(onPreview).not.toHaveBeenCalled();
+  });
+
+  it("does not render a card overlay without a preview handler", () => {
+    render(<PropertyCard property={property} />);
+
+    expect(screen.queryByRole("button", { name: /View Akwaaba Coast Hotel/i })).toBeNull();
+  });
+
   it("renders the list layout with the same body and actions", () => {
     renderCard({ layout: "List" });
 

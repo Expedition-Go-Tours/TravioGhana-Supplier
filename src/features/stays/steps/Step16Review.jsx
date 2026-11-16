@@ -1,4 +1,4 @@
-import { Calendar, Check, ListChecks, Users } from "lucide-react";
+import { Calendar, Check, ListChecks, Users } from "@/features/stays/icons";
 import { toast } from "sonner";
 import StaysButton from "../components/StaysButton";
 
@@ -42,7 +42,7 @@ function CertificationRow({ checked, onToggle, children }) {
           checked ? "border-emerald-600 bg-emerald-600" : "border-slate-300 bg-white"
         }`}
       >
-        {checked && <Check size={14} strokeWidth={3} />}
+        {checked && <Check size={14} weight="bold" />}
       </span>
       <span className="min-w-0 flex-1 text-sm leading-relaxed text-slate-800 md:text-base">
         {children}
@@ -81,7 +81,7 @@ export default function Step16Review({
             <div key={question} className="flex items-start gap-4">
               <Icon
                 size={28}
-                strokeWidth={1.6}
+                weight="light"
                 aria-hidden="true"
                 className="mt-0.5 shrink-0 text-slate-800"
               />

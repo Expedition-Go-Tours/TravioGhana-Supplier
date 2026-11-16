@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, RotateCw } from "lucide-react";
+import { AlertTriangle, RotateCw } from "@/features/stays/icons";
 import StaysSurface from "../components/StaysSurface";
 import { StaysSelect } from "../components/StaysForm";
 import StaysCancellationCard from "../components/cancellation/StaysCancellationCard";

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Pencil, PlusCircle, Trash2 } from "lucide-react";
+import { Pencil, PlusCircle, Trash2 } from "@/features/stays/icons";
 import StaysButton from "./StaysButton";
 import { StaysField, StaysInput, StaysSelect } from "./StaysForm";
 import { formatMoney } from "../utils/money";

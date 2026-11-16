@@ -1,5 +1,5 @@
 import { useId } from "react";
-import { Check, ChevronLeft } from "lucide-react";
+import { Check, ChevronLeft } from "@/features/stays/icons";
 import StaysButton from "../components/StaysButton";
 import { StaysInput, StaysTextarea } from "../components/StaysForm";
 
@@ -29,7 +29,7 @@ function SectionCheckbox({ label, checked, onChange }) {
           checked ? "border-emerald-600 bg-emerald-600" : "border-slate-300 bg-white"
         }`}
       >
-        {checked && <Check size={16} strokeWidth={3} />}
+        {checked && <Check size={16} weight="bold" />}
       </span>
       <span className="min-w-0 flex-1 text-base text-slate-800 md:text-lg">{label}</span>
     </label>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronLeft, Info, MapPin, X } from "lucide-react";
+import { ChevronLeft, Info, MapPin, X } from "@/features/stays/icons";
 import LocationAutocomplete from "@/components/shared/LocationAutocomplete";
 import { isShortGoogleMapsLink, parseGoogleMapsLocation } from "@/lib/googleMaps";
 import { reverseGeocode } from "@/lib/reverseGeocode";

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle, Banknote, Calendar, Check, Clock, Info, Loader2, PauseCircle,
-} from "lucide-react";
+} from "@/features/stays/icons";
 import { toast } from "sonner";
 import { cn, formatCurrency } from "@/lib/utils";
 import { updatePayoutSettings } from "../../financeApi";
@@ -216,7 +216,7 @@ export function PayoutScheduleEditor({ plan, available = 0, currency = "USD", on
                       isSelected ? "border-emerald-600 bg-emerald-600" : "border-slate-300 bg-white"
                     )}
                   >
-                    {isSelected && <Check size={11} className="text-white" strokeWidth={3} />}
+                    {isSelected && <Check size={11} className="text-white" weight="bold" />}
                   </span>
                 </div>
                 <p className="text-[11px] font-medium text-slate-500 mt-1.5">{option.runDays}</p>

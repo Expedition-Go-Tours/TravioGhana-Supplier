@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronLeft, Lightbulb, ThumbsUp, X } from "lucide-react";
+import { ChevronLeft, Lightbulb, ThumbsUp, X } from "@/features/stays/icons";
 import StaysButton from "../components/StaysButton";
 import { StaysField, StaysInput } from "../components/StaysForm";
 

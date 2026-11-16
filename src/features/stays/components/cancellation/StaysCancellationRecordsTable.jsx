@@ -6,7 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
-} from "lucide-react";
+} from "@/features/stays/icons";
 import { formatCurrency } from "@/lib/utils";
 
 /**

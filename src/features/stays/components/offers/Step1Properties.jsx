@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, X, Building2, Loader2, Check, AlertCircle, ChevronRight, Tag, RefreshCw } from "lucide-react";
+import { Search, X, Building2, Loader2, Check, AlertCircle, ChevronRight, Tag, RefreshCw } from "@/features/stays/icons";
 import { useNavigate } from "react-router-dom";
 import { useStaysOfferBuilderStore } from "../../stores/staysOfferBuilderStore";
 import { cn } from "@/lib/utils";

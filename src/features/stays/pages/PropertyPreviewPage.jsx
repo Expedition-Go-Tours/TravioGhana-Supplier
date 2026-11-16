@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, ArrowLeft, Loader2, Pencil } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Loader2, Pencil } from "@/features/stays/icons";
 import { useTeamRole } from "@/hooks/useTeamRole";
 import StaysSurface from "../components/StaysSurface";
 import StaysButton from "../components/StaysButton";

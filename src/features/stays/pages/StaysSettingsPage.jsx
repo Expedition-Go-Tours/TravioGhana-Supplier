@@ -6,7 +6,7 @@ import {
   Wallet, Globe, MapPin, Clock, Phone, Save, Key, Eye, EyeOff,
   Landmark, Banknote, AlertTriangle, RefreshCw, Smartphone,
   IdCard, ShieldCheck
-} from "lucide-react";
+} from "@/features/stays/icons";
 import { toast } from "sonner";
 import PhoneInput from "@/components/forms/PhoneInput";
 import { motion, AnimatePresence } from "framer-motion";

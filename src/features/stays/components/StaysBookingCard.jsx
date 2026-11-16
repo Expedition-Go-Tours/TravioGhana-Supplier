@@ -6,7 +6,7 @@ import {
   CalendarDays,
   Loader2,
   CreditCard,
-} from "lucide-react";
+} from "@/features/stays/icons";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import StaysPill from "./StaysPill";
@@ -41,7 +41,7 @@ function Thumbnail({ className }) {
   return (
     <div className={cn("rounded-xl overflow-hidden shrink-0 bg-slate-100", className)}>
       <div className="w-full h-full flex items-center justify-center text-slate-300">
-        <Home size={26} strokeWidth={1.5} aria-hidden="true" />
+        <Home size={26} weight="light" aria-hidden="true" />
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, ChevronDown, ChevronLeft, Paperclip } from "lucide-react";
+import { Send, ChevronDown, ChevronLeft, Paperclip } from "@/features/stays/icons";
 import { toast } from "sonner";
 import MessageBubble from "./StaysMessageBubble";
 import { uploadStaysChatImage } from "../../customersApi";

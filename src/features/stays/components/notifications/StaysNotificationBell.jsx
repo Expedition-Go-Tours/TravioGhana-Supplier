@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Bell, Check, Loader2, ArrowRight } from "lucide-react";
+import { Bell, Check, Loader2, ArrowRight } from "@/features/stays/icons";
 import { Link, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useChatFloatingStore } from "@/stores/chatFloatingStore";

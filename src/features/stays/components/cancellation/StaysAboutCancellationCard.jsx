@@ -1,4 +1,4 @@
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "@/features/stays/icons";
 
 export default function StaysAboutCancellationCard({ mostCommonReason }) {
   return (

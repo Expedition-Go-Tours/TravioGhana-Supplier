@@ -1,0 +1,137 @@
+import { describe, expect, it } from "vitest";
+import { render } from "@testing-library/react";
+import * as StaysIcons from "../index";
+
+/**
+ * Every icon name the Stays workspace imports from the barrel. Keeping the
+ * list here catches a missing/renamed Phosphor export at test time rather than
+ * in a page at runtime.
+ */
+const REQUIRED_ICONS = [
+  "AlertCircle",
+  "AlertTriangle",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowUp",
+  "ArrowUpDown",
+  "ArrowUpRight",
+  "BadgeCheck",
+  "BadgePercent",
+  "Ban",
+  "Banknote",
+  "BarChart3",
+  "Bath",
+  "BedDouble",
+  "Bell",
+  "Building2",
+  "Calendar",
+  "CalendarCheck",
+  "CalendarClock",
+  "CalendarDays",
+  "CalendarRange",
+  "CalendarX2",
+  "Camera",
+  "Check",
+  "CheckCheck",
+  "CheckCircle2",
+  "ChevronDown",
+  "ChevronLeft",
+  "ChevronRight",
+  "ChevronUp",
+  "Circle",
+  "CircleDollarSign",
+  "CircleHelp",
+  "Clock",
+  "Copy",
+  "CreditCard",
+  "DollarSign",
+  "DoorOpen",
+  "Download",
+  "Edit",
+  "Eye",
+  "EyeOff",
+  "FileText",
+  "Flag",
+  "Globe",
+  "Hash",
+  "Home",
+  "IdCard",
+  "Image",
+  "Images",
+  "Infinity",
+  "Info",
+  "Key",
+  "Landmark",
+  "Layers",
+  "LayoutDashboard",
+  "Lightbulb",
+  "LineChart",
+  "ListChecks",
+  "Loader2",
+  "Lock",
+  "Mail",
+  "MapPin",
+  "MessageSquare",
+  "MessageSquareText",
+  "Minus",
+  "Paperclip",
+  "PauseCircle",
+  "Pencil",
+  "Percent",
+  "Phone",
+  "Plus",
+  "PlusCircle",
+  "Power",
+  "RefreshCw",
+  "RotateCw",
+  "Ruler",
+  "Save",
+  "ScrollText",
+  "Search",
+  "Send",
+  "Settings",
+  "Settings2",
+  "Shield",
+  "ShieldCheck",
+  "ShoppingCart",
+  "Smartphone",
+  "Star",
+  "Sunrise",
+  "Tag",
+  "Target",
+  "ThumbsDown",
+  "ThumbsUp",
+  "Ticket",
+  "TicketCheck",
+  "Timer",
+  "Trash2",
+  "TrendingUp",
+  "Undo2",
+  "Upload",
+  "User",
+  "UserCheck",
+  "UserPlus",
+  "UserRound",
+  "Users",
+  "Utensils",
+  "Wallet",
+  "X",
+  "XCircle",
+  "Zap",
+];
+
+describe("Stays icon surface", () => {
+  it.each(REQUIRED_ICONS)("exports %s", (name) => {
+    expect(StaysIcons[name]).toBeTruthy();
+  });
+
+  it("renders a Phosphor icon at the requested size", () => {
+    const { container } = render(<StaysIcons.Users size={18} />);
+    const svg = container.querySelector("svg");
+
+    expect(svg).toBeTruthy();
+    expect(svg.getAttribute("width")).toBe("18");
+    expect(svg.getAttribute("height")).toBe("18");
+  });
+});

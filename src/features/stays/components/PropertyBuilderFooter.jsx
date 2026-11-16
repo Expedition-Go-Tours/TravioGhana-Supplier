@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Loader2, AlertTriangle } from "lucide-react";
+import { Loader2, AlertTriangle } from "@/features/stays/icons";
 
 /**
  * The property builder's navigation footer — the Stays mirror of the product

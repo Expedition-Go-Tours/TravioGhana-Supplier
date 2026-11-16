@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Camera, ChevronLeft, Image as ImageIcon, ThumbsUp, X } from "lucide-react";
+import { Camera, ChevronLeft, Image as ImageIcon, ThumbsUp, X } from "@/features/stays/icons";
 import StaysButton from "../components/StaysButton";
 
 const MAX_FILE_BYTES = 2 * 1024 * 1024;

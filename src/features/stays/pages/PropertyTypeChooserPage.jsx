@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Zap } from "lucide-react";
+import { Zap } from "@/features/stays/icons";
 import StaysButton from "../components/StaysButton";
 import StaysBuilderFrame from "../components/StaysBuilderFrame";
 import PropertyGroupIcon from "../components/PropertyGroupIcon";

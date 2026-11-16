@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Loader2, Building2, CalendarRange, Percent, Check } from "lucide-react";
+import { ArrowLeft, Loader2, Building2, CalendarRange, Percent, Check } from "@/features/stays/icons";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -400,7 +400,7 @@ function WizardProgressBar() {
                   whileTap={{ scale: 0.95 }}
                 >
                   {isCompleted ? (
-                    <Check size={17} strokeWidth={3} />
+                    <Check size={17} weight="bold" />
                   ) : (
                     <span className="text-sm font-bold">{step.number}</span>
                   )}

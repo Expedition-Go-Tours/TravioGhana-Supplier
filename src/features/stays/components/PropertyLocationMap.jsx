@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "@/lib/maplibreWorker";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle, Loader2 } from "@/features/stays/icons";
 import { DEFAULT_CENTER, TILE_STYLE, warmMapResources } from "@/lib/mapConfig";
 
 /** The classic red teardrop pin the location flow uses. */

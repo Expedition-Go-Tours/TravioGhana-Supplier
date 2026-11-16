@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Eye, Home, Pencil, Percent, Trash2 } from "lucide-react";
+import { Eye, Home, Pencil, Percent, Trash2 } from "@/features/stays/icons";
 import { cn } from "@/lib/utils";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import StaysCard from "./StaysCard";
@@ -18,9 +18,9 @@ import { propertyProgressLabel } from "../config/constants";
  */
 
 const ICON_BUTTON =
-  "p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors";
+  "pointer-events-auto p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors";
 const DELETE_BUTTON =
-  "p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors";
+  "pointer-events-auto p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors";
 
 function coverPhoto(property) {
   const raw = property.coverPhoto
@@ -47,6 +47,10 @@ export default function PropertyCard({
   const isDraft = property.status === "Draft";
   const isList = layout === "List";
   const offerEligible = property.status === "Live" || property.status === "Paused";
+  // The whole card opens the same read-only preview as the eye action. The
+  // overlay button is a sibling of the action row (not its parent), so Edit,
+  // Create offer, Delete and Preview stay independent of the card click.
+  const canOpen = typeof onPreview === "function";
 
   const image = (
     <div
@@ -89,7 +93,12 @@ export default function PropertyCard({
         <span className="text-xs text-slate-400">{propertyProgressLabel(property)}</span>
       </div>
 
-      <h3 className="mt-3 line-clamp-1 text-base font-semibold text-slate-900">
+      <h3
+        className={cn(
+          "mt-3 line-clamp-1 text-base font-semibold text-slate-900",
+          canOpen && "transition-colors group-hover:text-emerald-700",
+        )}
+      >
         {property.name}
       </h3>
       <p className="mt-0.5 line-clamp-1 text-sm text-slate-500">
@@ -111,17 +120,23 @@ export default function PropertyCard({
         </span>
       </div>
 
-      <div className="mt-auto flex flex-wrap items-center gap-2 pt-4">
+      <div className="pointer-events-none relative z-20 mt-auto flex flex-wrap items-center gap-2 pt-4">
         <StaysButton
           variant="primary"
           size="small"
           onClick={onEdit}
           aria-label={isDraft ? "Continue property setup" : "Edit property"}
+          className="pointer-events-auto"
         >
           <Pencil size={14} aria-hidden="true" />
           {isDraft ? "Continue setup" : "Edit listing"}
         </StaysButton>
-        <StaysButton size="small" onClick={onPreview} aria-label="Preview property">
+        <StaysButton
+          size="small"
+          onClick={onPreview}
+          aria-label="Preview property"
+          className="pointer-events-auto"
+        >
           <Eye size={14} aria-hidden="true" />
           Preview
         </StaysButton>
@@ -155,10 +170,19 @@ export default function PropertyCard({
   return (
     <StaysCard
       className={cn(
-        "group flex h-full overflow-hidden p-0 shadow-md shadow-slate-900/5 transition-shadow duration-200 hover:shadow-lg hover:shadow-slate-900/10",
+        "group relative isolate flex h-full overflow-hidden p-0 shadow-md shadow-slate-900/5 transition-shadow duration-200 hover:shadow-lg hover:shadow-slate-900/10",
+        canOpen && "cursor-pointer",
         isList ? "flex-col sm:flex-row" : "flex-col",
       )}
     >
+      {canOpen && (
+        <button
+          type="button"
+          onClick={onPreview}
+          aria-label={`View ${property.name || "property"}`}
+          className="absolute inset-0 z-10 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500"
+        />
+      )}
       {image}
       {body}
     </StaysCard>

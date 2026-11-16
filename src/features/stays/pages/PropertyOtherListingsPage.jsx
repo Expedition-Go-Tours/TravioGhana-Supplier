@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Check, ChevronLeft } from "lucide-react";
+import { Check, ChevronLeft } from "@/features/stays/icons";
 import StaysButton from "../components/StaysButton";
 import StaysBuilderFrame from "../components/StaysBuilderFrame";
 import { NO_OTHER_LISTINGS, OTHER_LISTINGS, PROPERTY_GROUPS } from "../config/constants";
@@ -22,7 +22,7 @@ function CheckRow({ label, checked, onChange }) {
           checked ? "border-emerald-600 bg-emerald-600" : "border-slate-300 bg-white"
         }`}
       >
-        {checked && <Check size={16} strokeWidth={3} />}
+        {checked && <Check size={16} weight="bold" />}
       </span>
       <span className="min-w-0 flex-1 text-sm font-medium text-slate-800 md:text-base">{label}</span>
     </label>

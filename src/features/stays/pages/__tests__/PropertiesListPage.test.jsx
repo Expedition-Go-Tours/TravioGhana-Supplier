@@ -44,4 +44,28 @@ describe("PropertiesListPage — preview navigation", () => {
     });
     expect(screen.queryByRole("dialog")).toBeNull();
   });
+
+  it("opens the full preview page when the property card is clicked", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByText("Akwaaba Coast Hotel")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "View Akwaaba Coast Hotel" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("location").textContent).toBe("/stays/properties/p1");
+    });
+  });
+
+  it("keeps the card's action buttons independent from the card click", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByText("Akwaaba Coast Hotel")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Edit property" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("location").textContent).toBe("/stays/properties/build/p1");
+    });
+  });
 });

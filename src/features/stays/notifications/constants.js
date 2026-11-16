@@ -13,7 +13,7 @@ import {
   MessageSquare,
   CheckCircle2,
   XCircle,
-} from "lucide-react";
+} from "@/features/stays/icons";
 
 export const STAYS_NOTIFICATION_TYPES = {
   booking: { icon: CalendarCheck, color: "bg-[#ebfcf5] text-[#047857]", label: "Booking" },

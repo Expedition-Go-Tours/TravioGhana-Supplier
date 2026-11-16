@@ -13,7 +13,7 @@ import {
   AlertTriangle,
   TrendingUp,
   Plus,
-} from "lucide-react";
+} from "@/features/stays/icons";
 import { toast } from "sonner";
 import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from "@/lib/constants";
 import DatePicker from "@/components/forms/DatePicker";
@@ -405,7 +405,7 @@ export default function StaysBookingsPage() {
       ) : filteredData.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 text-center bg-white rounded-xl border border-emerald-100/60">
           <div className="w-14 h-14 rounded-full bg-emerald-50/40 flex items-center justify-center mb-4">
-            <ShoppingCart size={24} className="text-slate-300" strokeWidth={1.5} />
+            <ShoppingCart size={24} className="text-slate-300" weight="light" />
           </div>
           <p className="text-sm font-medium text-slate-700 mb-1">No bookings yet</p>
           <p className="text-xs text-slate-500 mb-4">

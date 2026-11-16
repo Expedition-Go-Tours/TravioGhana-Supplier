@@ -16,7 +16,7 @@ import {
   ArrowUp,
   Clock,
   DollarSign,
-} from "lucide-react";
+} from "@/features/stays/icons";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import CountdownBadge from "@/components/shared/CountdownBadge";

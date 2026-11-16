@@ -1,4 +1,4 @@
-import { CalendarX2 } from "lucide-react";
+import { CalendarX2 } from "@/features/stays/icons";
 import StaysCancellationProgressBar from "./StaysCancellationProgressBar";
 
 /**
