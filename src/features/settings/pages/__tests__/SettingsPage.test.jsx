@@ -31,6 +31,7 @@ vi.mock("@/features/settings/api", () => ({
   updateBusinessProfile: (...args) => apiState.updateBusinessProfile(...args),
   updateCurrentUser: vi.fn(() => Promise.resolve({})),
   uploadSupplierLogo: vi.fn(() => Promise.resolve({ logoUrl: null })),
+  deleteSupplierLogo: vi.fn(() => Promise.resolve({ logoUrl: null })),
   fetchNotificationPreferences: vi.fn(() => Promise.resolve(null)),
   updateNotificationPreferences: vi.fn(() => Promise.resolve({})),
   fetchNotificationRecipients: vi.fn(() => Promise.resolve([])),

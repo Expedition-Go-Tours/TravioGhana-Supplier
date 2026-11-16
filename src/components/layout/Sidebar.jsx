@@ -104,7 +104,13 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
     if (!actsForSupplier) return;
     let cancelled = false;
     loadSupplierProfile()
-      .then((profile) => { if (!cancelled) setBusiness(profile || null); })
+      .then((profile) => {
+        if (cancelled) return;
+        setBusiness(profile || null);
+        // Keep the shared business identity in the store, so the logo shown
+        // here and the logo edited in Settings are the same object.
+        if (profile) useAuthStore.getState().updateSupplierProfile(profile);
+      })
       .catch(() => {});
     return () => { cancelled = true; };
   }, [actsForSupplier]);
@@ -143,8 +149,14 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
     null;
 
   // The business logo wins over the viewer's own avatar: a team member has
-  // never uploaded one, so falling back keeps the owner unchanged.
-  const effectiveLogoUrl = business?.logoUrl || (logoLoaded ? fetchedLogoUrl : logoUrl);
+  // never uploaded one, so falling back keeps the owner unchanged. A profile
+  // in the store is authoritative — including `logoUrl: null` after a removal,
+  // which must not fall back to a stale fetched copy. `undefined` (an older
+  // persisted profile, before this field was carried) falls through instead.
+  const effectiveLogoUrl =
+    supplierProfile?.logoUrl !== undefined
+      ? supplierProfile.logoUrl
+      : (business?.logoUrl || (logoLoaded ? fetchedLogoUrl : logoUrl));
 
   const statusStyle =
     SIDEBAR_STATUS_STYLES[

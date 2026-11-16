@@ -17,6 +17,15 @@ export async function uploadSupplierLogo(formData) {
   return response.data?.data || null;
 }
 
+/**
+ * Clear the BUSINESS logo. Separate from PATCH /users/updateMe: that updates
+ * the viewer's own account, which for a team member is not the business.
+ */
+export async function deleteSupplierLogo() {
+  const response = await api.delete("/suppliers/logo", { skipGlobalErrorHandler: true });
+  return response.data?.data || null;
+}
+
 export async function fetchBusinessProfile() {
   const response = await api.get("/suppliers/settings/business-profile", { skipGlobalErrorHandler: true });
   return response.data?.data || null;

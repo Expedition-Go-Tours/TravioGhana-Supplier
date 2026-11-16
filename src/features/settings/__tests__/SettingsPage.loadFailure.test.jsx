@@ -19,6 +19,7 @@ vi.mock('../api', () => ({
   fetchBusinessProfile: (...a) => fetchBusinessProfile(...a),
   updateCurrentUser: vi.fn(),
   uploadSupplierLogo: vi.fn(),
+  deleteSupplierLogo: vi.fn(),
   updateBusinessProfile: vi.fn(),
   fetchNotificationPreferences: vi.fn(),
   updateNotificationPreferences: vi.fn(),

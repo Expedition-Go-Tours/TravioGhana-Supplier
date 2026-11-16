@@ -37,6 +37,15 @@ export const useAuthStore = create(
 
       setSupplierProfile: (profile) => set({ supplierProfile: profile }),
 
+      /**
+       * Merge into the business identity without clobbering it. The logo is
+       * the owner's, so a team member changing it must update this shared
+       * object — not their own `user` row.
+       */
+      updateSupplierProfile: (patch) => set((state) => ({
+        supplierProfile: { ...(state.supplierProfile || {}), ...patch },
+      })),
+
       setLoading: (loading) => set({ isLoading: loading }),
 
       setHasHydrated: (hasHydrated) => set({ hasHydrated, isLoading: false }),

@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import OptimizedImage from "@/components/shared/OptimizedImage";
 import {
-  fetchCurrentUser, updateCurrentUser, uploadSupplierLogo,
+  fetchCurrentUser, updateCurrentUser, uploadSupplierLogo, deleteSupplierLogo,
   fetchBusinessProfile, updateBusinessProfile,
   fetchNotificationPreferences, updateNotificationPreferences,
   fetchNotificationRecipients, addNotificationRecipient, updateNotificationRecipient,
@@ -253,7 +253,7 @@ function ProfileTab() {
             idType: ri.idType || "",
             idNumber: ri.idNumber || "",
           });
-          setCurrentLogoUrl(user.logoUrl || null);
+          setCurrentLogoUrl(cached?.logoUrl ?? user.logoUrl ?? null);
         }
       } catch (err) {
         setLoadError(
@@ -357,7 +357,16 @@ function ProfileTab() {
       const result = await uploadSupplierLogo(formData);
       if (result?.logoUrl) {
         setCurrentLogoUrl(result.logoUrl);
-        useAuthStore.getState().updateUser({ logoUrl: result.logoUrl });
+        // The logo belongs to the business, whoever uploaded it. Updating the
+        // viewer's own `user` row would show a team member's business logo on
+        // their personal account (and leave the sidebar stale).
+        const store = useAuthStore.getState();
+        store.updateSupplierProfile({ logoUrl: result.logoUrl });
+        // The owner's own row carries the same logo; keep the cached copy in
+        // step so any fallback that reads `user.logoUrl` stays correct.
+        if (store.user?.roles?.includes("supplier")) {
+          store.updateUser({ logoUrl: result.logoUrl });
+        }
         toast.success("Logo uploaded");
         setLogoFile(null); setLogoPreview(null);
       }
@@ -367,9 +376,13 @@ function ProfileTab() {
 
   const handleRemoveLogo = async () => {
     try {
-      await updateCurrentUser({ logoUrl: null });
+      await deleteSupplierLogo();
       setCurrentLogoUrl(null);
-      useAuthStore.getState().updateUser({ logoUrl: null });
+      const store = useAuthStore.getState();
+      store.updateSupplierProfile({ logoUrl: null });
+      if (store.user?.roles?.includes("supplier")) {
+        store.updateUser({ logoUrl: null });
+      }
       toast.success("Logo removed");
     } catch (err) { toast.error(describeActionError(err, "Couldn't remove logo")); }
   };
