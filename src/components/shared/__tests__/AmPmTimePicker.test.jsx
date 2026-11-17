@@ -38,4 +38,12 @@ describe("AmPmTimePicker", () => {
     fireEvent.click(within(listbox).getByRole("option", { name: "09" }));
     expect(onChange).toHaveBeenCalledWith("09:00");
   });
+
+  it("accepts a caller label so a reschedule is not announced as a pickup", () => {
+    render(<AmPmTimePicker value="08:00" onChange={() => {}} label="Start time" />);
+
+    expect(screen.getByRole("button", { name: "Start time hour" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start time minute" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Pickup hour" })).toBeNull();
+  });
 });

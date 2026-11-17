@@ -105,6 +105,7 @@ export default function AmPmTimePicker({
   emptyLabel = 'No time set',
   defaultTime = '08:00',
   onClear,
+  label = 'Pickup',
 }) {
   const normalized = normalize24(value)
   const { hour, minute, period } = toAmPm(normalized)
@@ -133,9 +134,9 @@ export default function AmPmTimePicker({
   return (
     <div className={`flex flex-wrap items-center gap-1.5 ${className}`}>
       <Clock size={14} className="text-slate-400 shrink-0" />
-      <Dropdown value={hour} options={HOURS} onChange={setHour} width="w-[56px]" label="Pickup hour" />
+      <Dropdown value={hour} options={HOURS} onChange={setHour} width="w-[56px]" label={`${label} hour`} />
       <span className="text-slate-400 font-medium text-sm">:</span>
-      <Dropdown value={minute} options={minuteOptions} onChange={setMinute} width="w-[56px]" label="Pickup minute" />
+      <Dropdown value={minute} options={minuteOptions} onChange={setMinute} width="w-[56px]" label={`${label} minute`} />
       <div className="flex rounded-lg border border-slate-200 overflow-hidden" role="group" aria-label="AM or PM">
         <button
           type="button"

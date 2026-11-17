@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cn, formatCurrency, formatDate } from '../utils';
+import { cn, formatCurrency, formatDate, toActivityDate } from '../utils';
 
 describe('utils', () => {
   describe('cn (className utility)', () => {
@@ -76,6 +76,23 @@ describe('utils', () => {
     it('should handle undefined', () => {
       const result = formatDate(undefined);
       expect(result).toBe('');
+    });
+  });
+
+  describe('toActivityDate', () => {
+    it('returns the stored UTC calendar day, not the local instant', () => {
+      expect(toActivityDate('2026-11-20T00:00:00.000Z')).toBe('2026-11-20');
+    });
+
+    it('keeps a date-only string stable', () => {
+      expect(toActivityDate('2026-11-20')).toBe('2026-11-20');
+    });
+
+    it('handles empty and invalid input', () => {
+      expect(toActivityDate('')).toBe('');
+      expect(toActivityDate(null)).toBe('');
+      expect(toActivityDate(undefined)).toBe('');
+      expect(toActivityDate('not-a-date')).toBe('');
     });
   });
 });

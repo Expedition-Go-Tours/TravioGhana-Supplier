@@ -52,6 +52,21 @@ export function formatTravelDate(date) {
   return local.toLocaleDateString("en-GB", DATE_FORMAT_OPTIONS);
 }
 
+/**
+ * The picker/API value for an activity date: `yyyy-MM-dd` of the stored UTC
+ * calendar day. Same re-anchoring as `formatTravelDate`, so a date saved at UTC
+ * midnight never becomes the previous day in a negative-offset time zone.
+ */
+export function toActivityDate(date) {
+  if (!date) return "";
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return "";
+  const year = d.getUTCFullYear();
+  const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export function formatTime(timeString) {
   if (!timeString) return "";
   const [hours, minutes] = timeString.split(":").map(Number);

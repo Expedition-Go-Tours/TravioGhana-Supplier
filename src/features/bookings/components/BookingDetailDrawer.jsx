@@ -20,12 +20,23 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, useReducedMotion } from "framer-motion";
+import { addDays } from "date-fns";
 import { PANEL_SPRING } from "@/lib/motion";
 import StatusBadge from "@/components/shared/StatusBadge";
 import OptimizedImage from "@/components/shared/OptimizedImage";
+import DatePicker from "@/components/forms/DatePicker";
+import AmPmTimePicker from "@/components/shared/AmPmTimePicker";
 import { BOOKING_STATUSES } from "@/lib/constants";
 import { TeamRoleContext } from "@/contexts/teamRoleContext";
-import { formatCurrency, formatDate, formatTravelDate, formatTime, cn } from "@/lib/utils";
+import {
+  formatCurrency,
+  formatDate,
+  formatTravelDate,
+  formatTime,
+  cn,
+  toActivityDate,
+} from "@/lib/utils";
+import { formatPickerDate } from "@/lib/datePickerUtils";
 import {
   fetchBookingDetail,
   fetchBookingCollections,
@@ -158,11 +169,9 @@ function NotesEditor({ booking, onSaved }) {
   );
 }
 
-// The earliest date a supplier may move a booking to (tomorrow). Computed at
-// module load: render must stay pure (react-hooks/purity).
-const MIN_RESCHEDULE_DATE = new Date(Date.now() + 24 * 60 * 60 * 1000)
-  .toISOString()
-  .slice(0, 10);
+// The earliest date a supplier may move a booking to: tomorrow as a *calendar
+// date*, computed at module load because render must stay pure.
+const MIN_RESCHEDULE_DATE = formatPickerDate(addDays(new Date(), 1));
 
 /**
  * Move one booking to another date/time.
@@ -171,16 +180,24 @@ const MIN_RESCHEDULE_DATE = new Date(Date.now() + 24 * 60 * 60 * 1000)
  * booking's own travellers; payout still pending) and its refusal is shown as
  * written — the supplier must never be nudged into a move that changes what
  * the customer paid. Two steps, so a date typed into a box cannot fire.
+ *
+ * The date and time start at the booking's own activity date and time. A move
+ * that changes neither is not offered: the server would accept it, re-price it
+ * and notify the customer about nothing.
  */
 function RescheduleForm({ booking, onMoved, onRefresh }) {
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState(booking.selectedTime || "");
+  const currentDate = toActivityDate(booking.travelDate);
+  const currentTime = booking.selectedTime || "";
+  const [date, setDate] = useState(currentDate);
+  const [time, setTime] = useState(currentTime);
   const [reason, setReason] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
-  const canSubmit = Boolean(date) && !submitting;
+  const dateIsInWindow = Boolean(date) && date >= MIN_RESCHEDULE_DATE;
+  const changed = date !== currentDate || time !== currentTime;
+  const canSubmit = dateIsInWindow && changed && !submitting;
 
   const submit = async () => {
     setSubmitting(true);
@@ -191,15 +208,21 @@ function RescheduleForm({ booking, onMoved, onRefresh }) {
         selectedTime: time,
         reason,
       });
-      const movedTo = response.data?.data?.booking?.travelDate;
+      const movedBooking = response.data?.data?.booking;
+      const movedTo = movedBooking?.travelDate;
       toast.success(
         movedTo
           ? `Booking moved to ${formatDate(movedTo)}`
           : "Booking moved",
       );
       setConfirming(false);
-      setDate("");
       setReason("");
+      // The panel re-keys on the refreshed booking date; keep the field honest
+      // in the meantime rather than blanking it.
+      if (movedTo) {
+        setDate(toActivityDate(movedTo));
+        setTime(movedBooking?.selectedTime || "");
+      }
       onMoved?.();
     } catch (err) {
       // Never clear the entered date/time/reason on failure. Keep the last
@@ -225,28 +248,37 @@ function RescheduleForm({ booking, onMoved, onRefresh }) {
           <label htmlFor="reschedule-date" className="text-xs text-slate-500 block mb-1">
             New activity date
           </label>
-          <input
+          <DatePicker
             id="reschedule-date"
-            type="date"
-            min={MIN_RESCHEDULE_DATE}
             value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+            onChange={setDate}
+            minDate={MIN_RESCHEDULE_DATE}
+            placeholder="dd/mm/yyyy"
           />
         </div>
         <div>
-          <label htmlFor="reschedule-time" className="text-xs text-slate-500 block mb-1">
+          <span className="text-xs text-slate-500 block mb-1">
             Start time (optional)
-          </label>
-          <input
-            id="reschedule-time"
-            type="time"
-            value={time || ""}
-            onChange={(e) => setTime(e.target.value)}
-            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+          </span>
+          <AmPmTimePicker
+            value={time}
+            onChange={setTime}
+            allowEmpty
+            emptyLabel="No start time"
+            label="Start time"
           />
         </div>
       </div>
+
+      {!dateIsInWindow ? (
+        <p className="mt-2 text-xs font-medium text-amber-700">
+          Choose a date from tomorrow onwards.
+        </p>
+      ) : !changed ? (
+        <p className="mt-2 text-xs text-slate-500">
+          Pick a different date or time to move this booking.
+        </p>
+      ) : null}
 
       <div className="mt-3">
         <label htmlFor="reschedule-reason" className="text-xs text-slate-500 block mb-1">
@@ -1044,6 +1076,7 @@ export default function BookingDetailDrawer({
               {["PENDING", "CONFIRMED"].includes(booking.status) && (
                 <Section title="Change date" icon={CalendarDays}>
                   <RescheduleForm
+                    key={`${booking.id}:${booking.travelDate || ""}`}
                     booking={booking}
                     onMoved={() => load({ silent: true })}
                     onRefresh={() => {

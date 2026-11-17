@@ -12,7 +12,7 @@
  *     grey and mute.
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 const fetchBookingDetail = vi.fn();
@@ -34,6 +34,31 @@ const { toast } = vi.hoisted(() => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 vi.mock('sonner', () => ({ toast }));
+
+// The real pickers own their calendar/12-hour behaviour and are covered by
+// their own suites. Here they are test seams, so the panel's wiring — prefill,
+// the same-date guard, the min date and the payload — stays deterministic.
+vi.mock('@/components/forms/DatePicker', () => ({
+  default: ({ value, onChange, id, placeholder, minDate }) => (
+    <input
+      id={id}
+      placeholder={placeholder}
+      data-min-date={minDate}
+      value={value ?? ''}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  ),
+}));
+
+vi.mock('@/components/shared/AmPmTimePicker', () => ({
+  default: ({ value, onChange, label }) => (
+    <input
+      aria-label={label || 'Start time'}
+      value={value || ''}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  ),
+}));
 
 import BookingDetailDrawer from '../components/BookingDetailDrawer';
 import { mapBookingRow } from '../api';
@@ -340,6 +365,21 @@ describe('status actions', () => {
 });
 
 describe('moving a booking to another date', () => {
+  /** Local calendar date, `yyyy-MM-dd`, the same shape the picker emits. */
+  function dayFromNow(offset) {
+    const d = new Date();
+    d.setDate(d.getDate() + offset);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+      d.getDate(),
+    ).padStart(2, '0')}`;
+  }
+
+  async function setNewDate(value) {
+    const input = await screen.findByLabelText(/new activity date/i);
+    fireEvent.change(input, { target: { value } });
+    return input;
+  }
+
   it('only offers the move for bookings that can still move', async () => {
     fetchBookingDetail.mockResolvedValue(
       mapBookingRow(rawBooking({ status: 'CANCELLED', travelDate: PAST })),
@@ -353,11 +393,58 @@ describe('moving a booking to another date', () => {
     expect(screen.queryByRole('button', { name: /move this booking/i })).toBeNull();
   });
 
-  it('confirms before it moves anything', async () => {
+  it("prefills the booking's activity date and the earliest allowed date", async () => {
     fetchBookingDetail.mockResolvedValue(mapBookingRow(rawBooking({ travelDate: FUTURE })));
 
     renderDrawer();
-    await userEvent.type(await screen.findByLabelText(/new activity date/i), '2026-12-24');
+    const input = await screen.findByLabelText(/new activity date/i);
+
+    expect(input.value).toBe('2999-06-15');
+    expect(input).toHaveAttribute('placeholder', 'dd/mm/yyyy');
+    expect(input).toHaveAttribute('data-min-date', dayFromNow(1));
+  });
+
+  it('does not offer a move that changes neither the date nor the time', async () => {
+    fetchBookingDetail.mockResolvedValue(
+      mapBookingRow(rawBooking({ travelDate: FUTURE, selectedTime: '09:00' })),
+    );
+
+    renderDrawer();
+    await screen.findByLabelText(/new activity date/i);
+
+    expect(screen.getByRole('button', { name: /move this booking/i })).toBeDisabled();
+    expect(screen.getByText(/pick a different date or time/i)).toBeInTheDocument();
+  });
+
+  it('allows a time-only change without re-entering the date', async () => {
+    fetchBookingDetail.mockResolvedValue(
+      mapBookingRow(rawBooking({ travelDate: FUTURE, selectedTime: '09:00' })),
+    );
+
+    renderDrawer();
+    fireEvent.change(await screen.findByLabelText(/start time/i), {
+      target: { value: '10:30' },
+    });
+
+    expect(screen.getByRole('button', { name: /move this booking/i })).toBeEnabled();
+  });
+
+  it('refuses a date before tomorrow even when it is entered directly', async () => {
+    fetchBookingDetail.mockResolvedValue(mapBookingRow(rawBooking({ travelDate: FUTURE })));
+
+    renderDrawer();
+    await setNewDate(dayFromNow(-2));
+
+    expect(screen.getByText(/choose a date from tomorrow onwards/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /move this booking/i })).toBeDisabled();
+  });
+
+  it('confirms before it moves anything', async () => {
+    fetchBookingDetail.mockResolvedValue(mapBookingRow(rawBooking({ travelDate: FUTURE })));
+    const target = dayFromNow(14);
+
+    renderDrawer();
+    await setNewDate(target);
     await userEvent.click(screen.getByRole('button', { name: /move this booking/i }));
 
     // Nothing has been sent yet — the form shows what will change first.
@@ -367,24 +454,25 @@ describe('moving a booking to another date', () => {
 
   it('sends the date, the time and the reason after the supplier confirms', async () => {
     fetchBookingDetail.mockResolvedValue(mapBookingRow(rawBooking({ travelDate: FUTURE })));
+    const target = dayFromNow(14);
 
     renderDrawer();
-    await userEvent.type(await screen.findByLabelText(/new activity date/i), '2026-12-24');
-    await userEvent.type(screen.getByLabelText(/start time/i), '10:30');
+    await setNewDate(target);
+    fireEvent.change(screen.getByLabelText(/start time/i), { target: { value: '10:30' } });
     await userEvent.type(screen.getByLabelText(/reason/i), 'Vehicle breakdown');
     await userEvent.click(screen.getByRole('button', { name: /move this booking/i }));
     await userEvent.click(screen.getByRole('button', { name: /yes, move it/i }));
 
     await waitFor(() => {
       expect(rescheduleBooking).toHaveBeenCalledWith('b-1', {
-        travelDate: '2026-12-24',
+        travelDate: target,
         selectedTime: '10:30',
         reason: 'Vehicle breakdown',
       });
     });
   });
 
-  it('shows the server\'s refusal verbatim, and never claims the move happened', async () => {
+  it("shows the server's refusal verbatim, and never claims the move happened", async () => {
     fetchBookingDetail.mockResolvedValue(mapBookingRow(rawBooking({ travelDate: FUTURE })));
     rescheduleBooking.mockRejectedValue({
       response: {
@@ -397,13 +485,29 @@ describe('moving a booking to another date', () => {
     });
 
     renderDrawer();
-    await userEvent.type(await screen.findByLabelText(/new activity date/i), '2026-12-24');
+    await setNewDate(dayFromNow(14));
     await userEvent.click(screen.getByRole('button', { name: /move this booking/i }));
     await userEvent.click(screen.getByRole('button', { name: /yes, move it/i }));
 
     await waitFor(() => expect(toast.error).toHaveBeenCalled());
     expect(toast.error.mock.calls[0][0]).toMatch(/priced \$500\.00 instead of \$420\.00/i);
     expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it('keeps the failed date on screen so the supplier can retry or adjust it', async () => {
+    fetchBookingDetail.mockResolvedValue(mapBookingRow(rawBooking({ travelDate: FUTURE })));
+    rescheduleBooking.mockRejectedValue({
+      response: { status: 409, data: { message: 'That date is priced differently.' } },
+    });
+    const attempted = dayFromNow(14);
+
+    renderDrawer();
+    await setNewDate(attempted);
+    await userEvent.click(screen.getByRole('button', { name: /move this booking/i }));
+    await userEvent.click(screen.getByRole('button', { name: /yes, move it/i }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(screen.getByLabelText(/new activity date/i)).toHaveValue(attempted);
   });
 });
 
