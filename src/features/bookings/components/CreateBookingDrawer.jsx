@@ -107,6 +107,30 @@ function Field({ label, hint, icon: Icon, children }) {
 const inputClass =
   "w-full px-3 py-2.5 border border-slate-200 rounded-lg text-base sm:text-sm text-slate-800 placeholder:text-slate-400 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-colors";
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+// The fields whose value the server's quote is computed from. Changing one
+// invalidates the current price and any pricing error.
+const QUOTE_INPUTS = new Set(["tourId", "travelDate", "selectedTime", "adults", "children", "infants"]);
+
+/**
+ * Contact details are optional, but a malformed one is worse than none — the
+ * confirmation would never reach the customer. Checked when the field is
+ * committed (blur), never while it is being typed into.
+ */
+function contactIssue(field, value) {
+  const v = (value || "").trim();
+  if (!v) return "";
+  if (field === "guestEmail") {
+    return EMAIL_PATTERN.test(v) ? "" : "Enter a complete email address, or leave this blank.";
+  }
+  const digits = v.replace(/\D/g, "");
+  const shapeOk = /^[+()\d\s.-]+$/.test(v);
+  return shapeOk && digits.length >= 7 && digits.length <= 15
+    ? ""
+    : "Enter a complete phone number, or leave this blank.";
+}
+
 function SectionTitle({ icon: Icon, title, sub }) {
   return (
     <div className="flex items-start gap-2.5">
@@ -164,6 +188,8 @@ export default function CreateBookingDrawer({ open, onClose, tours = [], onCreat
   const [errorCode, setErrorCode] = useState(null);
   const [tourQuery, setTourQuery] = useState("");
   const [touched, setTouched] = useState(false);
+  const [contactErrors, setContactErrors] = useState({});
+  const contactInvalid = Boolean(contactErrors.guestPhone || contactErrors.guestEmail);
 
   const { panelRef, closeRef } = useModalDialog({
     open,
@@ -172,7 +198,22 @@ export default function CreateBookingDrawer({ open, onClose, tours = [], onCreat
   });
   useBodyScrollLock(open);
 
-  const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
+  const set = (key, value) => {
+    setForm((f) => ({ ...f, [key]: value }));
+    // Editing anything that drives the price makes the last rejection out of
+    // date immediately. A submit failure is cleared here too: the supplier has
+    // changed the request that failed.
+    if (QUOTE_INPUTS.has(key)) {
+      setError(null);
+      setErrorCode(null);
+    }
+  };
+
+  const checkContact = (field) => {
+    const issue = contactIssue(field, form[field]);
+    setContactErrors((prev) => ({ ...prev, [field]: issue }));
+    return issue;
+  };
 
   const selectedTour = tours.find((t) => t.id === form.tourId) || null;
   const quoteCurrency = quote?.currency || "USD";
@@ -192,26 +233,38 @@ export default function CreateBookingDrawer({ open, onClose, tours = [], onCreat
     return tours.filter((t) => String(t.title || "").toLowerCase().includes(q));
   }, [tours, tourQuery]);
 
-  // The quote is the only price this flow may show. It is re-fetched whenever
-  // an input that changes the price changes; the last request wins, so a fast
-  // typing burst cannot leave a stale total on screen.
+  // The quote is the only price this flow may show. Inputs settle for 350ms
+  // before a request goes out — clicking a party up from 1 to 4 is one quote,
+  // not four — and the last request wins, so a slow reply cannot overwrite a
+  // newer total.
   const canQuote = Boolean(form.tourId && form.travelDate && partySize > 0);
+  const quoteSignature = canQuote
+    ? [form.tourId, form.travelDate, form.selectedTime || "", travelers.adults, travelers.children, travelers.infants].join("|")
+    : null;
+  const [quoteParams, setQuoteParams] = useState(null);
+
   useEffect(() => {
-    if (!open || !canQuote) return undefined;
+    if (!open || !quoteSignature) return undefined;
+    const timer = setTimeout(() => {
+      setQuoteParams({
+        tourId: form.tourId,
+        travelDate: form.travelDate,
+        selectedTime: form.selectedTime || undefined,
+        travelers: { ...travelers },
+      });
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [open, quoteSignature, form.tourId, form.travelDate, form.selectedTime, travelers]);
+
+  useEffect(() => {
+    if (!open || !quoteParams) return undefined;
     let cancelled = false;
+    // Deferred so `quoting` flips outside the effect's synchronous body.
     Promise.resolve().then(async () => {
       if (cancelled) return;
       setQuoting(true);
-      setError(null);
-      setErrorCode(null);
-      setQuote(null);
       try {
-        const q = await quoteSupplierBooking({
-          tourId: form.tourId,
-          travelDate: form.travelDate,
-          selectedTime: form.selectedTime || undefined,
-          travelers,
-        });
+        const q = await quoteSupplierBooking(quoteParams);
         if (!cancelled) setQuote(q);
       } catch (err) {
         if (!cancelled) {
@@ -226,8 +279,9 @@ export default function CreateBookingDrawer({ open, onClose, tours = [], onCreat
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, quoteNonce, form.tourId, form.travelDate, form.selectedTime, form.adults, form.children, form.infants]);
+    // quoteParams carries every input the price depends on; quoteNonce is an
+    // explicit "Refresh quote" and must re-run without waiting for the debounce.
+  }, [open, quoteParams, quoteNonce]);
 
   const collected = Number(form.amount) || 0;
   const total = quote?.total ?? 0;
@@ -251,6 +305,7 @@ export default function CreateBookingDrawer({ open, onClose, tours = [], onCreat
     && quote.available
     && !overCollected
     && !submitting
+    && !contactInvalid
     // No credit: the commission this booking would owe must already be covered
     // by earnings the platform holds. The server refuses the same request.
     && quote.cover?.sufficient !== false,
@@ -259,6 +314,11 @@ export default function CreateBookingDrawer({ open, onClose, tours = [], onCreat
   const submit = async () => {
     if (submitting) return;
     setTouched(true);
+    if (contactInvalid) {
+      setDirection(-1);
+      setStep(1);
+      return;
+    }
     if (!stepTwoValid) {
       setDirection(-1);
       setStep(1);
@@ -697,9 +757,14 @@ export default function CreateBookingDrawer({ open, onClose, tours = [], onCreat
                               inputMode="tel"
                               value={form.guestPhone}
                               onChange={(e) => set("guestPhone", e.target.value)}
+                              onBlur={() => checkContact("guestPhone")}
+                              aria-invalid={Boolean(contactErrors.guestPhone)}
                               placeholder="+233 20 000 0000"
-                              className={inputClass}
+                              className={cn(inputClass, contactErrors.guestPhone && "border-red-300")}
                             />
+                            {contactErrors.guestPhone && (
+                              <span className="mt-1 block text-[11px] font-medium text-red-600">{contactErrors.guestPhone}</span>
+                            )}
                           </Field>
                           <Field label="Email" icon={Info} hint="Optional. No account is created or matched.">
                             <input
@@ -707,9 +772,14 @@ export default function CreateBookingDrawer({ open, onClose, tours = [], onCreat
                               aria-label="Email"
                               value={form.guestEmail}
                               onChange={(e) => set("guestEmail", e.target.value)}
+                              onBlur={() => checkContact("guestEmail")}
+                              aria-invalid={Boolean(contactErrors.guestEmail)}
                               placeholder="name@example.com"
-                              className={inputClass}
+                              className={cn(inputClass, contactErrors.guestEmail && "border-red-300")}
                             />
+                            {contactErrors.guestEmail && (
+                              <span className="mt-1 block text-[11px] font-medium text-red-600">{contactErrors.guestEmail}</span>
+                            )}
                           </Field>
                         </div>
 
@@ -748,25 +818,26 @@ export default function CreateBookingDrawer({ open, onClose, tours = [], onCreat
                           <div className="flex items-start justify-between gap-3">
                             <div>
                               <p className="text-[11px] uppercase tracking-wide text-slate-400">Price, calculated by TravioGhana</p>
-                              <div className="mt-1 h-8">
-                                {quoting ? (
-                                  <span className="inline-flex items-center gap-2 text-sm text-slate-400">
-                                    <Loader2 size={14} className="animate-spin" /> Updating…
-                                  </span>
-                                ) : (
-                                  <AnimatePresence mode="popLayout" initial={false}>
-                                    <motion.span
-                                      key={quote?.total ?? "none"}
-                                      initial={{ y: 8, opacity: 0 }}
-                                      animate={{ y: 0, opacity: 1 }}
-                                      exit={{ y: -8, opacity: 0 }}
-                                      transition={{ duration: 0.16 }}
-                                      className="inline-block text-2xl font-bold tracking-tight tabular-nums text-slate-900"
-                                    >
-                                      {quote ? formatCurrency(total, quoteCurrency) : "—"}
-                                    </motion.span>
-                                  </AnimatePresence>
-                                )}
+                              <div className="mt-1 flex h-8 items-center gap-2">
+                                {/* The previous total stays visible (dimmed) while
+                                    a new one is on its way, so the price never
+                                    blinks out on every traveller change. */}
+                                {quoting && <Loader2 size={14} className="animate-spin text-slate-400" />}
+                                <AnimatePresence mode="popLayout" initial={false}>
+                                  <motion.span
+                                    key={quote?.total ?? "none"}
+                                    initial={{ y: 8, opacity: 0 }}
+                                    animate={{ y: 0, opacity: 1 }}
+                                    exit={{ y: -8, opacity: 0 }}
+                                    transition={{ duration: 0.16 }}
+                                    className={cn(
+                                      "inline-block text-2xl font-bold tracking-tight tabular-nums transition-opacity",
+                                      quoting && quote ? "text-slate-400" : "text-slate-900",
+                                    )}
+                                  >
+                                    {quote ? formatCurrency(total, quoteCurrency) : "—"}
+                                  </motion.span>
+                                </AnimatePresence>
                               </div>
                               {quote && (
                                 <p className="mt-1 text-[11px] text-slate-500">

@@ -152,3 +152,45 @@ describe('Step05 location modal — custom name reveals the City picker', () => 
     await waitFor(() => expect(screen.queryByText('Edit location')).not.toBeInTheDocument())
   })
 })
+
+describe('Step05 location modal — the duration banner waits for a committed time', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    seed({
+      locations: [
+        {
+          name: 'Cape Coast Castle',
+          address: 'Cape Coast Castle, Central Region',
+          city: 'Cape Coast',
+          region: 'Central',
+          description: 'A historic slave-trade castle on the coast.',
+          timeSpent: 180,
+          timeSpentUnit: 'minutes',
+          admissionIncluded: 'yes',
+          day: 1,
+        },
+      ],
+    })
+  })
+
+  it('shows the totals as a neutral summary on open and only warns after blur', async () => {
+    const user = userEvent.setup()
+    await openModal(user)
+
+    // 3h of stops against a 2h product: already over budget from the saved stop,
+    // but the supplier has not touched the time on this visit, so this is a
+    // fact, not a rejection.
+    expect(screen.getByText(/Total stop time:/)).toBeInTheDocument()
+    expect(
+      screen.queryByText('Reduce stop times or increase the product duration to continue.'),
+    ).not.toBeInTheDocument()
+
+    const timeInput = screen.getByDisplayValue('180')
+    await user.click(timeInput)
+    await user.tab()
+
+    expect(
+      await screen.findByText('Reduce stop times or increase the product duration to continue.'),
+    ).toBeInTheDocument()
+  })
+})

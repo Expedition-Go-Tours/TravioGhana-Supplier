@@ -211,15 +211,19 @@ export function scrollToField(fieldKey) {
   const el =
     document.querySelector(`[data-field="${CSS.escape(fieldKey)}"]`) ||
     document.getElementById(`field-${CSS.escape(fieldKey)}`)
-  if (el) {
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    const originalOutline = el.style.outline
-    el.style.outline = '2px solid #ef4444'
-    el.style.outlineOffset = '2px'
-    setTimeout(() => { el.style.outline = originalOutline }, 3000)
-    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) {
-      el.focus({ preventScroll: true })
-    }
+  if (!el) return
+
+  // A field the supplier was pointed at is highlighted briefly, not flashed for
+  // three seconds, and the movement respects a reduced-motion preference.
+  const reduceMotion = typeof window !== 'undefined'
+    && window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
+  el.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' })
+
+  el.setAttribute('data-invalid-flash', 'true')
+  setTimeout(() => el.removeAttribute('data-invalid-flash'), 1200)
+
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) {
+    el.focus({ preventScroll: true })
   }
 }
 

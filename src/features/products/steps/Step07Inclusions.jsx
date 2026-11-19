@@ -11,7 +11,7 @@ import { Info, HelpCircle, Plus, Trash2, X } from 'lucide-react'
 import { useProductBuilderStore } from '@/features/products/productBuilderStore'
 import { useStepErrors } from '@/features/products/useStepErrors'
 import { DIETARY_OPTIONS } from '@/constants/gygLists'
-import { INCLUSION_ITEM_MAX_CHARS, limitMessage } from '@/features/products/productFormSchema'
+import { INCLUSION_ITEM_MAX_CHARS } from '@/features/products/productFormSchema'
 import { MEAL_TYPES, MEAL_FORMATS_BY_TYPE } from '@/features/products/utils/itineraryConstants'
 
 function DietarySelect({ selected, onAdd, onRemove }) {
@@ -75,7 +75,6 @@ function InclusionList({ items, field, placeholder, accent }) {
     <div>
       <div className="space-y-2">
         {items.map((item, i) => {
-          const atLimit = item.length >= INCLUSION_ITEM_MAX_CHARS
           return (
             <motion.div
               key={i}
@@ -93,19 +92,14 @@ function InclusionList({ items, field, placeholder, accent }) {
                   value={item}
                   onChange={(e) => updateInclusionItem(field, i, e.target.value)}
                   maxLength={INCLUSION_ITEM_MAX_CHARS}
-                  aria-invalid={atLimit}
                   placeholder={placeholder}
                 />
                 <div className="flex justify-end mt-1">
-                  <span className={`text-xs tabular-nums ${atLimit ? 'text-red-600 font-medium' : 'text-slate-400'}`}>
+                  {/* A counter, not an alert: the input already stops at the limit. */}
+                  <span className="text-xs tabular-nums text-slate-400">
                     {item.length} / {INCLUSION_ITEM_MAX_CHARS}
                   </span>
                 </div>
-                {atLimit && (
-                  <span aria-live="polite" className="text-[13px] text-red-600 font-medium mt-1 flex items-center gap-1">
-                    {limitMessage(INCLUSION_ITEM_MAX_CHARS)}
-                  </span>
-                )}
               </div>
               <button
                 type="button"

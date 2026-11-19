@@ -19,6 +19,15 @@
     outline: 2px solid #86efac;
     outline-offset: -1px;
   }
+
+  /*
+   * Brief pointer from the wizard footer to the field that needs attention.
+   * Applied for ~1.2s by `scrollToField`, never while the supplier types.
+   */
+  [data-invalid-flash='true'] {
+    box-shadow: 0 0 0 2px rgb(239 68 68 / 0.55);
+    border-radius: 0.5rem;
+  }
 }
 
 @theme {

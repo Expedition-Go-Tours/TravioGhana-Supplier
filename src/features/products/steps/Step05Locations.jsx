@@ -915,10 +915,16 @@ function LocationModal({ index, loc, locations, duration, durationUnit, dayCount
   // stale). Picking a real catalog place collapses it again, since the pick
   // supplies its own city/region.
   const [showCityField, setShowCityField] = useState(() => !(loc.city || '').trim())
+  // The duration banner compares every stop against the product duration, so it
+  // can be over budget the moment this modal opens — from other stops the
+  // supplier already saved. Red only after they commit a time here; before
+  // that the same numbers are shown as a neutral summary.
+  const [timeTouched, setTimeTouched] = useState(false)
 
   const totalStopMinutes = sumStopMinutes(locations)
   const productMinutes = productDurationMinutes(duration, durationUnit)
   const exceedsProductDuration = stopDurationsExceedProduct(locations, duration, durationUnit)
+  const showDurationWarning = timeTouched && exceedsProductDuration
   const isMultiDay = dayCount > 1
 
   function update(field, value) {
@@ -1102,11 +1108,12 @@ function LocationModal({ index, loc, locations, duration, durationUnit, dayCount
                 min="0"
                 value={loc.timeSpent ?? ''}
                 onChange={(e) => update('timeSpent', e.target.value ? Number(e.target.value) : null)}
+                onBlur={() => setTimeTouched(true)}
                 placeholder="0"
               />
               <Select
                 value={loc.timeSpentUnit || 'minutes'}
-                onValueChange={(v) => onUpdate(index, { timeSpentUnit: v })}
+                onValueChange={(v) => { onUpdate(index, { timeSpentUnit: v }); setTimeTouched(true) }}
               >
                 <SelectTrigger className="h-11 w-[120px] border-slate-300 px-3 text-sm">
                   <SelectValue placeholder="Unit" />
@@ -1120,12 +1127,12 @@ function LocationModal({ index, loc, locations, duration, durationUnit, dayCount
             {errors.timeSpent && <span className="block text-[13px] text-red-600 font-medium mt-1">{errors.timeSpent}</span>}
             {productMinutes != null && (
               <div className={`mt-2 rounded-lg px-3 py-2 text-[12px] font-medium border ${
-                exceedsProductDuration
+                showDurationWarning
                   ? 'bg-red-50 text-red-700 border-red-200'
                   : 'bg-slate-50 text-slate-500 border-slate-100'
               }`}>
                 Total stop time: {formatMinutes(totalStopMinutes)} / {formatMinutes(productMinutes)} product duration
-                {exceedsProductDuration && (
+                {showDurationWarning && (
                   <span className="block mt-0.5 text-[12px] font-normal text-red-600">
                     Reduce stop times or increase the product duration to continue.
                   </span>

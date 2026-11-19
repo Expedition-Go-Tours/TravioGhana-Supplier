@@ -208,7 +208,10 @@ export const stepSchemas = {
   }),
   11: z.object({
     photos: z
-      .array(z.object({ id: z.string(), url: z.string() }))
+      // A photo row can exist before its upload finished (or after a failed
+      // one). An empty URL would pass a bare "count >= 5" check while the
+      // gallery is actually short, so each entry must have a real URL.
+      .array(z.object({ id: z.string(), url: z.string().min(1, 'Wait for each photo to finish uploading') }))
       .min(5, 'Upload at least 5 photos'),
     copyrightConfirmed: z.literal(true, {
       message: 'You must confirm copyright ownership',

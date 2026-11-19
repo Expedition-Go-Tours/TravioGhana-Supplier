@@ -576,7 +576,15 @@ export default function ProductBuilderPage() {
           navigate(`/products/build/${newId}?section=${section}&step=${step}`, { replace: true })
         }
       }
-       return res
+      return res
+    } catch (err) {
+      // "Save & continue" now awaits this call, so a failure has to say why
+      // instead of silently leaving the supplier on the step. The footer
+      // renders `autosaveError`; the draft stays dirty so a retry is possible.
+      state.setAutosaveError(
+        err?.response?.data?.message || err?.message || "Couldn't save this draft. Try again.",
+      )
+      throw err
     } finally {
       state.setSaving(false)
       setSaving(false)

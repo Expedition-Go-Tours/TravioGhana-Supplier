@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { validateStep } from './stepValidation'
 import { useProductBuilderStore } from './productBuilderStore'
@@ -7,14 +7,18 @@ import { scrollToField, getFieldLabel } from './fieldLabels'
 import { GYG_STEPS } from './gygSteps'
 
 export default function WizardNavFooter({ currentStep, totalSteps, onBack, onNext, onSave, onSubmitForReview, onOpenAgreement, isUpdate, saving, submitting, isEditing }) {
-  const formData = useProductBuilderStore()
+  // Selectors only. Subscribing to the whole store re-rendered this footer on
+  // every keystroke (and re-ran `builderSignature` over the entire product).
+  const draftStatus = useProductBuilderStore((s) => s.draftStatus)
+  const savedProductId = useProductBuilderStore((s) => s.savedProductId)
+  const submissionMeta = useProductBuilderStore((s) => s.submissionMeta)
+  const lastSaved = useProductBuilderStore((s) => s.lastSaved)
   const setStepErrors = useProductBuilderStore((s) => s.setStepErrors)
   const clearStepErrors = useProductBuilderStore((s) => s.clearStepErrors)
   const completeStep = useProductBuilderStore((s) => s.completeStep)
   const goToStep = useProductBuilderStore((s) => s.goToStep)
   const stepErrors = useProductBuilderStore((s) => s.stepErrors)
   const isSaving = useProductBuilderStore((s) => s.isSaving)
-  const lastSaved = useProductBuilderStore((s) => s.lastSaved)
   const autosaveError = useProductBuilderStore((s) => s.autosaveError)
   const [savedText, setSavedText] = useState('')
 
@@ -29,18 +33,23 @@ export default function WizardNavFooter({ currentStep, totalSteps, onBack, onNex
   const isFirstStep = currentStep === 1
   const isLastStep = currentStep === totalSteps
 
-  const isPendingReview = formData.draftStatus === 'PENDING_APPROVAL'
+  const isPendingReview = draftStatus === 'PENDING_APPROVAL'
 
   // Gate "Submit for Review" when the builder content is identical to the last
   // submitted snapshot — no signed-off changes exist to queue a review for.
-  const submissionMeta = formData.submissionMeta?.[formData.savedProductId] || null
-  const currentSignature = builderSignature(formData)
+  // Only the last step shows that button, so the (expensive) signature is
+  // computed there and nowhere else.
+  const submittedMeta = savedProductId ? submissionMeta?.[savedProductId] : null
+  const currentSignature = useMemo(() => {
+    if (!isLastStep || !onSubmitForReview || isPendingReview || !submittedMeta?.signature) return null
+    return builderSignature(useProductBuilderStore.getState())
+  }, [isLastStep, onSubmitForReview, isPendingReview, submittedMeta?.signature])
   const noChangesToSubmit = Boolean(
     onSubmitForReview
       && !isPendingReview
-      && submissionMeta?.signature
+      && submittedMeta?.signature
       && currentSignature
-      && currentSignature === submissionMeta.signature
+      && currentSignature === submittedMeta.signature
   )
 
   const displayErrors = stepErrors[currentStep] || {}
@@ -50,12 +59,22 @@ export default function WizardNavFooter({ currentStep, totalSteps, onBack, onNex
   async function handleSaveAndContinue(e) {
     e.preventDefault()
     if (isPendingReview) return
-    const errors = validateStep(currentStep, formData)
+    // Always validate against the live store: this component no longer
+    // subscribes to it, so its props may lag the latest keystroke.
+    const errors = validateStep(currentStep, useProductBuilderStore.getState())
     if (Object.keys(errors).length > 0) {
       setStepErrors(currentStep, errors)
       return
     }
     clearStepErrors(currentStep)
+    // Persist before advancing. The button says "Save & continue", and relying
+    // on the 3s autosave meant a supplier could leave the page having saved
+    // nothing. A failed save keeps them on the step, with the reason shown.
+    try {
+      await onSave?.()
+    } catch {
+      return
+    }
     const gygStep = GYG_STEPS[currentStep - 1]
     if (gygStep?.stepId) completeStep(gygStep.stepId)
     onNext()
@@ -64,7 +83,8 @@ export default function WizardNavFooter({ currentStep, totalSteps, onBack, onNex
   async function handleSubmit(e) {
     e.preventDefault()
     if (isPendingReview) return
-    const errors = validateStep(currentStep, formData)
+    const live = useProductBuilderStore.getState()
+    const errors = validateStep(currentStep, live)
     if (Object.keys(errors).length > 0) {
       setStepErrors(currentStep, errors)
       return
@@ -72,7 +92,7 @@ export default function WizardNavFooter({ currentStep, totalSteps, onBack, onNex
     clearStepErrors(currentStep)
     for (let i = 1; i < totalSteps; i++) {
       if (i === currentStep) continue
-      const stepErr = validateStep(i, formData)
+      const stepErr = validateStep(i, live)
       if (Object.keys(stepErr).length > 0) {
         setStepErrors(i, stepErr)
         goToStep(i - 1)
@@ -90,7 +110,8 @@ export default function WizardNavFooter({ currentStep, totalSteps, onBack, onNex
   async function handleSubmitForReview(e) {
     e.preventDefault()
     if (isPendingReview || noChangesToSubmit || submitting) return
-    const errors = validateStep(currentStep, formData)
+    const live = useProductBuilderStore.getState()
+    const errors = validateStep(currentStep, live)
     if (Object.keys(errors).length > 0) {
       setStepErrors(currentStep, errors)
       return
@@ -98,7 +119,7 @@ export default function WizardNavFooter({ currentStep, totalSteps, onBack, onNex
     clearStepErrors(currentStep)
     for (let i = 1; i < totalSteps; i++) {
       if (i === currentStep) continue
-      const stepErr = validateStep(i, formData)
+      const stepErr = validateStep(i, live)
       if (Object.keys(stepErr).length > 0) {
         setStepErrors(i, stepErr)
         goToStep(i - 1)
@@ -138,7 +159,7 @@ export default function WizardNavFooter({ currentStep, totalSteps, onBack, onNex
           </span>
         )}
         {!saving && hasDisplayErrors && (
-          <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-lg max-w-[500px] w-full sm:w-auto">
+          <div role="status" aria-live="polite" className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-lg max-w-[500px] w-full sm:w-auto">
             <span className="w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center shrink-0">
               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

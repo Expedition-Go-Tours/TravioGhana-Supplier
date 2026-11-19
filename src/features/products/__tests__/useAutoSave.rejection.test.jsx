@@ -94,4 +94,20 @@ describe('autosave on a rejected draft', () => {
     expect(useProductBuilderStore.getState().autosaveError).toBe('Network down');
     expect(useProductBuilderStore.getState().isDirty).toBe(true);
   });
+
+  it('still saves while a step is showing client-side errors', async () => {
+    createProduct.mockResolvedValue({ data: { data: { tour: { id: 'tour-1' } } } });
+    // A supplier who tried to continue too early has red text on screen. Their
+    // work is still real work: it must reach the server.
+    useProductBuilderStore.setState({
+      stepErrors: { 4: { shortDescription: ['Short description is required'] } },
+    });
+
+    renderHook(() => useAutoSave());
+    markDirty();
+    await flushAutosave();
+
+    expect(createProduct).toHaveBeenCalledTimes(1);
+    expect(useProductBuilderStore.getState().isDirty).toBe(false);
+  });
 });

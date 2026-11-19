@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { safeId } from '@/lib/utils'
 import { GYG_STEPS } from './gygSteps'
-import { isStepComplete } from './stepValidation'
+import { isStepComplete, validateStep } from './stepValidation'
 import { getCountryCallingCode } from 'libphonenumber-js'
 import { rederiveTiersFrom, rederiveGroupSizesFrom } from './tierUtils'
 import { isMultiDayTour, dayCountForDuration } from './utils/itineraryConstants'
@@ -1448,3 +1448,41 @@ export const useProductBuilderStore = create(
     },
   ),
 )
+
+/**
+ * Keep the on-screen error snapshot honest.
+ *
+ * Errors are captured when the supplier tries to leave a step. Once one is
+ * showing, that step is re-checked on every edit, so a corrected field drops
+ * its message immediately instead of staying red until the next click (or
+ * blocking autosave behind a stale error). A step with no errors is never
+ * validated here, so typing a clean step stays quiet.
+ *
+ * The `stepErrors` identity check is what keeps this from looping: writes made
+ * by `setStepErrors` (ours or the footer's) are skipped.
+ */
+function sameStepErrors(a = {}, b = {}) {
+  const aKeys = Object.keys(a)
+  const bKeys = Object.keys(b)
+  if (aKeys.length !== bKeys.length) return false
+  return aKeys.every((key) => b[key] && b[key][0] === a[key][0])
+}
+
+useProductBuilderStore.subscribe((state, previous) => {
+  if (!state?.hasHydrated) return
+  if (state.stepErrors === previous?.stepErrors) {
+    const step = (state.currentStep ?? -1) + 1
+    const showing = state.stepErrors?.[step]
+    if (!showing || Object.keys(showing).length === 0) return
+    let next
+    try {
+      next = validateStep(step, state)
+    } catch {
+      return
+    }
+    if (!sameStepErrors(showing, next)) {
+      if (Object.keys(next).length === 0) state.clearStepErrors(step)
+      else state.setStepErrors(step, next)
+    }
+  }
+})

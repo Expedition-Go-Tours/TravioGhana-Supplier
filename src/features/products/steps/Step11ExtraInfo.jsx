@@ -7,15 +7,12 @@ import {
   EXTRA_INFO_TAG_MAX_CHARS,
   KNOW_BEFORE_YOU_GO_MAX_CHARS,
   VOUCHER_INFO_MAX_CHARS,
-  limitMessage,
 } from '@/features/products/productFormSchema'
 
 function TagList({ items, onAdd, onRemove, placeholder, suggestions = [] }) {
   const inputRef = useRef(null)
   const [inputValue, setInputValue] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
-
-  const atLimit = inputValue.length >= EXTRA_INFO_TAG_MAX_CHARS
 
   function handleAdd(val) {
     const value = (typeof val === 'string' ? val : inputValue).trim()
@@ -54,9 +51,7 @@ function TagList({ items, onAdd, onRemove, placeholder, suggestions = [] }) {
       <div className="flex gap-2">
         <input
           ref={inputRef}
-          className={`flex-1 min-h-[46px] rounded-xl border bg-white px-3.5 py-2.5 text-sm transition-all focus-ring ${
-            atLimit ? 'border-red-300 text-red-600' : 'border-slate-200'
-          }`}
+          className="flex-1 min-h-[46px] rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm transition-all focus-ring"
           type="text"
           value={inputValue}
           onChange={(e) => {
@@ -67,7 +62,6 @@ function TagList({ items, onAdd, onRemove, placeholder, suggestions = [] }) {
           onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
           placeholder={placeholder}
           maxLength={EXTRA_INFO_TAG_MAX_CHARS}
-          aria-invalid={atLimit}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault()
@@ -85,12 +79,9 @@ function TagList({ items, onAdd, onRemove, placeholder, suggestions = [] }) {
         </button>
       </div>
       <div className="flex items-center justify-between mt-1">
-        {atLimit ? (
-          <span aria-live="polite" className="text-[13px] text-red-600 font-medium flex items-center gap-1">{limitMessage(EXTRA_INFO_TAG_MAX_CHARS)}</span>
-        ) : (
-          <span />
-        )}
-        <span className={`text-[13px] tabular-nums shrink-0 ${atLimit ? 'text-red-600 font-medium' : 'text-slate-400'}`}>
+        <span />
+        {/* A counter, not an alert: the input already stops at the limit. */}
+        <span className="text-[13px] tabular-nums shrink-0 text-slate-400">
           {inputValue.length} / {EXTRA_INFO_TAG_MAX_CHARS}
         </span>
       </div>
@@ -134,9 +125,6 @@ export default function Step09ExtraInfo() {
   const removeNotAllowed = useProductBuilderStore((s) => s.removeNotAllowed)
   const addMandatoryItem = useProductBuilderStore((s) => s.addMandatoryItem)
   const removeMandatoryItem = useProductBuilderStore((s) => s.removeMandatoryItem)
-
-  const knowBeforeAtLimit = knowBeforeYouGo.length >= KNOW_BEFORE_YOU_GO_MAX_CHARS
-  const voucherAtLimit = voucherInfo.length >= VOUCHER_INFO_MAX_CHARS
 
   return (
     <div className="max-w-[720px]">
@@ -250,26 +238,22 @@ export default function Step09ExtraInfo() {
       <div className="mb-5">
         <label className="block text-sm font-semibold mb-2 text-slate-800">Know before you go</label>
         <textarea
-          className={`w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm transition-all focus-ring resize-vertical ${
-            knowBeforeAtLimit ? 'border-red-300 text-red-600' : 'border-slate-200'
-          }`}
+          className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm transition-all focus-ring resize-vertical"
           rows={4}
           value={knowBeforeYouGo}
           onChange={(e) => setField('knowBeforeYouGo', e.target.value)}
           maxLength={KNOW_BEFORE_YOU_GO_MAX_CHARS}
-          aria-invalid={!!errors.knowBeforeYouGo || knowBeforeAtLimit}
+          aria-invalid={!!errors.knowBeforeYouGo}
           placeholder="Insurance requirements, appropriate clothing, necessary documents..."
           data-field="knowBeforeYouGo"
         />
         <div className="flex items-center justify-between mt-1">
           {errors.knowBeforeYouGo ? (
             <span aria-live="polite" className="text-[13px] text-red-600 font-medium flex items-center gap-1">{errors.knowBeforeYouGo[0]}</span>
-          ) : knowBeforeAtLimit ? (
-            <span aria-live="polite" className="text-[13px] text-red-600 font-medium flex items-center gap-1">{limitMessage(KNOW_BEFORE_YOU_GO_MAX_CHARS)}</span>
           ) : (
             <span />
           )}
-          <span className={`text-[13px] tabular-nums shrink-0 ${knowBeforeAtLimit ? 'text-red-600 font-medium' : 'text-slate-400'}`}>
+          <span className="text-[13px] tabular-nums shrink-0 text-slate-400">
             {knowBeforeYouGo.length} / {KNOW_BEFORE_YOU_GO_MAX_CHARS}
           </span>
         </div>
@@ -292,26 +276,22 @@ export default function Step09ExtraInfo() {
       <div className="mb-5">
         <label className="block text-sm font-semibold mb-2 text-slate-800">Information on the voucher</label>
         <textarea
-          className={`w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm transition-all focus-ring resize-vertical ${
-            voucherAtLimit ? 'border-red-300 text-red-600' : 'border-slate-200'
-          }`}
+          className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm transition-all focus-ring resize-vertical"
           rows={4}
           value={voucherInfo}
           onChange={(e) => setField('voucherInfo', e.target.value)}
           maxLength={VOUCHER_INFO_MAX_CHARS}
-          aria-invalid={!!errors.voucherInfo || voucherAtLimit}
+          aria-invalid={!!errors.voucherInfo}
           placeholder="Any additional information customers need after booking..."
           data-field="voucherInfo"
         />
         <div className="flex items-center justify-between mt-1">
           {errors.voucherInfo ? (
             <span aria-live="polite" className="text-[13px] text-red-600 font-medium flex items-center gap-1">{errors.voucherInfo[0]}</span>
-          ) : voucherAtLimit ? (
-            <span aria-live="polite" className="text-[13px] text-red-600 font-medium flex items-center gap-1">{limitMessage(VOUCHER_INFO_MAX_CHARS)}</span>
           ) : (
             <span />
           )}
-          <span className={`text-[13px] tabular-nums shrink-0 ${voucherAtLimit ? 'text-red-600 font-medium' : 'text-slate-400'}`}>
+          <span className="text-[13px] tabular-nums shrink-0 text-slate-400">
             {voucherInfo.length} / {VOUCHER_INFO_MAX_CHARS}
           </span>
         </div>

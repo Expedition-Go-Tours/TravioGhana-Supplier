@@ -338,8 +338,9 @@ export function useAutoSave() {
       if (savingRef.current) return
       if (!state.isDirty) return
       if (state.isSaving || state.isSubmitting) return
-      const stepNum = state.currentStep + 1
-      if (state.stepErrors?.[stepNum] && Object.keys(state.stepErrors[stepNum]).length > 0) return
+      // Client-side field errors are not a reason to stop persisting: a supplier
+      // who tried to continue too early still expects their work to be saved,
+      // and a stale error used to silence autosave for the rest of the step.
 
       if (timerRef.current) clearTimeout(timerRef.current)
       timerRef.current = setTimeout(async () => {

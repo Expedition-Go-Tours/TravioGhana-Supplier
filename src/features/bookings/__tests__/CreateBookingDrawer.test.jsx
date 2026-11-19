@@ -167,8 +167,7 @@ describe("retries cannot create a second booking", () => {
   });
 });
 
-describe("availability failures stay inside the flow", () => {
-  it("keeps the entered details, explains the change, and offers a fresh quote", async () => {
+describe("availability failures stay inside the flow", () => {  it("keeps the entered details, explains the change, and offers a fresh quote", async () => {
     await reachCollectionStep();
     fireEvent.click(screen.getByRole("button", { name: /Continue/ }));
 
@@ -193,5 +192,61 @@ describe("availability failures stay inside the flow", () => {
     );
     // The wizard never fabricates a booking or claims one was created.
     expect(screen.queryByRole("heading", { name: /Booking created/i })).toBeNull();
+  });
+});
+
+describe("quoting is deliberate, not per keystroke", () => {
+  it("sends one quote for a burst of traveller changes", async () => {
+    render(<CreateBookingDrawer open tours={tours} onClose={() => {}} />);
+    await fillExperience();
+    const before = quoteSupplierBooking.mock.calls.length;
+
+    fireEvent.click(screen.getByRole("button", { name: "Add children" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add children" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add children" }));
+
+    await waitFor(() =>
+      expect(quoteSupplierBooking.mock.calls.length).toBe(before + 1),
+    );
+    // And nothing else arrives once the debounce window has passed: three
+    // clicks settled into one party of 3 children, not three requests.
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(quoteSupplierBooking.mock.calls.length).toBe(before + 1);
+    expect(quoteSupplierBooking.mock.calls.at(-1)[0].travelers.children).toBe(3);
+  });
+});
+
+describe("contact details are optional but not optional-looking", () => {
+  async function reachTravellerStep() {
+    render(<CreateBookingDrawer open tours={tours} onClose={() => {}} />);
+    await fillExperience();
+    fireEvent.click(screen.getByRole("button", { name: /Continue/ }));
+    await screen.findByLabelText("Email");
+  }
+
+  it("rejects a malformed email on blur and blocks submitting", async () => {
+    await reachTravellerStep();
+
+    const email = screen.getByLabelText("Email");
+    fireEvent.change(email, { target: { value: "kwame@" } });
+    fireEvent.blur(email);
+
+    expect(
+      await screen.findByText(/Enter a complete email address, or leave this blank\./),
+    ).toBeInTheDocument();
+    expect(email).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("accepts a well-formed phone number", async () => {
+    await reachTravellerStep();
+
+    const phone = screen.getByLabelText("Phone");
+    fireEvent.change(phone, { target: { value: "+233 20 123 4567" } });
+    fireEvent.blur(phone);
+
+    expect(
+      screen.queryByText(/Enter a complete phone number, or leave this blank\./),
+    ).toBeNull();
+    expect(phone).toHaveAttribute("aria-invalid", "false");
   });
 });

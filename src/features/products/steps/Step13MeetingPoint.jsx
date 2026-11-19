@@ -364,6 +364,10 @@ function PickupSection({ errors }) {
   const [editingIdx, setEditingIdx] = useState(null)
   const [showAreaModal, setShowAreaModal] = useState(false)
   const [editingAreaIdx, setEditingAreaIdx] = useState(null)
+  // The "add at least 2" hint is a nudge, not a blocker, so it can be put away
+  // for this session. It only appears once a first address exists; an empty
+  // list has its own call to action.
+  const [pickupHintDismissed, setPickupHintDismissed] = useState(false)
 
   useEffect(() => {
     if (previewFocus?.step === 'meeting-point' && previewFocus.section === 'pickup') {
@@ -736,12 +740,17 @@ function PickupSection({ errors }) {
               </div>
             </div>
 
-            {/* Warning if < 2 addresses */}
-            {pickupLocations.length < 2 && (
+            {/* Nudge once a first address exists: two is the useful minimum. */}
+            {pickupLocations.length > 0 && pickupLocations.length < 2 && !pickupHintDismissed && (
               <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
                 <span className="text-amber-600 text-lg">⚠</span>
                 <p className="text-sm text-amber-800 flex-1">Add at least 2 addresses where you offer pickup</p>
-                <button type="button" className="text-amber-400 hover:text-amber-600">
+                <button
+                  type="button"
+                  aria-label="Dismiss pickup hint"
+                  onClick={() => setPickupHintDismissed(true)}
+                  className="text-amber-400 hover:text-amber-600"
+                >
                   <X size={16} />
                 </button>
               </div>

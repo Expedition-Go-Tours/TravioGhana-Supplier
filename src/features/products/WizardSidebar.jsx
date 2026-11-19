@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { ChevronDown, Flag, FileText, Image, Settings, CheckCircle2, Eye } from 'lucide-react'
 import { GYG_SECTIONS, GYG_STEPS } from './gygSteps'
 import { useProductBuilderStore } from './productBuilderStore'
-import { isStepComplete } from './stepValidation'
 
 const SECTION_ICONS = {
   'getting-started': Flag,
@@ -13,7 +12,6 @@ const SECTION_ICONS = {
 }
 
 export default function WizardSidebar({ currentStep, onSelectStep }) {
-  const formData = useProductBuilderStore((s) => s.formData)
   const stepErrors = useProductBuilderStore((s) => s.stepErrors)
   const completedStepIds = useProductBuilderStore((s) => s.completedStepIds)
   const navRef = useRef(null)
@@ -56,9 +54,10 @@ export default function WizardSidebar({ currentStep, onSelectStep }) {
   }, [currentStep])
 
   const totalSteps = GYG_STEPS.length
-  const completedCount = formData
-    ? GYG_STEPS.filter((s) => isCompleted(s.id)).length
-    : completedStepIds.length
+  // A step counts as done when the supplier passed its Continue, not when its
+  // contents happen to look complete. Deriving ticks from live content made
+  // the sidebar tick (and the progress bar jump) while they were still typing.
+  const completedCount = GYG_STEPS.filter((s) => completedStepIds.includes(s.stepId)).length
   const progress = Math.round((completedCount / totalSteps) * 100)
 
   const maxAccessibleStep = useMemo(() => {
@@ -85,9 +84,7 @@ export default function WizardSidebar({ currentStep, onSelectStep }) {
   function isCompleted(stepId) {
     const step = GYG_STEPS.find((s) => s.id === stepId)
     if (!step) return false
-    if (completedStepIds.includes(step.stepId)) return true
-    if (!formData) return false
-    return isStepComplete(step.id, formData)
+    return completedStepIds.includes(step.stepId)
   }
 
   function getStepsForSection(section) {

@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { toast } from 'sonner'
 import {
   Select,
   SelectTrigger,
@@ -76,10 +75,26 @@ function validateScheduleStep(step, state) {
   return errors
 }
 
-function useLiveWizardErrors(step) {
+function sameIssueSet(a, b) {
+  const aKeys = Object.keys(a)
+  const bKeys = Object.keys(b)
+  if (aKeys.length !== bKeys.length) return false
+  return aKeys.every((key) => b[key] === a[key])
+}
+
+/**
+ * Commit-time validation for the schedule wizard.
+ *
+ * Fields report their value when they are committed — blur, Enter, or picking
+ * a radio/option — and only then is the step re-checked. Nothing validates on a
+ * keystroke or on a store subscription, so the red border appears when the
+ * supplier has finished with the field, not while they are halfway through
+ * typing into it. A field that is already flagged is re-checked on its next
+ * commit, so fixing it clears the message.
+ */
+function useCommitValidation(step) {
   const [wizardErrors, setWizardErrors] = useState({})
   const touchedRef = useRef(new Set())
-  const timerRef = useRef(null)
 
   const runValidation = useCallback(() => {
     const state = useProductBuilderStore.getState()
@@ -88,37 +103,27 @@ function useLiveWizardErrors(step) {
     for (const key of Object.keys(all)) {
       if (touchedRef.current.has(key)) visible[key] = all[key]
     }
-    setWizardErrors(visible)
+    setWizardErrors((previous) => (sameIssueSet(previous, visible) ? previous : visible))
   }, [step])
 
   useEffect(() => {
-    // Each wizard step starts with a clean slate: errors from a previous step
-    // must not follow the user, and live errors only appear for fields they
-    // actually interact with on this step. runValidation (below) clears any
-    // leftover wizardErrors since nothing is touched on the fresh step.
+    // A new sub-step starts with a clean slate: nothing on it has been
+    // committed yet, so it cannot have anything to complain about.
     touchedRef.current = new Set()
-    clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(runValidation, 0)
-    const unsubscribe = useProductBuilderStore.subscribe(() => {
-      clearTimeout(timerRef.current)
-      timerRef.current = setTimeout(runValidation, 250)
+    // Deferred so the reset runs outside the effect's synchronous body.
+    Promise.resolve().then(() => {
+      setWizardErrors((previous) => (Object.keys(previous).length === 0 ? previous : {}))
     })
-    return () => {
-      clearTimeout(timerRef.current)
-      unsubscribe()
-    }
-  }, [runValidation])
+  }, [step])
 
   const touch = useCallback((key) => {
     touchedRef.current.add(key)
-    clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(runValidation, 0)
+    runValidation()
   }, [runValidation])
 
   const touchAll = useCallback((keys) => {
-    for (const k of keys) touchedRef.current.add(k)
-    clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(runValidation, 0)
+    for (const key of keys) touchedRef.current.add(key)
+    runValidation()
   }, [runValidation])
 
   return { wizardErrors, setWizardErrors, touch, touchAll }
@@ -526,6 +531,20 @@ function PricingCategoriesStep({ errors = {}, onTouch }) {
   const inputRef = useRef(null)
   const addedNames = new Set(pricingCategories.map((c) => c.name.trim().toLowerCase()))
 
+  /**
+   * An age is offered only when it can actually be used: inside the category's
+   * own band, and clear of every other band. Invalid ages are disabled in the
+   * dropdowns rather than accepted and then rejected with a toast — a choice
+   * that cannot be taken should not look takeable.
+   */
+  const isAgeBlocked = (index, proposed) => {
+    const category = pricingCategories[index]
+    if (!category) return false
+    if (proposed.minAge != null && proposed.minAge > category.maxAge) return true
+    if (proposed.maxAge != null && proposed.maxAge < category.minAge) return true
+    return getAgeOverlap(pricingCategories, index, proposed) !== null
+  }
+
   useEffect(() => {
     if (customMode) inputRef.current?.focus()
   }, [customMode])
@@ -633,15 +652,7 @@ function PricingCategoriesStep({ errors = {}, onTouch }) {
                         <span className="text-sm text-slate-500">Age range</span>
                         <Select value={String(cat.minAge)} onValueChange={(v) => {
                           const newMin = parseInt(v)
-                          if (newMin > cat.maxAge) {
-                            toast.warning('Min age cannot be greater than max age')
-                            return
-                          }
-                          const overlapIdx = getAgeOverlap(pricingCategories, i, { minAge: newMin })
-                          if (overlapIdx !== null) {
-                            toast.warning(`Age range overlaps with "${pricingCategories[overlapIdx]?.name || 'another category'}"`)
-                            return
-                          }
+                          if (isAgeBlocked(i, { minAge: newMin })) return
                           updatePricingCategory(i, { minAge: newMin })
                         }}>
                           <SelectTrigger className="h-9 w-16 px-2 text-sm border-slate-200 rounded-lg">
@@ -649,22 +660,14 @@ function PricingCategoriesStep({ errors = {}, onTouch }) {
                           </SelectTrigger>
                           <SelectContent>
                             {Array.from({ length: 100 }, (_, n) => (
-                              <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                              <SelectItem key={n} value={String(n)} disabled={isAgeBlocked(i, { minAge: n })}>{n}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                         <span className="text-sm text-slate-500">to</span>
                         <Select value={String(cat.maxAge)} onValueChange={(v) => {
                           const newMax = parseInt(v)
-                          if (newMax < cat.minAge) {
-                            toast.warning('Max age cannot be less than min age')
-                            return
-                          }
-                          const overlapIdx = getAgeOverlap(pricingCategories, i, { maxAge: newMax })
-                          if (overlapIdx !== null) {
-                            toast.warning(`Age range overlaps with "${pricingCategories[overlapIdx]?.name || 'another category'}"`)
-                            return
-                          }
+                          if (isAgeBlocked(i, { maxAge: newMax })) return
                           updatePricingCategory(i, { maxAge: newMax })
                         }}>
                           <SelectTrigger className="h-9 w-16 px-2 text-sm border-slate-200 rounded-lg">
@@ -672,7 +675,7 @@ function PricingCategoriesStep({ errors = {}, onTouch }) {
                           </SelectTrigger>
                           <SelectContent>
                             {Array.from({ length: 100 }, (_, n) => (
-                              <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                              <SelectItem key={n} value={String(n)} disabled={isAgeBlocked(i, { maxAge: n })}>{n}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -992,7 +995,8 @@ function PerGroupPriceStep({ errors = {}, onTouch }) {
                   <input
                     type="number"
                     value={bandPrice ?? ''}
-                    onChange={(e) => { updateGroupSize(i, { price: e.target.value ? parseFloat(e.target.value) : null }); onTouch?.(`groupSizes.${i}.price`) }}
+                    onChange={(e) => updateGroupSize(i, { price: e.target.value ? parseFloat(e.target.value) : null })}
+                    onBlur={() => onTouch?.('groupSizes.' + i + '.price')}
                     placeholder="USD"
                     aria-invalid={!!errors[`groupSizes.${i}.price`]}
                     className={`h-10 w-full max-w-[120px] rounded-lg border px-3 text-sm focus:outline-none focus:ring-1 ${
@@ -1151,7 +1155,8 @@ function PerPersonPriceStep({ errors = {}, onTouch }) {
                   <input
                     type="number"
                     value={catPrice}
-                    onChange={(e) => { handlePriceChange(i, e.target.value); onTouch?.(isSameForEveryone ? 'uniformPrice' : `pricingCategories.${i}.price`) }}
+                    onChange={(e) => handlePriceChange(i, e.target.value)}
+                    onBlur={() => onTouch?.(isSameForEveryone ? 'uniformPrice' : `pricingCategories.${i}.price`)}
                     placeholder="USD"
                     aria-invalid={!!errors[isSameForEveryone ? 'uniformPrice' : `pricingCategories.${i}.price`]}
                     className={`h-11 w-full rounded-lg border px-3 text-sm focus:outline-none focus:ring-1 ${
@@ -1212,7 +1217,8 @@ function PerPersonPriceStep({ errors = {}, onTouch }) {
                     <input
                       type="number"
                       value={tier.pricePerPerson ?? ''}
-                      onChange={(e) => { updateCategoryTier(i, j, { pricePerPerson: e.target.value ? parseFloat(e.target.value) : null }); onTouch?.(`pricingCategories.${i}.tiers.${j}.pricePerPerson`) }}
+                      onChange={(e) => updateCategoryTier(i, j, { pricePerPerson: e.target.value ? parseFloat(e.target.value) : null })}
+                      onBlur={() => onTouch?.(`pricingCategories.${i}.tiers.${j}.pricePerPerson`)}
                       placeholder="USD"
                       aria-invalid={!!errors[`pricingCategories.${i}.tiers.${j}.pricePerPerson`]}
                       className={`h-11 w-full rounded-lg border px-3 text-sm focus:outline-none focus:ring-1 ${
@@ -1288,7 +1294,7 @@ function PriceStep({ errors = {}, onTouch }) {
 function ScheduleWizard({ onBack }) {
   const { currentScheduleStep, setField, saveSchedule, clearStepErrors } = useProductBuilderStore()
   const [direction, setDirection] = useState(1)
-  const { wizardErrors, setWizardErrors, touch, touchAll } = useLiveWizardErrors(currentScheduleStep)
+  const { wizardErrors, setWizardErrors, touch, touchAll } = useCommitValidation(currentScheduleStep)
 
   const handleNext = async () => {
     setDirection(1)
