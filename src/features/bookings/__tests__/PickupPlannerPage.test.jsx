@@ -28,7 +28,7 @@ import PickupPlannerPage from "../pages/PickupPlannerPage";
 
 const baseBooking = (over = {}) => ({
   id: over.id,
-  bookingNumber: over.id,
+  bookingNumber: over.bookingNumber || over.id,
   customerName: over.customerName || "Ann Boateng",
   contactPhone: "0244000000",
   tourName: "Accra City Tour",
@@ -51,6 +51,8 @@ const baseBooking = (over = {}) => ({
   pickupOrder: over.pickupOrder ?? null,
   pickedUpAt: over.pickedUpAt ?? null,
   travelersRaw: { adults: 2 },
+  leadTravelerName: over.leadTravelerName ?? over.customerName ?? "Ann Boateng",
+  guestName: over.guestName ?? "",
   isIncomplete: over.pickupState === "incomplete",
 });
 
@@ -100,6 +102,42 @@ describe("PickupPlannerPage", () => {
     await waitFor(() =>
       expect(fetchPickupPlanner).toHaveBeenLastCalledWith(expect.objectContaining({ pickupState: "incomplete" }))
     );
+  });
+
+  it("always shows the booking reference and the lead traveller's name", async () => {
+    mockPlanner([
+      baseBooking({
+        id: "b3",
+        bookingNumber: "TRG-45236279-2026-54",
+        customerName: "Ama Owusu",
+        leadTravelerName: "Kwesi Boateng",
+      }),
+    ]);
+
+    render(<PickupPlannerPage />);
+
+    // Visible on the collapsed card, not only inside the Edit modal.
+    await waitFor(() =>
+      expect(screen.getByText("TRG-45236279-2026-54")).toBeInTheDocument()
+    );
+    // The person being picked up, not the account that booked it.
+    expect(screen.getByText("Kwesi Boateng")).toBeInTheDocument();
+    expect(screen.queryByText("Ama Owusu")).not.toBeInTheDocument();
+  });
+
+  it("falls back to a walk-in guest's name when there is no account", async () => {
+    mockPlanner([
+      baseBooking({
+        id: "b4",
+        customerName: "—",
+        leadTravelerName: "—",
+        guestName: "Yaa Asantewaa",
+      }),
+    ]);
+
+    render(<PickupPlannerPage />);
+
+    await waitFor(() => expect(screen.getByText("Yaa Asantewaa")).toBeInTheDocument());
   });
 
   it("sends the search term to the server instead of filtering only this page", async () => {

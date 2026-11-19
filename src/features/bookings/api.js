@@ -17,7 +17,9 @@ export function mapBookingRow(booking) {
     // could never label anything GHANA. See __tests__/mapBookingRow.source.test.js.
     source: booking.source || (booking.bookingNumber?.startsWith("TRG") ? "GHANA" : "EXPEDITION"),
     customerId: booking.customer?.id || "",
-    customerName: booking.customer?.name || "—",
+    // Who the booking belongs to. A supplier-created walk-in has no account:
+    // its guest name is the only identity the row carries.
+    customerName: booking.customer?.name || booking.guest?.name || booking.leadTravelerName || "—",
     // The account that placed the booking. Its phone is optional and is only
     // set from account settings, so it is NOT the person the supplier calls.
     customerEmail: booking.customer?.email || "",
@@ -29,11 +31,15 @@ export function mapBookingRow(booking) {
     // is the last resort for rows written before `leadTravelerPhone` was always
     // populated. Everything that displays a contact detail reads these two, so
     // the list, drawer, pickup planner and manifest cannot disagree.
-    contactPhone: booking.leadTravelerPhone || booking.customer?.phone || travelers.phoneNumber || "",
-    contactEmail: booking.leadTravelerEmail || booking.customer?.email || "",
+    contactPhone: booking.leadTravelerPhone || booking.guest?.phone || booking.customer?.phone || travelers.phoneNumber || "",
+    contactEmail: booking.leadTravelerEmail || booking.guest?.email || booking.customer?.email || "",
     // Lead traveler entered on the storefront (the person going on the trip).
-    // Falls back to the booking-owner account when not provided (legacy pay-now).
-    leadTravelerName: booking.leadTravelerName || booking.customer?.name || "—",
+    // Falls back to the walk-in guest, then to the booking-owner account when not
+    // provided (legacy pay-now).
+    leadTravelerName: booking.leadTravelerName || booking.guest?.name || booking.customer?.name || "—",
+    // The walk-in name from a supplier-created booking, exposed so the pickup
+    // card and manifest can prefer it without re-reading the raw row.
+    guestName: booking.guest?.name || "",
     // Strictly what the lead traveller entered. Use `contactEmail` /
     // `contactPhone` for anything the supplier will act on.
     leadTravelerEmail: booking.leadTravelerEmail || "",

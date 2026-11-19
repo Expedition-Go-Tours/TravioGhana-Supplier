@@ -64,6 +64,13 @@ export default function PickupBookingCard({
     display.primary ||
     (state === "deferred" ? "Customer will arrange pickup later" : "No pickup location set");
   const addressForMap = display.primary;
+  // The driver picks up the person travelling, not the account that paid. They
+  // are usually the same, but on a gift or group booking they are not — and a
+  // supplier-created walk-in has only a guest name.
+  const displayName =
+    (booking.leadTravelerName && booking.leadTravelerName !== "—" && booking.leadTravelerName) ||
+    booking.guestName ||
+    booking.customerName;
 
   const copyAddress = async () => {
     const value = [display.primary, display.secondary].filter(Boolean).join(" · ");
@@ -120,11 +127,19 @@ export default function PickupBookingCard({
           type="button"
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
-          aria-label={`${expanded ? "Hide" : "Show"} pickup details for ${booking.customerName}`}
+          aria-label={`${expanded ? "Hide" : "Show"} pickup details for ${displayName}`}
           className="min-w-0 flex-1 text-left"
         >
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="truncate text-sm font-semibold text-slate-900">{booking.customerName}</span>
+            <span className="truncate text-sm font-semibold text-slate-900">{displayName}</span>
+            {/* The reference is how the supplier cross-checks this stop against
+                the booking; it used to be visible only inside Edit. */}
+            <span
+              title="Booking reference"
+              className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums tracking-tight text-slate-500"
+            >
+              {booking.bookingNumber}
+            </span>
             <TravelerManifest travelers={booking.travelersRaw} compact />
           </div>
           <p className="mt-0.5 truncate text-xs text-slate-500">{booking.tourName}</p>
@@ -178,7 +193,7 @@ export default function PickupBookingCard({
                 type="button"
                 onClick={() => onMove(booking, -1)}
                 disabled={isFirst}
-                aria-label={`Move ${booking.customerName}'s stop up`}
+                aria-label={`Move ${displayName}'s stop up`}
                 className="rounded-l-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-30"
               >
                 <ArrowUp size={13} />
@@ -188,7 +203,7 @@ export default function PickupBookingCard({
                 type="button"
                 onClick={() => onMove(booking, 1)}
                 disabled={isLast}
-                aria-label={`Move ${booking.customerName}'s stop down`}
+                aria-label={`Move ${displayName}'s stop down`}
                 className="rounded-r-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-30"
               >
                 <ArrowDown size={13} />
@@ -281,7 +296,7 @@ export default function PickupBookingCard({
                 )}
                 <p className="flex items-center gap-1.5 text-xs text-slate-600">
                   <Phone size={12} className="text-slate-400" />
-                  <span>{booking.customerName}</span>
+                  <span>{displayName}</span>
                   {booking.contactPhone ? (
                     <a
                       href={`tel:${String(booking.contactPhone).replace(/[^\d+]/g, "")}`}

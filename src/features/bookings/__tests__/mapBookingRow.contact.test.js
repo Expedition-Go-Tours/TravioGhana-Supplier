@@ -79,6 +79,33 @@ describe("mapBookingRow contact resolution", () => {
     expect(row.contactEmail).toBe("");
   });
 
+  it("reads a supplier-created walk-in from the guest relation", () => {
+    // No user account exists for a walk-in: `customer` is null and the name and
+    // number live on the booking-scoped guest row.
+    const row = mapBookingRow(apiRow({
+      customer: null,
+      guest: { name: "Yaa Asantewaa", phone: "+233241234567", email: "yaa@example.com" },
+    }));
+
+    expect(row.contactPhone).toBe("+233241234567");
+    expect(row.contactEmail).toBe("yaa@example.com");
+    expect(row.leadTravelerName).toBe("Yaa Asantewaa");
+    expect(row.customerName).toBe("Yaa Asantewaa");
+    expect(row.guestName).toBe("Yaa Asantewaa");
+  });
+
+  it("keeps the lead traveller ahead of the guest for marketplace rows", () => {
+    const row = mapBookingRow(apiRow({
+      customer: { name: "Ama Serwaa" },
+      leadTravelerName: "Kwesi Boateng",
+      guest: { name: "Yaa Asantewaa" },
+    }));
+
+    expect(row.leadTravelerName).toBe("Kwesi Boateng");
+    // The account holder is still the booker.
+    expect(row.customerName).toBe("Ama Serwaa");
+  });
+
   it("resolves the email the same way, lead traveller first", () => {
     const row = mapBookingRow(apiRow({
       customer: { name: "Ama Serwaa", email: "relay@messages.travioghana.com" },
