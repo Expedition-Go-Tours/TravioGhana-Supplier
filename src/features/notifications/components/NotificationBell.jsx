@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useChatFloatingStore } from "@/stores/chatFloatingStore";
 import {
   groupByDate,
+  isRecent,
   notificationTypeConfig,
   timeAgo,
 } from "../utils/notificationPresentation";
@@ -73,14 +74,20 @@ export default function NotificationBell() {
     if (!open || isMobile) return undefined;
 
     const update = () => {
-      const rect = triggerRef.current?.getBoundingClientRect();
+      const trigger = triggerRef.current;
+      const rect = trigger?.getBoundingClientRect();
       if (!rect) return;
       const gutter = 16;
-      const maxRight = Math.max(gutter, window.innerWidth - PANEL_WIDTH - gutter);
+      // `position: fixed` resolves against the initial containing block, which
+      // excludes the scrollbar. Using `innerWidth` here left the panel 6px to
+      // the left of the bell on a scrolling page.
+      const viewport = document.documentElement.clientWidth || window.innerWidth;
+      const headerBottom = trigger.closest("header")?.getBoundingClientRect().bottom ?? 0;
+      const maxRight = Math.max(gutter, viewport - PANEL_WIDTH - gutter);
       setPlacement({
-        top: Math.round(rect.bottom + 8),
+        top: Math.round(Math.max(rect.bottom + 8, headerBottom + 6)),
         right: Math.round(
-          Math.min(Math.max(gutter, window.innerWidth - rect.right), maxRight),
+          Math.min(Math.max(gutter, viewport - rect.right), maxRight),
         ),
       });
     };
@@ -407,7 +414,7 @@ export default function NotificationBell() {
                                 data-notification-row
                                 onClick={() => handleOpenNotification(notification)}
                                 className={cn(
-                                  "flex w-full items-start gap-3 px-4 py-3 text-left transition-colors",
+                                  "flex w-full items-start gap-3 py-3 pl-4 pr-10 text-left transition-colors sm:pr-4",
                                   isUnread
                                     ? "bg-primary-50/50 hover:bg-primary-50"
                                     : "hover:bg-slate-50",
@@ -449,8 +456,12 @@ export default function NotificationBell() {
                                   )}
 
                                   <span className="mt-1 block text-[11px] text-slate-400">
-                                    {timeAgo(notification.date)}
-                                    <span aria-hidden="true"> · </span>
+                                    {isRecent(notification.date) && (
+                                      <>
+                                        {timeAgo(notification.date)}
+                                        <span aria-hidden="true"> · </span>
+                                      </>
+                                    )}
                                     {config.group}
                                   </span>
                                 </span>

@@ -269,6 +269,17 @@ export function timeAgo(value) {
 }
 
 /**
+ * True while a relative timestamp is more useful than the date itself. Past a
+ * week the date is the answer, and repeating it beside a date heading reads as
+ * a bug.
+ */
+export function isRecent(value, windowMs = 7 * 86_400_000) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+  return Date.now() - date.getTime() < windowMs;
+}
+
+/**
  * Newest first, grouped for the date headings.
  *
  * Returns `[label, items]` pairs in display order. The bell, the page and the

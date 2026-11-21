@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   groupByDate,
+  isRecent,
   notificationTypeConfig,
   timeAgo,
 } from "../utils/notificationPresentation";
@@ -25,6 +26,15 @@ describe("timeAgo", () => {
 
   it("treats a server clock running ahead as just now", () => {
     expect(timeAgo(at(-60_000))).toBe("Just now");
+  });
+});
+
+describe("isRecent", () => {
+  it("is true inside the relative-time window and false outside it", () => {
+    expect(isRecent(new Date().toISOString())).toBe(true);
+    expect(isRecent(at(6 * 86_400_000))).toBe(true);
+    expect(isRecent(at(10 * 86_400_000))).toBe(false);
+    expect(isRecent("not a date")).toBe(false);
   });
 });
 
