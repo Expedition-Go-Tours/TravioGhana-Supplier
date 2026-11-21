@@ -58,3 +58,7 @@ start file
 !playwright.config.js
 !e2e/**
 !test.yml
+
+# The wordmark above every auth screen is a deliberate brand asset, not a
+# screenshot, so it is tracked despite the blanket *.png above.
+!src/assets/travio-ghana-wordmark.png

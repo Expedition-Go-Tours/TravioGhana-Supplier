@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, CheckCircle2, AlertCircle, ArrowRight, Shield } from "lucide-react";
 import { toast } from "sonner";
+import AuthShell from "@/features/auth/AuthShell";
 import { getLoginErrorMessage, fetchCurrentUser, loadSupplierProfile } from "@/features/auth/api";
 import { useAuthStore } from "@/stores/authStore";
 import { getPostLoginPath, getSafeReturnUrl } from "@/features/auth/hooks/useSupplierLogin";
@@ -91,69 +92,79 @@ export default function AuthCallback() {
     };
   }, [searchParams, login, navigate, accessToken, refreshToken, hasToken]);
 
+  const statusCopy = {
+    checking: {
+      icon: Loader2,
+      spinning: true,
+      title: "Checking authentication",
+      subtitle: "We're reading the token from your main site sign-in.",
+    },
+    loading: {
+      icon: Loader2,
+      spinning: true,
+      title: "Verifying your session",
+      subtitle:
+        "Please wait while we validate your credentials and establish a secure session.",
+    },
+    success: {
+      icon: CheckCircle2,
+      spinning: false,
+      title: "Authentication successful",
+      subtitle: "Your session is active. Redirecting you to the dashboard.",
+    },
+    error: {
+      icon: AlertCircle,
+      spinning: false,
+      title: "Authentication failed",
+      subtitle: errorMessage,
+    },
+  };
+  const copy = statusCopy[status] || statusCopy.error;
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] px-4">
-      <div className="max-w-md w-full bg-white rounded-xl border border-[#eaeaea] shadow-sm p-8 text-center">
-        <div className="flex justify-center mb-6">
-          <div className="w-16 h-16 rounded-full bg-[#f0fdf4] flex items-center justify-center">
-            {status === "checking" || status === "loading" ? (
-              <Loader2 size={32} className="text-emerald-700 animate-spin" />
-            ) : status === "success" ? (
-              <CheckCircle2 size={32} className="text-[#16a34a]" />
-            ) : (
-              <AlertCircle size={32} className="text-[#dc2626]" />
-            )}
-          </div>
-        </div>
+    <AuthShell
+      icon={copy.icon}
+      iconTone={status === "error" ? "red" : "primary"}
+      iconClassName={copy.spinning ? "animate-spin" : ""}
+      title={copy.title}
+      subtitle={copy.subtitle}
+    >
+      {status === "success" && (
+        <button
+          type="button"
+          onClick={() => {
+            const returnUrl = getSafeReturnUrl();
+            localStorage.removeItem("auth_return_url");
+            navigate(returnUrl || "/", { replace: true });
+          }}
+          className={PRIMARY_LINK}
+        >
+          <span>
+            {getSafeReturnUrl() ? "Continue where you left off" : "Go to dashboard"}
+          </span>
+          <ArrowRight size={16} aria-hidden="true" />
+        </button>
+      )}
 
-        <h1 className="text-xl font-bold text-[#1e293b] mb-2">
-          {status === "checking" && "Checking authentication\u2026"}
-          {status === "loading" && "Verifying your session\u2026"}
-          {status === "success" && "Authentication successful!"}
-          {status === "error" && "Authentication failed"}
-        </h1>
-
-        <p className="text-sm text-[#64748b] mb-6">
-          {status === "checking" &&
-            "We're reading the token from your main site sign-in."}
-          {status === "loading" &&
-            "Please wait while we validate your credentials and establish a secure session."}
-          {status === "success" &&
-            "Your session is active. Redirecting you to the dashboard\u2026"}
-          {status === "error" && errorMessage}
-        </p>
-
-        {status === "success" && (
+      {status === "error" && (
+        <div className="space-y-3">
           <button
-            onClick={() => {
-              const returnUrl = getSafeReturnUrl();
-              localStorage.removeItem("auth_return_url");
-              navigate(returnUrl || "/", { replace: true });
-            }}
-            className="inline-flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors"
+            type="button"
+            onClick={() => (window.location.href = "https://travioghana.com/login")}
+            className={PRIMARY_LINK}
           >
-            <span>{getSafeReturnUrl() ? "Continue Where You Left Off" : "Go to Dashboard"}</span>
-            <ArrowRight size={16} />
+            <Shield size={16} aria-hidden="true" />
+            <span>Sign in on travioghana.com</span>
           </button>
-        )}
-
-        {status === "error" && (
-          <div className="space-y-3">
-            <button
-              onClick={() =>
-                (window.location.href = "https://travioghana.com/login")
-              }
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors"
-            >
-              <Shield size={16} />
-              <span>Log in on Main Site</span>
-            </button>
-            <p className="text-xs text-[#9e9e9e]">
-              After logging in, click "Become a supplier" again.
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
+          <p className="text-center text-xs leading-5 text-slate-400">
+            Then return here and apply to become a supplier.
+          </p>
+        </div>
+      )}
+    </AuthShell>
   );
 }
+
+const PRIMARY_LINK =
+  "inline-flex h-11 w-full items-center justify-center gap-2 rounded-sm bg-emerald-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700/50 focus-visible:ring-offset-2";
+
