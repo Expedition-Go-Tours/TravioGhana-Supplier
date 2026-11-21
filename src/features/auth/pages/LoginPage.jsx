@@ -34,7 +34,7 @@ function OneTapHandler({ onSuccess }) {
 }
 
 const CONTROL =
-  "h-12 w-full rounded-sm text-[15px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/20 disabled:cursor-not-allowed disabled:opacity-60";
+  "h-12 w-full rounded-sm text-[15px] transition-colors focus:outline-none disabled:cursor-not-allowed disabled:opacity-60";
 
 const INPUT = `${CONTROL} border bg-white pl-11 pr-3.5 text-slate-900 placeholder:text-slate-400 disabled:bg-slate-50`;
 
@@ -308,7 +308,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={busy}
-            className={`${CONTROL} mt-1 flex items-center justify-center gap-2 bg-emerald-700 font-semibold text-white hover:bg-emerald-800 focus-visible:ring-emerald-700/40 focus-visible:ring-offset-2`}
+            className={`${CONTROL} mt-1 flex items-center justify-center gap-2 bg-emerald-700 font-semibold text-white hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-700/40 focus-visible:ring-offset-2`}
           >
             {loading && <Loader2 size={17} className="animate-spin" aria-hidden="true" />}
             {loading ? "Signing in..." : "Sign in"}
@@ -325,7 +325,7 @@ export default function LoginPage() {
           type="button"
           onClick={handleGoogleSignIn}
           disabled={busy}
-          className={`${CONTROL} flex items-center justify-center gap-3 border border-slate-300 bg-white font-medium text-slate-700 hover:border-slate-400 hover:bg-slate-50 focus-visible:ring-emerald-600/30 focus-visible:ring-offset-2`}
+          className={`${CONTROL} flex items-center justify-center gap-3 border border-slate-300 bg-white font-medium text-slate-700 hover:border-slate-400 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-emerald-600/30 focus-visible:ring-offset-2`}
         >
           {googleLoading ? (
             <Loader2 size={18} className="animate-spin text-emerald-700" aria-hidden="true" />

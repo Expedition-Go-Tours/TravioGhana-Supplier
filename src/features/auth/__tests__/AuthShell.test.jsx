@@ -132,19 +132,23 @@ describe("LoginPage", () => {
     expect(auth.hook().completeLoginWithEmail).not.toHaveBeenCalled();
   });
 
-  it("gives both inputs and both buttons a visible focus style", () => {
+  it("gives inputs a green focus border and buttons a visible ring", () => {
     page("/login");
 
-    const controls = [
-      screen.getByLabelText(/email address/i),
-      screen.getByLabelText(/^password$/i),
-      screen.getByRole("button", { name: "Sign in" }),
-      screen.getByRole("button", { name: /sign in with google/i }),
-    ];
+    const email = screen.getByLabelText(/email address/i);
+    const password = screen.getByLabelText(/^password$/i);
+    const submit = screen.getByRole("button", { name: "Sign in" });
+    const google = screen.getByRole("button", { name: /sign in with google/i });
 
-    for (const control of controls) {
-      expect(control.className).toContain("focus-visible:ring");
-    }
+    // Inputs show focus with a green border, not a glow ring.
+    expect(email.className).toContain("focus:border-emerald-600");
+    expect(password.className).toContain("focus:border-emerald-600");
+    expect(email.className).not.toContain("focus-visible:ring");
+    expect(password.className).not.toContain("focus-visible:ring");
+
+    // Buttons keep a ring for keyboard users.
+    expect(submit.className).toContain("focus-visible:ring");
+    expect(google.className).toContain("focus-visible:ring");
   });
 });
 

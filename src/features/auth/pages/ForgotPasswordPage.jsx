@@ -154,7 +154,7 @@ export default function ForgotPasswordPage() {
 }
 
 const INPUT_CLASS =
-  "w-full rounded-sm border bg-white py-3 pl-10 pr-3.5 text-sm text-slate-800 placeholder:text-slate-400 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60";
+  "w-full rounded-sm border bg-white py-3 pl-10 pr-3.5 text-sm text-slate-800 placeholder:text-slate-400 transition-colors focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60";
 
 const PRIMARY_BUTTON =
   "flex h-11 w-full items-center justify-center gap-2 rounded-sm bg-emerald-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700/50 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
