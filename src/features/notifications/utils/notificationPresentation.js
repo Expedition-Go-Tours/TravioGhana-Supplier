@@ -1,3 +1,6 @@
+import { formatDate } from "@/lib/utils";
+import { NOTIFICATION_TYPES } from "../constants";
+
 const BACKEND_TYPE_TO_UI = {
   BOOKING_CONFIRMED: "booking",
   // A supplier recorded a booking by hand (offline money). It is a booking
@@ -238,4 +241,63 @@ export function parseNotificationsResponse(response) {
     pagination: payload.pagination ?? null,
   };
 }
+
+/**
+ * The presentation for a UI type, never undefined. Every surface used to fall
+ * back on its own, and one of them (the dashboard) read fields that did not
+ * exist.
+ */
+export function notificationTypeConfig(type) {
+  return NOTIFICATION_TYPES[type] || NOTIFICATION_TYPES.system;
+}
+
+/**
+ * Time is the first thing anyone scans in a notification list, so keep it
+ * short. Past a week a date is more useful than "12d ago".
+ */
+export function timeAgo(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const minutes = Math.floor((Date.now() - date.getTime()) / 60000);
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return formatDate(date);
+}
+
+/**
+ * Newest first, grouped for the date headings.
+ *
+ * Returns `[label, items]` pairs in display order. The bell, the page and the
+ * dashboard each grew their own copy of this and drifted: one labelled old
+ * groups "Earlier", the others used the date, and only one sorted the input.
+ * Sorting here means the group order is always correct whatever the API sends.
+ */
+export function groupByDate(notifications = []) {
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const groups = new Map();
+
+  [...notifications]
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .forEach((notification) => {
+      const date = new Date(notification.date);
+      let label;
+      if (Number.isNaN(date.getTime())) label = "Earlier";
+      else if (date.toDateString() === today.toDateString()) label = "Today";
+      else if (date.toDateString() === yesterday.toDateString()) label = "Yesterday";
+      else label = formatDate(date);
+
+      if (!groups.has(label)) groups.set(label, []);
+      groups.get(label).push(notification);
+    });
+
+  return [...groups.entries()];
+}
+
 

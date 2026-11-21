@@ -1,39 +1,48 @@
 /**
- * The header notification dropdown.
+ * The header notification panel.
  *
- * Two things matter on a phone: the panel must not run off the left edge of
- * the screen (the bell sits ~40px from the right edge, so a 320px panel
- * anchored to it overflows a 360–375px viewport), and a tap outside must
- * actually close it.
+ * Two things matter on a phone and one on a keyboard: the panel must fit the
+ * viewport, a tap outside must close it, and focus must land inside it rather
+ * than in the page behind. The row actions and the optimistic read state are
+ * covered here too, because "looks unread after you read it" is the bug users
+ * report most often.
  */
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   useNotifications: vi.fn(),
+  useUnreadCount: vi.fn(),
   markRead: vi.fn(),
   markAll: vi.fn(),
+  refetch: vi.fn(),
 }));
 
 vi.mock("../hooks/useNotifications", () => ({
   useNotifications: mocks.useNotifications,
+  useUnreadCount: mocks.useUnreadCount,
   useMarkNotificationRead: mocks.markRead,
   useMarkAllNotificationsRead: mocks.markAll,
 }));
 
 import NotificationBell from "../components/NotificationBell";
 
+const today = new Date();
+const yesterday = new Date(today);
+yesterday.setDate(yesterday.getDate() - 1);
+
 const notification = (over = {}) => ({
   id: "n1",
-  type: "BOOKING_CONFIRMED",
+  type: "booking",
   title: "Booking confirmed",
   message: "TRG-1 was confirmed",
-  date: new Date().toISOString(),
+  date: today.toISOString(),
   read: false,
   backendType: "BOOKING_CONFIRMED",
   action: "/bookings",
+  data: {},
   ...over,
 });
 
@@ -45,109 +54,229 @@ function renderBell() {
   );
 }
 
-async function openPanel(user) {
-  await user.click(screen.getByRole("button", { name: "Notifications" }));
-  return screen.getByRole("heading", { name: "Notifications" });
+const originalMatchMedia = window.matchMedia;
+
+function mockIsMobile(matches) {
+  window.matchMedia = vi.fn().mockImplementation((query) => ({
+    matches,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  }));
 }
 
-const panelOf = (heading) => heading.closest("div.fixed");
+async function openPanel(user) {
+  await user.click(screen.getByRole("button", { name: /notifications/i }));
+  return screen.getByRole("dialog", { name: "Notifications" });
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
+  window.matchMedia = originalMatchMedia;
   mocks.useNotifications.mockReturnValue({
-    data: { notifications: [notification()], unreadCount: 1 },
+    data: {
+      notifications: [
+        notification(),
+        notification({
+          id: "n2",
+          type: "payment",
+          title: "Payout sent",
+          message: "GHS 4,120 is on its way",
+          date: yesterday.toISOString(),
+          read: true,
+          backendType: "PAYOUT_COMPLETED",
+          action: "/finance",
+        }),
+      ],
+      unreadCount: 1,
+    },
     isLoading: false,
     isError: false,
-    refetch: vi.fn(),
+    refetch: mocks.refetch,
   });
-  mocks.markRead.mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue({}) });
-  mocks.markAll.mockReturnValue({ mutateAsync: vi.fn().mockResolvedValue({}) });
+  mocks.useUnreadCount.mockReturnValue({ data: { count: 1 } });
+  mocks.markRead.mockReturnValue({ mutate: vi.fn(), isPending: false });
+  mocks.markAll.mockReturnValue({ mutate: vi.fn(), isPending: false });
 });
 
 describe("NotificationBell", () => {
-  it("anchors to the viewport gutters on mobile, and to the bell from sm up", async () => {
-    const user = userEvent.setup();
+  it("tells a screen reader how many are unread", () => {
     renderBell();
-    const heading = await openPanel(user);
-    const panel = panelOf(heading);
+    const trigger = screen.getByRole("button", { name: "Notifications, 1 unread" });
 
-    expect(panel).toBeTruthy();
-    // Mobile: fixed between the screen edges, so it can never overflow left.
-    expect(panel.className).toContain("fixed");
-    expect(panel.className).toContain("left-4");
-    expect(panel.className).toContain("right-4");
-    // sm+: back to a dropdown aligned with the bell.
-    expect(panel.className).toContain("sm:absolute");
-    expect(panel.className).toContain("sm:right-0");
-    expect(panel.className).toContain("sm:left-auto");
+    expect(trigger.getAttribute("aria-haspopup")).toBe("dialog");
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    expect(trigger.getAttribute("aria-controls")).toBe("notification-panel");
   });
 
-  it("fits inside the viewport instead of overflowing", async () => {
+  it("opens a labelled dialog outside the header", async () => {
     const user = userEvent.setup();
     renderBell();
-    const panel = panelOf(await openPanel(user));
+    const panel = await openPanel(user);
 
-    // No fixed pixel width on mobile — the gutters define it.
-    expect(panel.className).not.toMatch(/(^|\s)w-80(\s|$)/);
-    expect(panel.className).toContain("max-h-[calc(100dvh_-_var(--preview-banner-height)_-_6rem)]");
+    expect(panel.getAttribute("role")).toBe("dialog");
+    expect(panel.id).toBe("notification-panel");
+    expect(panel.parentElement).toBe(document.body);
   });
 
-  it("closes on a tap outside", async () => {
+  it("moves focus to the first notification", async () => {
     const user = userEvent.setup();
     renderBell();
     await openPanel(user);
 
-    await user.click(document.body);
-
-    expect(screen.queryByRole("heading", { name: "Notifications" })).toBeNull();
+    const rows = document.querySelectorAll("[data-notification-row]");
+    await waitFor(() => expect(rows[0]).toHaveFocus());
   });
 
-  it("does not treat a tap inside the panel as an outside tap", async () => {
+  it("walks the rows with the arrow keys", async () => {
     const user = userEvent.setup();
     renderBell();
-    const heading = await openPanel(user);
+    await openPanel(user);
 
-    // Clicking a non-interactive part of the panel must not dismiss it.
-    await user.click(heading);
+    const rows = document.querySelectorAll("[data-notification-row]");
+    await waitFor(() => expect(rows[0]).toHaveFocus());
 
-    expect(screen.getByRole("heading", { name: "Notifications" })).toBeTruthy();
+    await user.keyboard("{ArrowDown}");
+    expect(rows[1]).toHaveFocus();
+
+    await user.keyboard("{ArrowDown}");
+    expect(rows[1]).toHaveFocus();
+
+    await user.keyboard("{ArrowUp}");
+    expect(rows[0]).toHaveFocus();
   });
 
-  it("closes on Escape", async () => {
+  it("closes on Escape and gives focus back to the bell", async () => {
     const user = userEvent.setup();
     renderBell();
     await openPanel(user);
 
     await user.keyboard("{Escape}");
 
-    expect(screen.queryByRole("heading", { name: "Notifications" })).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    const trigger = screen.getByRole("button", { name: /notifications/i });
+    expect(trigger).toHaveFocus();
   });
 
-  it("registers the outside-tap listener only while open, and removes it on close", async () => {
+  it("closes when the backdrop is clicked", async () => {
     const user = userEvent.setup();
-    const addSpy = vi.spyOn(document, "addEventListener");
-    const removeSpy = vi.spyOn(document, "removeEventListener");
-
     renderBell();
-    expect(addSpy).not.toHaveBeenCalledWith("pointerdown", expect.any(Function));
-
     await openPanel(user);
-    expect(addSpy).toHaveBeenCalledWith("pointerdown", expect.any(Function));
 
-    await user.click(document.body);
-    expect(removeSpy).toHaveBeenCalledWith("pointerdown", expect.any(Function));
+    await user.click(screen.getByTestId("notification-backdrop"));
 
-    addSpy.mockRestore();
-    removeSpy.mockRestore();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("does not close when the panel itself is clicked", async () => {
+    const user = userEvent.setup();
+    renderBell();
+    const panel = await openPanel(user);
+
+    await user.click(within(panel).getByText("Today"));
+
+    expect(screen.getByRole("dialog", { name: "Notifications" })).toBeTruthy();
+  });
+
+  it("groups rows by day and names the notification type", async () => {
+    const user = userEvent.setup();
+    renderBell();
+    const panel = await openPanel(user);
+
+    expect(within(panel).getByText("Today")).toBeTruthy();
+    expect(within(panel).getByText("Yesterday")).toBeTruthy();
+    expect(within(panel).getByText("Booking confirmed")).toBeTruthy();
+    expect(within(panel).getByText(/Bookings/)).toBeTruthy();
+    expect(within(panel).getByText(/Money/)).toBeTruthy();
+  });
+
+  it("marks a single row read from the row action", async () => {
+    const mutate = vi.fn();
+    mocks.markRead.mockReturnValue({ mutate, isPending: false });
+
+    const user = userEvent.setup();
+    renderBell();
+    await openPanel(user);
+
+    await user.click(
+      screen.getByRole("button", { name: "Mark Booking confirmed as read" }),
+    );
+
+    expect(mutate).toHaveBeenCalledWith("n1");
+  });
+
+  it("offers a real retry when the feed fails", async () => {
+    mocks.useNotifications.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      refetch: mocks.refetch,
+    });
+
+    const user = userEvent.setup();
+    renderBell();
+    await openPanel(user);
+
+    expect(screen.getByText(/didn't load/i)).toBeTruthy();
+    expect(screen.queryByText(/pull down/i)).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    expect(mocks.refetch).toHaveBeenCalled();
+  });
+
+  it("says so when there is nothing to show", async () => {
+    mocks.useUnreadCount.mockReturnValue({ data: { count: 0 } });
+    mocks.useNotifications.mockReturnValue({
+      data: { notifications: [], unreadCount: 0 },
+      isLoading: false,
+      isError: false,
+      refetch: mocks.refetch,
+    });
+
+    const user = userEvent.setup();
+    renderBell();
+    await openPanel(user);
+
+    expect(screen.getByText("You're all caught up")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /mark all read/i })).toBeNull();
   });
 
   it("keeps the list scrolling inside the panel", async () => {
     const user = userEvent.setup();
     renderBell();
-    const heading = await openPanel(user);
+    const panel = await openPanel(user);
 
-    const list = heading.closest("div.fixed").querySelector(".overflow-y-auto");
+    const list = panel.querySelector(".overflow-y-auto");
     expect(list).toBeTruthy();
     expect(list.className).toContain("overscroll-contain");
   });
+
+  it("becomes a bottom sheet on a phone and locks the page behind it", async () => {
+    mockIsMobile(true);
+
+    const user = userEvent.setup();
+    renderBell();
+    const panel = await openPanel(user);
+
+    expect(panel.className).toContain("inset-x-0");
+    expect(panel.className).toContain("bottom-0");
+    expect(panel.className).toContain("rounded-t-2xl");
+    expect(panel.className).toContain("max-h-[85dvh]");
+    expect(panel.getAttribute("aria-modal")).toBe("true");
+    expect(document.body.style.overflow).toBe("hidden");
+
+    await user.click(screen.getByRole("button", { name: "Close notifications" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(document.body.style.overflow).toBe("");
+  });
+});
+
+afterEach(() => {
+  window.matchMedia = originalMatchMedia;
+  document.body.style.overflow = "";
 });

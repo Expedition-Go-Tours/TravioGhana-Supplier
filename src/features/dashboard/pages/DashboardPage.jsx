@@ -18,7 +18,10 @@ import {
   useNotifications,
   useMarkAllNotificationsRead,
 } from "@/features/notifications/hooks/useNotifications";
-import { NOTIFICATION_TYPES } from "@/features/notifications/constants";
+import {
+  notificationTypeConfig,
+  timeAgo,
+} from "@/features/notifications/utils/notificationPresentation";
 
 const STATS_CONFIG = [
   { widgetKey: "bookings", label: "Total Bookings", icon: ShoppingBag, accent: "border-l-emerald-600", iconBg: "bg-emerald-50", iconBorder: "border-emerald-200/60", iconColor: "text-emerald-600", path: "/bookings" },
@@ -48,19 +51,6 @@ const CustomTooltip = ({ active, payload, label, labelFormatter }) =>
       <p className="mt-0.5 text-sm font-semibold tabular-nums text-slate-800">{formatCurrency(payload[0].value)}</p>
     </div>
   ) : null;
-
-function timeAgo(dateStr) {
-  if (!dateStr) return "";
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  if (days < 7) return `${days}d ago`;
-  return formatDate(dateStr);
-}
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -464,7 +454,7 @@ export default function DashboardPage() {
                   ))
                 ) : notifications.length > 0 ? (
                   notifications.slice(0, 5).map((n) => {
-                    const iconConfig = NOTIFICATION_TYPES[n.type] || NOTIFICATION_TYPES.system;
+                    const iconConfig = notificationTypeConfig(n.type);
                     const Icon = iconConfig.icon;
                     // The notifications hook exposes the mapped `read` flag;
                     // `readAt` only exists on the raw API row, so testing it
@@ -475,14 +465,14 @@ export default function DashboardPage() {
                         key={n.id}
                         className={cn(
                           "flex items-start gap-1 rounded-lg transition-colors",
-                          isUnread ? "bg-emerald-50/50" : "hover:bg-slate-50",
+                          isUnread ? "bg-primary-50/50" : "hover:bg-slate-50",
                         )}
                       >
                         <button
                           onClick={() => navigate("/notifications")}
                           className="flex min-w-0 flex-1 items-start gap-3 rounded-lg p-2.5 text-left"
                         >
-                          <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", iconConfig.bg, iconConfig.text)}>
+                          <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", iconConfig.chip)}>
                             <Icon size={14} />
                           </span>
                           <span className="min-w-0 flex-1">

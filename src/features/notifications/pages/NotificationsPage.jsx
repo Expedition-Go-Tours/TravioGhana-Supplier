@@ -12,8 +12,12 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { cn, formatDate } from "@/lib/utils";
-import { NOTIFICATION_TYPES } from "../constants";
+import { cn } from "@/lib/utils";
+import {
+  groupByDate,
+  notificationTypeConfig,
+  timeAgo,
+} from "../utils/notificationPresentation";
 import {
   useDeleteAllNotifications,
   useDeleteNotification,
@@ -45,49 +49,6 @@ const CATEGORY_LABELS = {
   team: "Team",
   system: "System",
 };
-
-function groupByDate(notifications) {
-  const groups = {};
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-
-  // Newest first, whatever order the API returns: the group order is the
-  // insertion order of this object, so Today must be seen before Yesterday and
-  // older dates.
-  [...notifications]
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .forEach((notif) => {
-    const date = new Date(notif.date);
-    const dateKey = formatDate(date);
-    const isToday = date.toDateString() === today.toDateString();
-    const isYesterday = date.toDateString() === yesterday.toDateString();
-
-    let label;
-    if (isToday) label = "Today";
-    else if (isYesterday) label = "Yesterday";
-    else label = dateKey;
-
-    if (!groups[label]) groups[label] = [];
-    groups[label].push(notif);
-  });
-
-  return groups;
-}
-
-/** Time is the first thing you scan in a notification list, so keep it short. */
-function timeAgo(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const minutes = Math.floor((Date.now() - date.getTime()) / 60000);
-  if (minutes < 1) return "Just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return formatDate(date);
-}
 
 function ReplyBar({ notification }) {
   // Replying and opening the thread are chat, and chat is `chat.view` (admin +
@@ -171,7 +132,7 @@ function ReplyBar({ notification }) {
 }
 
 function NotificationRow({ notification, isUnread, isReplying, isMutating, onReply, onMarkRead, onDelete }) {
-  const typeConfig = NOTIFICATION_TYPES[notification.type] || NOTIFICATION_TYPES.system;
+  const typeConfig = notificationTypeConfig(notification.type);
   const TypeIcon = typeConfig.icon;
 
   return (
@@ -194,7 +155,7 @@ function NotificationRow({ notification, isUnread, isReplying, isMutating, onRep
         <span
           className={cn(
             "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ring-1 ring-black/5",
-            typeConfig.color,
+            typeConfig.chip,
           )}
         >
           <TypeIcon size={18} />
@@ -330,7 +291,7 @@ export default function NotificationsPage() {
 
   const notifications = data?.notifications ?? [];
   const unreadCount = data?.unreadCount ?? 0;
-  const groupedNotifications = Object.entries(groupByDate(notifications));
+  const groupedNotifications = groupByDate(notifications);
   const activeCategoryLabel = category !== "all" ? (CATEGORY_LABELS[category] || category) : null;
 
   const handleMarkAsRead = (id) => {
