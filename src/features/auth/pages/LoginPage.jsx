@@ -164,8 +164,8 @@ export default function LoginPage() {
       <OneTapHandler onSuccess={handleOneTapSuccess} />
 
       <AuthShell
-        title="Sign in"
-        subtitle="Manage your tours, bookings and payouts."
+        title="Welcome back"
+        subtitle="Sign in to manage your tours, bookings and payouts."
         footer={
           <>
             <p>
@@ -180,7 +180,7 @@ export default function LoginPage() {
               </a>
             </p>
             <p className="mt-2 text-[11px] text-slate-500">
-              Approved suppliers only
+              Looking to book a tour?
               <span aria-hidden="true"> · </span>
               <a
                 href="https://www.travioghana.com"
@@ -317,7 +317,7 @@ export default function LoginPage() {
 
         <div className="my-6 flex items-center gap-3">
           <span className="h-px flex-1 bg-slate-200" aria-hidden="true" />
-          <span className="text-xs text-slate-500">or</span>
+          <span className="text-xs text-slate-500">or continue with</span>
           <span className="h-px flex-1 bg-slate-200" aria-hidden="true" />
         </div>
 

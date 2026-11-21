@@ -70,7 +70,7 @@ describe("LoginPage", () => {
   it("renders the shared wordmark and the form heading", () => {
     page("/login");
     expect(screen.getByAltText(/travio ghana/i)).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Sign in" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Welcome back" })).toBeTruthy();
   });
 
   it("announces a failed sign-in and moves focus to it", async () => {

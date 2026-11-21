@@ -35,7 +35,7 @@ export default function AuthShell({
   titleId = "auth-heading",
 }) {
   return (
-    <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-slate-50 px-4 py-12 sm:px-6">
+    <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-white px-4 py-12 sm:px-6">
       <div className="w-full max-w-[420px]">
         <a
           href={STOREFRONT_URL}
