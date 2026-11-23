@@ -1,10 +1,13 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { useDropzone } from 'react-dropzone'
+import { useQuery } from '@tanstack/react-query'
 import { HelpCircle, Upload, Image, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Check, X, Trash2 } from 'lucide-react'
 import { useProductBuilderStore } from '@/features/products/productBuilderStore'
 import { useStepErrors } from '@/features/products/useStepErrors'
-import { deleteTourPhoto, uploadPhotos } from '@/features/products/api'
+import { deleteTourPhoto, uploadPhotos, fetchTourPhotoIssues, tourPhotoIssuesKey } from '@/features/products/api'
 import { removalIndices } from '@/features/products/photoSelection'
+import PhotoIssuePill from '@/features/products/PhotoIssuePill'
+import { findPhotoIssue, indexPhotoIssues } from '@/features/products/photoIssueCopy'
 import {
   IDEAL_PHOTO_WIDTH,
   MAX_PHOTO_BYTES,
@@ -35,6 +38,20 @@ export default function Step10Photos() {
   const setField = useProductBuilderStore((s) => s.setField)
   const savedProductId = useProductBuilderStore((s) => s.savedProductId)
   const errors = useStepErrors(11)
+
+  // The stored audit verdicts for the photos already on this tour. The badge on
+  // the tile is the only place that can say *which* photo is the problem, and
+  // this is the screen where it gets replaced.
+  const { data: photoAudit } = useQuery({
+    queryKey: tourPhotoIssuesKey(savedProductId),
+    queryFn: () => fetchTourPhotoIssues(savedProductId),
+    enabled: !!savedProductId,
+    staleTime: 5 * 60 * 1000,
+  })
+  const issueIndex = useMemo(
+    () => indexPhotoIssues(photoAudit?.issues),
+    [photoAudit?.issues],
+  )
 
   const [uploading, setUploading] = useState(new Set())
   const [uploadErrors, setUploadErrors] = useState({})
@@ -364,6 +381,7 @@ export default function Step10Photos() {
             const error = uploadErrors[photo.id]
             const isPending = !isUploaded && !isUploading && !error && !!pendingFiles[photo.id]
             const isSelected = selectedIds.has(photo.id)
+            const auditIssue = photo.url ? findPhotoIssue(issueIndex, photo.url) : null
 
             return (
               <div
@@ -411,7 +429,14 @@ export default function Step10Photos() {
                   </span>
                 )}
 
-                {photoSizes[photo.id]?.lowRes && (
+                {auditIssue ? (
+                  <PhotoIssuePill
+                    issue={auditIssue}
+                    imageSrc={src}
+                    onRemove={() => handleRemove(i)}
+                    className="absolute bottom-2 right-2 z-10"
+                  />
+                ) : photoSizes[photo.id]?.lowRes && (
                   <span
                     className="absolute right-2 bottom-2 z-10 rounded-md bg-amber-500/95 px-2 py-0.5 text-[10px] font-semibold text-white"
                     title={`${photoSizes[photo.id].width}px wide — it will soften on large screens`}

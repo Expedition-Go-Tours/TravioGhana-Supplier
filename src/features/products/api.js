@@ -154,20 +154,21 @@ export const productsListQuery = (useSupplier) => ({
 });
 
 /**
- * Tours whose photos the batch audit flagged as too small or portrait.
+ * The stored photo-quality verdicts for one tour.
  *
- * The audit stores a count on each tour (measuring costs a Cloudinary call per
- * asset), so this is one cheap query rather than a fan-out.
+ * One row, no Cloudinary call: the audit stores `photoIssues` per URL in a
+ * batch job, and this reads it so the product page can mark the exact tile.
  */
-export const PHOTO_ISSUES_KEY = ["products", "photo-issues"];
+export const tourPhotoIssuesKey = (tourId) => ["products", tourId, "photo-issues"];
 
-export const fetchPhotoIssues = async () => {
-  const res = await api.get("/travioghana/supplier/photo-issues", {
+export const fetchTourPhotoIssues = async (tourId) => {
+  const res = await api.get(`/travioghana/supplier/tours/${tourId}/photo-issues`, {
     skipGlobalErrorHandler: true,
   });
   const data = res.data?.data || {};
   return {
-    tours: Array.isArray(data.tours) ? data.tours : [],
-    totals: data.totals || { tours: 0, photos: 0 },
+    issues: Array.isArray(data.issues) ? data.issues : [],
+    total: Number(data.total) || 0,
+    auditedAt: data.auditedAt || null,
   };
 };

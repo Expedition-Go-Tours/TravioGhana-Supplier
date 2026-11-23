@@ -25,6 +25,8 @@ import { getUniqueCities } from "@/features/products/utils/getUniqueCities";
 import { groupTypeLabel } from "@/features/products/utils/groupTypeLabel";
 import { ACCOMMODATION_LABELS } from "@/features/products/utils/itineraryConstants";
 import DeleteModal from "@/components/ui/DeleteModal";
+import PhotoIssuePill from "@/features/products/PhotoIssuePill";
+import { findPhotoIssue, indexPhotoIssues } from "@/features/products/photoIssueCopy";
 import { SHELL_GUTTER, SHELL_MEASURE, SHELL_PADDING_Y } from "@/components/layout/shell";
 import { describeActionError } from "@/lib/errorHandler";
 
@@ -202,7 +204,7 @@ function PhotoGalleryModal({ displayPhotos, index: lightboxIndex, setLightboxInd
   );
 }
 
-function AllPhotosModal({ displayPhotos, open, onClose, onSelect, handleImageError, tour }) {
+function AllPhotosModal({ displayPhotos, open, onClose, onSelect, handleImageError, tour, issueIndex, replaceHref }) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
@@ -218,13 +220,26 @@ function AllPhotosModal({ displayPhotos, open, onClose, onSelect, handleImageErr
         </div>
         <div className="p-5 overflow-y-auto max-h-[calc(90vh-70px)]">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {displayPhotos.map((photo, i) => (
-              <button key={i} onClick={() => { onClose(); onSelect(i); }} className="group relative aspect-[4/3] overflow-hidden rounded-lg bg-slate-100">
-                <OptimizedImage src={photo} width={600} alt={`${tour?.title} - Photo ${i + 1}`} className="absolute inset-0 w-full h-full object-cover transition-all duration-500 group-hover:scale-110" onError={(e) => handleImageError(e, i)} />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all duration-300" />
-                <div className="absolute bottom-2 right-2 opacity-100 transition-opacity duration-200 bg-black/40 text-white text-[10px] px-2 py-0.5 rounded-full">{i + 1}</div>
-              </button>
-            ))}
+            {displayPhotos.map((photo, i) => {
+              const issue = findPhotoIssue(issueIndex, photo);
+              return (
+                <div key={i} className="group relative aspect-[4/3] overflow-hidden rounded-lg bg-slate-100">
+                  <button type="button" onClick={() => { onClose(); onSelect(i); }} className="absolute inset-0 cursor-pointer">
+                    <OptimizedImage src={photo} width={600} alt={`${tour?.title} - Photo ${i + 1}`} className="absolute inset-0 w-full h-full object-cover transition-all duration-500 group-hover:scale-110" onError={(e) => handleImageError(e, i)} />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all duration-300" />
+                  </button>
+                  <div className="pointer-events-none absolute bottom-2 right-2 opacity-100 transition-opacity duration-200 bg-black/40 text-white text-[10px] px-2 py-0.5 rounded-full">{i + 1}</div>
+                  {issue && (
+                    <PhotoIssuePill
+                      issue={issue}
+                      imageSrc={photo}
+                      replaceHref={replaceHref}
+                      className="absolute bottom-2 left-2 z-10"
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -387,6 +402,13 @@ export default function ProductDetailPage() {
   }, []);
 
   const displayPhotos = useMemo(() => tour ? reorderPhotos(tour) : [], [tour]);
+
+  // Which of the gallery images the catalogue audit flagged, so the tile that
+  // has the problem can say so itself.
+  const photoIssueIndex = useMemo(
+    () => indexPhotoIssues(tour?.photoIssues),
+    [tour?.photoIssues],
+  );
 
   // Warm the lightbox photos while the page is idle so "next"/"prev" in
   // "View all photos" is a cache hit rather than a fresh download per click.
@@ -564,21 +586,32 @@ export default function ProductDetailPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 md:grid-rows-2 gap-1 rounded-xl overflow-hidden shadow-sm shadow-slate-900/5">
               {displayPhotos.slice(0, 5).map((photo, i) => {
                 const hasMore = displayPhotos.length > 5 && i === 4
+                const issue = findPhotoIssue(photoIssueIndex, photo)
                 return (
-                  <button key={i} onClick={hasMore ? () => setGalleryOpen(true) : () => setLightboxIndex(i)} className={cn("relative overflow-hidden bg-slate-100 group cursor-pointer", i === 0 ? "col-span-2 aspect-[16/9] min-h-[220px] md:col-span-2 md:row-span-2 md:aspect-auto md:min-h-[440px]" : "aspect-[4/3] sm:aspect-[16/9] min-h-[120px] md:aspect-auto md:min-h-[219px]")}>
-                    <OptimizedImage src={photo} width={i === 0 ? 2400 : 600} alt={`${tour.title} - Photo ${i + 1}`} className="absolute inset-0 w-full h-full object-cover transition-all duration-700 group-hover:scale-105" />
-                    <div className="absolute inset-0 bg-linear-to-t from-black/30 via-transparent to-transparent opacity-100 transition-all duration-300" />
+                  <div key={i} className={cn("relative overflow-hidden bg-slate-100 group", i === 0 ? "col-span-2 aspect-[16/9] min-h-[220px] md:col-span-2 md:row-span-2 md:aspect-auto md:min-h-[440px]" : "aspect-[4/3] sm:aspect-[16/9] min-h-[120px] md:aspect-auto md:min-h-[219px]")}>
+                    <button type="button" onClick={hasMore ? () => setGalleryOpen(true) : () => setLightboxIndex(i)} className="absolute inset-0 cursor-pointer">
+                      <OptimizedImage src={photo} width={i === 0 ? 2400 : 600} alt={`${tour.title} - Photo ${i + 1}`} className="absolute inset-0 w-full h-full object-cover transition-all duration-700 group-hover:scale-105" />
+                      <div className="absolute inset-0 bg-linear-to-t from-black/30 via-transparent to-transparent opacity-100 transition-all duration-300" />
+                    </button>
                     {i === 0 && (
-                      <div className="absolute bottom-3 right-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-white/10 backdrop-blur-sm border border-white/20 shadow-sm opacity-100 transition-all duration-300">
+                      <div className="pointer-events-none absolute bottom-3 right-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-white/10 backdrop-blur-sm border border-white/20 shadow-sm opacity-100 transition-all duration-300">
                         <Camera size={12} /> <span>View all {displayPhotos.length} photos</span>
                       </div>
                     )}
                     {hasMore && (
-                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center transition-all duration-300 group-hover:bg-black/60">
+                      <div className="pointer-events-none absolute inset-0 bg-black/50 flex items-center justify-center transition-all duration-300 group-hover:bg-black/60">
                         <span className="text-xs font-semibold text-white/90 bg-white/10 backdrop-blur-sm border border-white/20 px-3 py-1.5 rounded-lg">+{displayPhotos.length - 5} more</span>
                       </div>
                     )}
-                  </button>
+                    {issue && (
+                      <PhotoIssuePill
+                        issue={issue}
+                        imageSrc={photo}
+                        replaceHref={`/products/build/${tour.id}?section=media&step=photos`}
+                        className="absolute bottom-2 left-2 z-10"
+                      />
+                    )}
+                  </div>
                 )
               })}
             </div>
@@ -1670,7 +1703,7 @@ export default function ProductDetailPage() {
       </div>
 
       {/* MODALS */}
-      <AllPhotosModal displayPhotos={displayPhotos} open={galleryOpen} onClose={() => setGalleryOpen(false)} onSelect={setLightboxIndex} handleImageError={handleImageError} tour={tour} />
+      <AllPhotosModal displayPhotos={displayPhotos} open={galleryOpen} onClose={() => setGalleryOpen(false)} onSelect={setLightboxIndex} handleImageError={handleImageError} tour={tour} issueIndex={photoIssueIndex} replaceHref={`/products/build/${tour.id}?section=media&step=photos`} />
       <PhotoGalleryModal displayPhotos={displayPhotos} index={lightboxIndex} setLightboxIndex={setLightboxIndex} tour={tour} />
       <DeleteModal
         isOpen={deleteModalOpen}
