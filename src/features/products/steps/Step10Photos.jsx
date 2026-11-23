@@ -5,10 +5,17 @@ import { useProductBuilderStore } from '@/features/products/productBuilderStore'
 import { useStepErrors } from '@/features/products/useStepErrors'
 import { deleteTourPhoto, uploadPhotos } from '@/features/products/api'
 import { removalIndices } from '@/features/products/photoSelection'
+import {
+  IDEAL_PHOTO_WIDTH,
+  MAX_PHOTO_BYTES,
+  MIN_PHOTOS,
+  MIN_PHOTO_WIDTH,
+  checkPhoto,
+  rejectionMessage,
+} from '@/features/products/photoRules'
 import { safeId } from '@/lib/utils'
 import { transformImage } from '@/lib/image'
 
-const MIN_PHOTOS = 5
 // One row of placeholders. Five slots wrapped to a lonely second row and made
 // the step scroll for no reason; the requirement is still five photos and the
 // copy says so.
@@ -31,6 +38,9 @@ export default function Step10Photos() {
 
   const [uploading, setUploading] = useState(new Set())
   const [uploadErrors, setUploadErrors] = useState({})
+  // Files refused before upload, and the measured size of each accepted one.
+  const [rejections, setRejections] = useState([])
+  const [photoSizes, setPhotoSizes] = useState({})
   const [tipsOpen, setTipsOpen] = useState(true)
   const [selectedIds, setSelectedIds] = useState(new Set())
   const dragIndex = useRef(null)
@@ -81,20 +91,38 @@ export default function Step10Photos() {
   }, [setPhotoUrl, trackUploadedUrl, setCoverPhoto, coverPhoto])
 
   const onDrop = useCallback(
-    (acceptedFiles) => {
+    async (acceptedFiles, fileRejections) => {
+      const nextRejections = (fileRejections || []).map((rejection) => rejectionMessage(rejection))
+
       for (const file of acceptedFiles) {
+        // Read the real dimensions first: the "1280px, landscape" rule has
+        // always been in the tips panel but was never actually checked, so
+        // portrait and thumbnail-sized files reached the catalogue.
+        const check = await checkPhoto(file)
+        if (!check.ok) {
+          nextRejections.push(`${file.name}: ${check.reason}`)
+          continue
+        }
+
         const id = safeId()
+        setPhotoSizes((prev) => ({
+          ...prev,
+          [id]: { width: check.width, height: check.height, lowRes: check.lowRes },
+        }))
         addPhoto(id, file)
         uploadFile(id, file)
       }
+
+      setRejections(nextRejections)
     },
     [addPhoto, uploadFile],
   )
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
+    multiple: true,
     accept: { 'image/jpeg': ['.jpg', '.jpeg'], 'image/png': ['.png'], 'image/webp': ['.webp'], 'image/avif': ['.avif'] },
-    maxSize: 7 * 1024 * 1024,
+    maxSize: MAX_PHOTO_BYTES,
   })
 
   const toggleSelect = (id) => {
@@ -197,6 +225,9 @@ export default function Step10Photos() {
 
   const hasSelection = selectedIds.size > 0
   const emptySlots = Math.min(EMPTY_SLOTS, Math.max(0, MIN_PHOTOS - photos.length))
+  // The first photo is the cover (the store keeps `coverPhoto` in sync with it),
+  // so its resolution is what every search card will show.
+  const coverSize = photos[0] ? photoSizes[photos[0].id] : null
 
   return (
     <div className="flex flex-col xl:flex-row gap-6">
@@ -286,9 +317,34 @@ export default function Step10Photos() {
             <span className="text-sm text-slate-500">or drag photos here</span>
           </div>
           <p className="text-xs text-slate-400">
-            JPG, JPEG, PNG &bull; Max 7MB each &bull; Minimum {MIN_PHOTOS} photos
+            JPG, PNG, WebP or AVIF &bull; Landscape, at least {MIN_PHOTO_WIDTH}px wide &bull; Max 7MB each &bull; Minimum {MIN_PHOTOS} photos
           </p>
         </div>
+
+        {/* Refused files. Shown before the grid so the reason sits next to the
+            control that produced it, rather than as a toast that disappears. */}
+        {rejections.length > 0 && (
+          <div className="mt-3 flex items-start justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3">
+            <div className="min-w-0">
+              <p className="text-[13px] font-semibold text-amber-900">
+                {rejections.length === 1 ? 'One photo was not added' : `${rejections.length} photos were not added`}
+              </p>
+              <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs leading-5 text-amber-800">
+                {rejections.map((reason, index) => (
+                  <li key={`${index}-${reason}`}>{reason}</li>
+                ))}
+              </ul>
+            </div>
+            <button
+              type="button"
+              onClick={() => setRejections([])}
+              aria-label="Dismiss"
+              className="shrink-0 rounded-md p-1 text-amber-700 transition-colors hover:bg-amber-100"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* Hint text */}
         {photos.length > 0 && !hasSelection && (
@@ -355,6 +411,15 @@ export default function Step10Photos() {
                   </span>
                 )}
 
+                {photoSizes[photo.id]?.lowRes && (
+                  <span
+                    className="absolute right-2 bottom-2 z-10 rounded-md bg-amber-500/95 px-2 py-0.5 text-[10px] font-semibold text-white"
+                    title={`${photoSizes[photo.id].width}px wide — it will soften on large screens`}
+                  >
+                    Low res
+                  </span>
+                )}
+
                 <button
                   className="absolute top-2 right-2 w-7 h-7 rounded-full border-0 bg-black/50 text-white cursor-pointer grid place-items-center text-xs hover:bg-black/70 transition-colors z-20"
                   onClick={(e) => { e.stopPropagation(); handleRemove(i) }}
@@ -403,6 +468,13 @@ export default function Step10Photos() {
             </div>
           ))}
         </div>
+
+        {coverSize?.lowRes && (
+          <p className="mt-2 text-xs leading-5 text-amber-700">
+            The main photo is {coverSize.width}px wide. It appears on every search card — use one at
+            least {IDEAL_PHOTO_WIDTH}px for a sharp result.
+          </p>
+        )}
 
         {/* Copyright confirmation */}
         <label className="flex items-start gap-3 cursor-pointer mt-6">
