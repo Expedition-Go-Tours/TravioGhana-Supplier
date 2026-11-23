@@ -4,13 +4,13 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Search, Grid3X3, List, Plus, Eye, Edit, Trash2,
-  AlertCircle, RefreshCw, Package, Star, Percent, Clock, X,
+  AlertCircle, AlertTriangle, RefreshCw, Package, Star, Percent, Clock, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { PRODUCT_STATUSES } from "@/lib/constants";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
-import { deleteProduct, productsListQuery, PRODUCTS_LIST_KEY } from "@/features/products/api";
+import { deleteProduct, productsListQuery, PRODUCTS_LIST_KEY, PHOTO_ISSUES_KEY, fetchPhotoIssues } from "@/features/products/api";
 import EmptyState from "@/components/shared/EmptyState";
 import PreviewMenu from "@/components/shared/PreviewMenu";
 import { getAuthToken, useAuthStore } from "@/stores/authStore";
@@ -175,6 +175,12 @@ export default function ProductsListPage() {
   const [imgLoaded, setImgLoaded] = useState({});
   const [deleteTarget, setDeleteTarget] = useState(null);
 
+  const { data: photoIssues } = useQuery({
+    queryKey: PHOTO_ISSUES_KEY,
+    queryFn: fetchPhotoIssues,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const useSupplier = Boolean(getAuthToken());
   const { data, isLoading, isError, error, refetch, isRefetching } = useQuery({
     ...productsListQuery(useSupplier),
@@ -273,6 +279,42 @@ export default function ProductsListPage() {
           </button>
         </div>
       </div>
+
+      {/* Photos the batch audit flagged. Stored count, so this costs nothing
+          to render; the itemised list is in each product's Photos step. */}
+      {photoIssues?.totals?.photos > 0 && (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3.5">
+          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
+            <AlertTriangle size={16} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-amber-900">
+              {photoIssues.totals.photos} photo{photoIssues.totals.photos === 1 ? "" : "s"} need replacing
+            </p>
+            <p className="mt-0.5 text-[13px] leading-5 text-amber-800">
+              On {photoIssues.totals.tours} of your listings they are portrait or under 1280px wide, so the
+              storefront crops and upscales them. Replace them in the Photos step — the uploader now refuses
+              anything that small.
+            </p>
+            <ul className="mt-2 space-y-1">
+              {photoIssues.tours.slice(0, 3).map((tour) => (
+                <li key={tour.tourId} className="flex items-baseline justify-between gap-3 text-xs text-amber-800">
+                  <span className="truncate">{tour.title}</span>
+                  <span className="shrink-0 font-semibold tabular-nums">
+                    {tour.issueCount} photo{tour.issueCount === 1 ? "" : "s"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {photoIssues.tours.length > 3 && (
+              <p className="mt-1 text-xs text-amber-700">
+                and {photoIssues.tours.length - 3} more listing
+                {photoIssues.tours.length - 3 === 1 ? "" : "s"}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       {!isLoading && !isError && stats.total > 0 && (

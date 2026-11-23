@@ -186,7 +186,11 @@ function getNotificationRoute(type, data = {}) {
     case "DOCUMENTATION_WINDOW_REMINDER":
       return { path: "/supplier/status", label: "View Status" };
     case "SYSTEM_ALERT":
-      return { path: "/finance", label: "View Finance" };
+      // System alerts carry their own destination now; the old default sent
+      // every one of them to Finance, which only fits finance alerts.
+      return data.path
+        ? { path: data.path, label: data.linkLabel || "View" }
+        : { path: "/finance", label: "View Finance" };
     case "NEW_MESSAGE":
       return { path: "/chat", label: "View Message" };
     default:
