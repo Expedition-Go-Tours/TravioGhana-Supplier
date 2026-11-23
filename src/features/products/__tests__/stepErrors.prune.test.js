@@ -37,7 +37,7 @@ describe('step errors are pruned by edits, not re-raised', () => {
   it('clears the message as soon as the field passes', () => {
     act(() => {
       useProductBuilderStore.getState().setStepErrors(TITLE_STEP, {
-        title: ['Title is required'],
+        title: ['Product title is required'],
       });
     });
 
@@ -51,7 +51,7 @@ describe('step errors are pruned by edits, not re-raised', () => {
   it('keeps the message while the field is still invalid', () => {
     act(() => {
       useProductBuilderStore.getState().setStepErrors(TITLE_STEP, {
-        title: ['Title is required'],
+        title: ['Product title is required'],
       });
     });
 
@@ -60,7 +60,7 @@ describe('step errors are pruned by edits, not re-raised', () => {
     });
 
     expect(useProductBuilderStore.getState().stepErrors[TITLE_STEP]).toEqual({
-      title: ['Title is required'],
+      title: ['Product title is required'],
     });
   });
 

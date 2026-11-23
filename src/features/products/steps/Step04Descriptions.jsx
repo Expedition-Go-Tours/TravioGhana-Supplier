@@ -19,6 +19,16 @@ export default function Step04Descriptions() {
   const errors = useStepErrors(4)
   const [tipDismissed, setTipDismissed] = useState(false)
 
+  // Element errors arrive as `highlights.0`, `highlights.1`, … so an empty
+  // first row is marked on that row, and the list explains the group once.
+  const highlightIndexErrors = Object.entries(errors).reduce((acc, [key, messages]) => {
+    const match = /^highlights\.(\d+)$/.exec(key)
+    if (match) acc[Number(match[1])] = messages[0]
+    return acc
+  }, {})
+  const highlightError = errors.highlights?.[0]
+    || (Object.keys(highlightIndexErrors).length > 0 ? 'Fill in all three highlights.' : null)
+
   function addHighlightItem() {
     if (highlights.length < 5) {
       addHighlight('')
@@ -103,7 +113,7 @@ export default function Step04Descriptions() {
                     value={item}
                     maxLength={HIGHLIGHT_MAX_CHARS}
                     onChange={(e) => updateHighlight(i, e.target.value)}
-                    aria-invalid={!!errors.highlights}
+                    aria-invalid={Boolean(highlightIndexErrors[i] || highlightError)}
                     placeholder="Describe a highlight of your activity..."
                   />
                   {i > 2 && (
@@ -138,7 +148,11 @@ export default function Step04Descriptions() {
           </button>
         )}
 
-        {errors.highlights && <span className="text-[13px] text-red-600 font-medium mt-2 flex items-center gap-1">{errors.highlights[0]}</span>}
+        {highlightError && (
+          <span role="alert" className="text-[13px] text-red-600 font-medium mt-2 flex items-center gap-1">
+            {highlightError}
+          </span>
+        )}
 
         {!tipDismissed && (
           <div className="flex items-start gap-2.5 mt-4 p-3.5 bg-emerald-50 border border-emerald-100 rounded-lg">

@@ -118,18 +118,58 @@ describe('stepSchemas[7] (Inclusions)', () => {
     expect(stepSchemas[7].safeParse({ whatsIncluded: ['a', 'b', ''], foodProvided: false }).success).toBe(false)
   })
 
-  it('accepts 3 non-empty inclusions', () => {
-    expect(stepSchemas[7].safeParse({ whatsIncluded: ['a', 'b', 'c'], foodProvided: false }).success).toBe(true)
+  it('accepts 3 non-empty inclusions and 3 non-empty exclusions', () => {
+    expect(stepSchemas[7].safeParse({
+      whatsIncluded: ['a', 'b', 'c'],
+      whatsNotIncluded: ['x', 'y', 'z'],
+      foodProvided: false,
+    }).success).toBe(true)
+  })
+
+  it('requires exclusions to mirror inclusions', () => {
+    const result = stepSchemas[7].safeParse({
+      whatsIncluded: ['a', 'b', 'c'],
+      whatsNotIncluded: ['x', 'y'],
+      foodProvided: false,
+    })
+    expect(result.success).toBe(false)
+    expect(result.error.issues[0].message).toBe('Add at least 3 exclusions')
+  })
+
+  it('rejects an empty exclusion item', () => {
+    expect(stepSchemas[7].safeParse({
+      whatsIncluded: ['a', 'b', 'c'],
+      whatsNotIncluded: ['x', 'y', ''],
+      foodProvided: false,
+    }).success).toBe(false)
   })
 })
 
 describe('stepSchemas[9] (Extra information)', () => {
-  it('requires wifiIncluded', () => {
-    expect(stepSchemas[9].safeParse({}).success).toBe(false)
+  it('requires the wifi question to be answered', () => {
+    const missing = stepSchemas[9].safeParse({ wifiIncluded: false })
+    expect(missing.success).toBe(false)
+    expect(missing.error.issues.some((i) => i.message === 'Select whether Wi-Fi is included')).toBe(true)
   })
 
-  it('accepts a wifiIncluded boolean', () => {
-    expect(stepSchemas[9].safeParse({ wifiIncluded: false }).success).toBe(true)
+  it('accepts either answer once it has been given', () => {
+    expect(stepSchemas[9].safeParse({
+      wifiIncluded: false,
+      wifiIncludedAnswered: true,
+      emergencyPhone: '+233201234567',
+    }).success).toBe(true)
+  })
+
+  it('requires an emergency phone number in E.164 form', () => {
+    const empty = stepSchemas[9].safeParse({ wifiIncluded: false, wifiIncludedAnswered: true, emergencyPhone: '' })
+    expect(empty.success).toBe(false)
+    expect(empty.error.issues.some((i) => i.message === 'Emergency phone number is required')).toBe(true)
+
+    const local = stepSchemas[9].safeParse({ wifiIncluded: false, wifiIncludedAnswered: true, emergencyPhone: '0201234567' })
+    expect(local.success).toBe(false)
+
+    const full = stepSchemas[9].safeParse({ wifiIncluded: false, wifiIncludedAnswered: true, emergencyPhone: '+233201234567' })
+    expect(full.success).toBe(true)
   })
 })
 

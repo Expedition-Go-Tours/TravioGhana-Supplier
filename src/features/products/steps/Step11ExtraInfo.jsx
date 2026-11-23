@@ -113,6 +113,7 @@ export default function Step09ExtraInfo() {
   const petFriendly = useProductBuilderStore((s) => s.petFriendly)
   const wheelchairAccessible = useProductBuilderStore((s) => s.wheelchairAccessible)
   const wifiIncluded = useProductBuilderStore((s) => s.wifiIncluded)
+  const wifiIncludedAnswered = useProductBuilderStore((s) => s.wifiIncludedAnswered)
   const mandatoryItems = useProductBuilderStore((s) => s.mandatoryItems)
   const knowBeforeYouGo = useProductBuilderStore((s) => s.knowBeforeYouGo)
   const emergencyPhone = useProductBuilderStore((s) => s.emergencyPhone)
@@ -194,31 +195,41 @@ export default function Step09ExtraInfo() {
         <label className="block text-sm font-semibold mb-2 text-slate-800">
           Is WiFi or internet included? <span className="text-red-500">*</span>
         </label>
-        <div className="flex bg-slate-100 rounded-lg p-0.5 w-fit">
-          <button
-            type="button"
-            onClick={() => setField('wifiIncluded', false)}
-            className={`px-5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer border-0 ${
-              !wifiIncluded
-                ? 'bg-white text-slate-800 shadow-sm'
-                : 'bg-transparent text-slate-400 hover:text-slate-600'
-            }`}
-          >
-            No
-          </button>
-          <button
-            type="button"
-            onClick={() => setField('wifiIncluded', true)}
-            className={`px-5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer border-0 ${
-              wifiIncluded
-                ? 'bg-white text-slate-800 shadow-sm'
-                : 'bg-transparent text-slate-400 hover:text-slate-600'
-            }`}
-          >
-            Yes
-          </button>
+        <div
+          className={`flex bg-slate-100 rounded-lg p-0.5 w-fit ${
+            errors.wifiIncludedAnswered ? 'ring-1 ring-red-300' : ''
+          }`}
+        >
+          {[
+            { label: 'No', value: false },
+            { label: 'Yes', value: true },
+          ].map((option) => {
+            // `false` is a real answer, so "No" is only selected once the
+            // supplier has actually chosen it.
+            const selected = wifiIncludedAnswered && wifiIncluded === option.value
+            return (
+              <button
+                key={option.label}
+                type="button"
+                onClick={() => {
+                  setField('wifiIncluded', option.value)
+                  setField('wifiIncludedAnswered', true)
+                }}
+                aria-pressed={selected}
+                className={`px-5 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer border-0 ${
+                  selected
+                    ? 'bg-white text-slate-800 shadow-sm'
+                    : 'bg-transparent text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                {option.label}
+              </button>
+            )
+          })}
         </div>
-        {errors.wifiIncluded && <span className="text-[13px] text-red-600 font-medium mt-1">{errors.wifiIncluded[0]}</span>}
+        {errors.wifiIncludedAnswered && (
+          <span className="text-[13px] text-red-600 font-medium mt-1 block">{errors.wifiIncludedAnswered[0]}</span>
+        )}
       </div>
 
       <div className="mb-5" data-field="mandatoryItems">
@@ -260,7 +271,9 @@ export default function Step09ExtraInfo() {
       </div>
 
       <div className="mb-5" data-field="emergencyPhone">
-        <label className="block text-sm font-semibold mb-2 text-slate-800">Emergency contact number</label>
+        <label className="block text-sm font-semibold mb-2 text-slate-800">
+          Emergency contact number <span className="text-red-500">*</span>
+        </label>
         <PhoneInput
           value={emergencyPhone}
           onChange={(val) => setField('emergencyPhone', val)}

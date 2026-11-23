@@ -107,6 +107,7 @@ const INITIAL_FORM = {
   petFriendly: false,
   wheelchairAccessible: false,
   wifiIncluded: false,
+  wifiIncludedAnswered: false,
   accommodationIncluded: false,
   dayLogistics: {},
   mandatoryItems: [],

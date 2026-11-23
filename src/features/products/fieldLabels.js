@@ -13,7 +13,8 @@ export const FIELD_LABELS = {
   duration: 'Duration',
   durationUnit: 'Duration unit',
   accommodationIncluded: 'Accommodation included',
-  title: 'Title',
+  title: 'Product title',
+  'options.title': 'Option title',
   referenceCode: 'Reference code',
   shortDescription: 'Short description',
   fullDescription: 'Full description',
@@ -41,6 +42,7 @@ export const FIELD_LABELS = {
   notAllowed: 'Not allowed',
   petFriendly: 'Pet friendly',
   wifiIncluded: 'Wi-Fi included',
+  wifiIncludedAnswered: 'Wi-Fi included',
   mandatoryItems: 'Mandatory items',
   knowBeforeYouGo: 'Know before you go',
   emergencyPhone: 'Emergency phone number',
@@ -138,6 +140,7 @@ const FIELD_STEP_MAP = {
   petFriendly: 9,
   wheelchairAccessible: 9,
   wifiIncluded: 9,
+  wifiIncludedAnswered: 9,
   mandatoryItems: 9,
   knowBeforeYouGo: 9,
   emergencyPhone: 9,
@@ -187,6 +190,30 @@ const FIELD_STEP_MAP = {
 export function getStepForField(fieldKey) {
   const baseKey = fieldKey.split('.')[0]
   return FIELD_STEP_MAP[baseKey] || null
+}
+
+/**
+ * The field an error should scroll to and be labelled by. Array indexes are
+ * dropped: `highlights.2` is the Highlights list, not a third field, so three
+ * empty highlights produce one entry instead of three identical ones.
+ */
+export function getFieldAnchor(fieldKey) {
+  const parts = String(fieldKey).split('.').filter((part) => !/^\d+$/.test(part))
+  return parts[0] || fieldKey
+}
+
+/**
+ * Collapse per-index field errors to one entry per field, in first-seen order.
+ * The wizard footer lists problems by field, so `highlights.0/1/2` must read as
+ * one "Highlights" problem rather than three identical lines.
+ */
+export function dedupeFieldErrors(errors) {
+  const seen = new Map()
+  for (const [fieldKey, messages] of Object.entries(errors || {})) {
+    const anchor = getFieldAnchor(fieldKey)
+    if (!seen.has(anchor)) seen.set(anchor, messages)
+  }
+  return [...seen.entries()]
 }
 
 export function getFieldLabel(fieldKey) {
@@ -262,6 +289,7 @@ const SECTION_LABELS = {
   notAllowed: 'Extra information',
   petFriendly: 'Extra information',
   wifiIncluded: 'Extra information',
+  wifiIncludedAnswered: 'Extra information',
   mandatoryItems: 'Extra information',
   knowBeforeYouGo: 'Extra information',
   emergencyPhone: 'Extra information',

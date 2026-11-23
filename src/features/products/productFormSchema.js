@@ -94,7 +94,7 @@ export const stepSchemas = {
      language: z.string().min(1, 'Select a language'),
    }),
   2: z.object({
-      title: z.string().min(1, 'Title is required').max(TITLE_MAX_CHARS, `Title must be ${TITLE_MAX_CHARS} characters or fewer`),
+      title: z.string().min(1, 'Product title is required').max(TITLE_MAX_CHARS, `Title must be ${TITLE_MAX_CHARS} characters or fewer`),
       referenceCode: z.string().max(REFERENCE_CODE_MAX_CHARS, `Reference code must be ${REFERENCE_CODE_MAX_CHARS} characters or fewer`).optional(),
     }),
     3: z.object({
@@ -154,7 +154,7 @@ export const stepSchemas = {
       .min(500, 'Full description must be at least 500 characters')
       .max(FULL_DESCRIPTION_MAX_CHARS, 'Full description must be at most 3000 characters'),
     highlights: z
-      .array(z.string().min(1).max(HIGHLIGHT_MAX_CHARS, 'Each highlight must be 80 characters or fewer'))
+      .array(z.string().min(1, 'Highlight cannot be empty').max(HIGHLIGHT_MAX_CHARS, 'Each highlight must be 80 characters or fewer'))
       .min(3, 'Add at least 3 highlights')
       .max(5, 'Maximum 5 highlights'),
   }),
@@ -169,7 +169,13 @@ export const stepSchemas = {
   }),
    7: z.object({
     whatsIncluded: z.array(z.string().min(1, 'Inclusion cannot be empty').max(INCLUSION_ITEM_MAX_CHARS, `Each inclusion must be ${INCLUSION_ITEM_MAX_CHARS} characters or fewer`)).min(3, 'Add at least 3 inclusions'),
-    whatsNotIncluded: z.array(z.string().max(INCLUSION_ITEM_MAX_CHARS, `Each exclusion must be ${INCLUSION_ITEM_MAX_CHARS} characters or fewer`)).optional(),
+    // Mirrors inclusions: three entries, so the product page never shows an
+    // empty "Not included" column beside a populated one.
+    whatsNotIncluded: z.array(
+      z.string()
+        .min(1, 'Exclusion cannot be empty')
+        .max(INCLUSION_ITEM_MAX_CHARS, `Each exclusion must be ${INCLUSION_ITEM_MAX_CHARS} characters or fewer`),
+    ).min(3, 'Add at least 3 exclusions'),
     foodProvided: z.boolean(),
     meals: z.array(z.object({
       type: z.string().optional(),
@@ -192,11 +198,16 @@ export const stepSchemas = {
     petFriendly: z.boolean().optional(),
     wheelchairAccessible: z.boolean().catch(false),
     wifiIncluded: z.boolean(),
+    // Required-question marker: `false` is a valid answer ("no Wi-Fi"), so the
+    // boolean alone cannot tell "answered no" from "never answered".
+    wifiIncludedAnswered: z.literal(true, {
+      error: 'Select whether Wi-Fi is included',
+    }),
     mandatoryItems: z.array(z.string().max(EXTRA_INFO_TAG_MAX_CHARS, `Each item must be ${EXTRA_INFO_TAG_MAX_CHARS} characters or fewer`)).optional(),
     knowBeforeYouGo: z.string().max(KNOW_BEFORE_YOU_GO_MAX_CHARS, `Know before you go must be ${KNOW_BEFORE_YOU_GO_MAX_CHARS} characters or fewer`).optional(),
     emergencyPhone: z.string()
-      .refine((val) => !val || /^\+[1-9]\d{2,14}$/.test(val), 'Enter a complete phone number with country code')
-      .optional(),
+      .min(1, 'Emergency phone number is required')
+      .refine((val) => /^\+[1-9]\d{2,14}$/.test(val), 'Enter a complete phone number with country code'),
     voucherInfo: z.string().max(VOUCHER_INFO_MAX_CHARS, `Voucher info must be ${VOUCHER_INFO_MAX_CHARS} characters or fewer`).optional(),
   }),
   10: z.object({

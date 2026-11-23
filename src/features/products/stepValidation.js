@@ -30,6 +30,7 @@ const STEP_FIELDS = {
     'petFriendly',
     'wheelchairAccessible',
     'wifiIncluded',
+    'wifiIncludedAnswered',
     'mandatoryItems',
     'knowBeforeYouGo',
     'emergencyPhone',

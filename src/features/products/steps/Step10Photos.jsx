@@ -9,6 +9,10 @@ import { safeId } from '@/lib/utils'
 import { transformImage } from '@/lib/image'
 
 const MIN_PHOTOS = 5
+// One row of placeholders. Five slots wrapped to a lonely second row and made
+// the step scroll for no reason; the requirement is still five photos and the
+// copy says so.
+const EMPTY_SLOTS = 4
 
 export default function Step10Photos() {
   const photos = useProductBuilderStore((s) => s.photos)
@@ -192,7 +196,7 @@ export default function Step10Photos() {
   }, [photos, savedProductId, coverPhoto, setCoverPhoto, removePhoto])
 
   const hasSelection = selectedIds.size > 0
-  const emptySlots = Math.max(0, MIN_PHOTOS - photos.length)
+  const emptySlots = Math.min(EMPTY_SLOTS, Math.max(0, MIN_PHOTOS - photos.length))
 
   return (
     <div className="flex flex-col xl:flex-row gap-6">
@@ -293,8 +297,9 @@ export default function Step10Photos() {
 
         {errors.photos && <span className="text-[13px] text-red-600 font-medium mt-2 flex items-center gap-1">{errors.photos[0]}</span>}
 
-        {/* Photo grid */}
-        <div className="grid grid-cols-2 gap-3 mt-4">
+        {/* Photo grid — four across from ×l so the tiles stay small enough to
+            show the whole set without scrolling. */}
+        <div className="grid grid-cols-2 gap-2.5 mt-4 sm:grid-cols-3 xl:grid-cols-4">
           {photos.map((photo, i) => {
             const src = getPreviewUrl(photo)
             const isUploaded = !!photo.url
@@ -307,7 +312,7 @@ export default function Step10Photos() {
             return (
               <div
                 key={photo.id}
-                className={`group relative aspect-[4/3] rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
+                className={`group relative aspect-[4/3] rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
                   isSelected
                     ? 'border-blue-500 ring-2 ring-blue-500/30'
                     : isCover
@@ -392,9 +397,9 @@ export default function Step10Photos() {
           {Array.from({ length: emptySlots }).map((_, i) => (
             <div
               key={`empty-${i}`}
-              className="aspect-[4/3] rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 grid place-items-center"
+              className="aspect-[4/3] rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 grid place-items-center"
             >
-              <Image className="w-8 h-8 text-slate-300" />
+              <Image className="w-6 h-6 text-slate-300" />
             </div>
           ))}
         </div>

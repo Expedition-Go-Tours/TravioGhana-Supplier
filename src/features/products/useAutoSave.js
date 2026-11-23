@@ -297,6 +297,10 @@ export function buildPayload(state) {
     'selectedOptionId', 'pricingTemplate', 'availabilityTemplate', 'cutoffTemplate',
     'itinerary', 'itineraryOverview', 'additionalItineraryInfo', 'dayTitles',
     'submissionMeta',
+    // Builder-only marker: it records that the supplier answered the Wi-Fi
+    // question. `false` is a real answer, so the flag cannot be derived from
+    // the value, but the backend has no column for it and does not need one.
+    'wifiIncludedAnswered',
   ]
   for (const key of omit) delete payload[key]
   if (!payload.copyrightConfirmed) delete payload.copyrightConfirmed

@@ -158,6 +158,9 @@ export function tourToProduct(tour) {
     petFriendly: !!content.petFriendly,
     wheelchairAccessible: !!content.wheelchairAccessible,
     wifiIncluded: !!content.wifiIncluded,
+    // Products saved before the question was mandatory count as answered, so
+    // editing an existing product does not fail on a field nobody was asked.
+    wifiIncludedAnswered: true,
     mandatoryItems: content.whatToBring || [],
     knowBeforeYouGo: content.additionalInfo || '',
     emergencyPhone: (() => {

@@ -3,7 +3,7 @@ import { Loader2 } from 'lucide-react'
 import { validateStep } from './stepValidation'
 import { useProductBuilderStore } from './productBuilderStore'
 import { builderSignature } from './useAutoSave'
-import { scrollToField, getFieldLabel } from './fieldLabels'
+import { scrollToField, getFieldLabel, dedupeFieldErrors } from './fieldLabels'
 import { GYG_STEPS } from './gygSteps'
 
 export default function WizardNavFooter({ currentStep, totalSteps, onBack, onNext, onSave, onSubmitForReview, onOpenAgreement, isUpdate, saving, submitting, isEditing }) {
@@ -52,9 +52,15 @@ export default function WizardNavFooter({ currentStep, totalSteps, onBack, onNex
       && currentSignature === submittedMeta.signature
   )
 
-  const displayErrors = stepErrors[currentStep] || {}
+  const displayErrors = useMemo(
+    () => stepErrors[currentStep] || {},
+    [stepErrors, currentStep],
+  )
   const hasDisplayErrors = Object.keys(displayErrors).length > 0
-  const errorEntries = Object.entries(displayErrors)
+
+  // One entry per field, not per array index: three empty highlights are one
+  // problem ("Highlights"), and the link has to land on the list itself.
+  const errorEntries = useMemo(() => dedupeFieldErrors(displayErrors), [displayErrors])
 
   async function handleSaveAndContinue(e) {
     e.preventDefault()
