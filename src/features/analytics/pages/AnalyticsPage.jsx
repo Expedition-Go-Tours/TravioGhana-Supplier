@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
   Ban,
@@ -11,7 +11,6 @@ import {
   Wallet,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
-import { cn } from "@/lib/utils";
 import {
   fetchAnalyticsSummary,
   fetchAnalyticsTimeseries,
@@ -22,18 +21,12 @@ import { fetchCancellationSummary } from "@/features/cancellation/api";
 import KpiCard from "../components/KpiCard";
 import { percentChange } from "../comparisons";
 import PerformanceChart from "../components/PerformanceChart";
+import PeriodPicker from "../components/PeriodPicker";
+import { periodMeta, resolvePeriodKey } from "../periods";
 import ProductPerformanceTable from "../components/ProductPerformanceTable";
 import Ga4FunnelPanel from "../components/Ga4FunnelPanel";
 import RecommendedActions from "../components/RecommendedActions";
 import { buildRecommendations } from "../recommendations";
-
-const PERIODS = [
-  { key: "30d", label: "30 days", full: "Last 30 days", days: 30 },
-  { key: "90d", label: "90 days", full: "Last 90 days", days: 90 },
-  { key: "12m", label: "12 months", full: "Last 12 months", days: 365 },
-];
-
-const isoDay = (date) => date.toISOString().slice(0, 10);
 
 const formatPercent = (value) =>
   value == null ? "—" : `${Number(value).toFixed(1)}%`;
@@ -44,7 +37,18 @@ const messageFor = (reason, fallback) =>
 
 export default function AnalyticsPage() {
   const navigate = useNavigate();
-  const [period, setPeriod] = useState("30d");
+  const [searchParams, setSearchParams] = useSearchParams();
+  // The selection lives in the URL so a filtered view can be shared, reloaded
+  // and bookmarked; unknown or out-of-range values fall back to 30 days.
+  const period = resolvePeriodKey(searchParams.get("period") || "30d");
+  const setPeriod = useCallback(
+    (next) => {
+      const params = new URLSearchParams(searchParams);
+      params.set("period", next);
+      setSearchParams(params, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
   const [metric, setMetric] = useState("revenue");
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -61,10 +65,8 @@ export default function AnalyticsPage() {
   const requestRef = useRef(0);
 
   const load = useCallback(async () => {
-    const config = PERIODS.find((entry) => entry.key === period) || PERIODS[0];
+    const config = periodMeta(period);
     const requestId = ++requestRef.current;
-    const to = new Date();
-    const from = new Date(Date.now() - config.days * 86_400_000);
 
     setLoading(true);
     setErrors({});
@@ -74,8 +76,8 @@ export default function AnalyticsPage() {
         fetchAnalyticsSummary(period),
         fetchAnalyticsTimeseries(period),
         fetchProductAnalytics(period),
-        fetchGa4Funnel({ from: isoDay(from), to: isoDay(to) }),
-        fetchCancellationSummary(undefined, config.days),
+        fetchGa4Funnel({ from: config.from, to: config.to }),
+        fetchCancellationSummary(undefined, config.days, config.isMonth ? period : undefined),
       ]);
 
     // A slower response for a previous period must not overwrite a newer one.
@@ -114,7 +116,7 @@ export default function AnalyticsPage() {
     };
   }, [load, reloadKey]);
 
-  const config = PERIODS.find((entry) => entry.key === period) || PERIODS[0];
+  const config = periodMeta(period);
 
   const revenueDelta = summary?.revenue
     ? percentChange(summary.revenue.gross, summary.revenue.previousGross)
@@ -149,24 +151,7 @@ export default function AnalyticsPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex rounded-lg bg-slate-100 p-0.5" role="group" aria-label="Reporting period">
-            {PERIODS.map((option) => (
-              <button
-                key={option.key}
-                type="button"
-                onClick={() => setPeriod(option.key)}
-                aria-pressed={period === option.key}
-                className={cn(
-                  "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-                  period === option.key
-                    ? "bg-white text-slate-900 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700",
-                )}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          <PeriodPicker value={period} onChange={setPeriod} />
 
           <button
             type="button"
@@ -181,7 +166,7 @@ export default function AnalyticsPage() {
       </div>
 
       <p className="text-[11px] text-slate-400">
-        {config.full} · compared with the {config.days} days before
+        {config.full} · {config.compareText}
         {lastUpdated && ` · updated ${lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}
       </p>
 
@@ -286,6 +271,7 @@ export default function AnalyticsPage() {
         error={errors.series}
         onRetry={() => setReloadKey((key) => key + 1)}
         periodLabel={config.full}
+        previousLabel={config.previousLabel}
       />
 
       <ProductPerformanceTable

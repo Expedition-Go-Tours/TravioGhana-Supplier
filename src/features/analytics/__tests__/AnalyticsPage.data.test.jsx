@@ -107,7 +107,7 @@ describe("the Performance page's data sources", () => {
     await waitFor(() => expect(fetchProductAnalytics).toHaveBeenCalled());
     expect(fetchAnalyticsSummary).toHaveBeenCalledWith("30d");
     expect(fetchAnalyticsTimeseries).toHaveBeenCalledWith("30d");
-    expect(fetchCancellationSummary).toHaveBeenCalledWith(undefined, 30);
+    expect(fetchCancellationSummary).toHaveBeenCalledWith(undefined, 30, undefined);
     expect(fetchSupplierBookings).not.toHaveBeenCalled();
   });
 
@@ -151,7 +151,7 @@ describe("the Performance page's data sources", () => {
     await waitFor(() => expect(fetchAnalyticsSummary).toHaveBeenCalledWith("90d"));
     expect(fetchAnalyticsTimeseries).toHaveBeenCalledWith("90d");
     expect(fetchProductAnalytics).toHaveBeenCalledWith("90d");
-    expect(fetchCancellationSummary).toHaveBeenCalledWith(undefined, 90);
+    expect(fetchCancellationSummary).toHaveBeenCalledWith(undefined, 90, undefined);
 
     const ga4Params = fetchGa4Funnel.mock.calls.at(-1)[0];
     const span = (new Date(ga4Params.to) - new Date(ga4Params.from)) / 86_400_000;
@@ -213,5 +213,49 @@ describe("Google Analytics states", () => {
       expect(screen.getByText("Couldn't load the storefront funnel")).toBeInTheDocument(),
     );
     expect(screen.getByText("GA4 timeout")).toBeInTheDocument();
+  });
+});
+
+describe("the Performance page's month filter", () => {
+  // Computed from the real clock: the picker only offers months the server
+  // accepts, so a hard-coded 2026 month would rot.
+  const now = new Date();
+  const lastMonthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+  const monthKey = `${lastMonthStart.getUTCFullYear()}-${String(lastMonthStart.getUTCMonth() + 1).padStart(2, "0")}`;
+  const monthDays = new Date(
+    Date.UTC(lastMonthStart.getUTCFullYear(), lastMonthStart.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  const lastDay = `${monthKey}-${String(monthDays).padStart(2, "0")}`;
+
+  it("refetches every section for the chosen calendar month", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() => expect(fetchAnalyticsSummary).toHaveBeenCalledWith("30d"));
+
+    await user.selectOptions(screen.getByLabelText("Reporting month"), monthKey);
+
+    await waitFor(() => expect(fetchAnalyticsSummary).toHaveBeenCalledWith(monthKey));
+    expect(fetchAnalyticsTimeseries).toHaveBeenCalledWith(monthKey);
+    expect(fetchProductAnalytics).toHaveBeenCalledWith(monthKey);
+
+    // The cancellation card must describe the month, not a rolling window.
+    expect(fetchCancellationSummary).toHaveBeenLastCalledWith(undefined, monthDays, monthKey);
+
+    // GA4 gets the whole month, first day to last day inclusive.
+    const ga4Params = fetchGa4Funnel.mock.calls.at(-1)[0];
+    expect(ga4Params.from).toBe(`${monthKey}-01`);
+    expect(ga4Params.to).toBe(lastDay);
+  });
+
+  it("takes the period from the URL, so a filtered view can be shared", async () => {
+    render(
+      <MemoryRouter initialEntries={[`/analytics?period=${monthKey}`]}>
+        <AnalyticsPage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(fetchAnalyticsSummary).toHaveBeenCalledWith(monthKey));
+    expect(screen.getByLabelText("Reporting month")).toHaveValue(monthKey);
   });
 });

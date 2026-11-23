@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -21,12 +21,8 @@ import { fetchGa4Funnel, fetchProductPerformance } from "../api";
 import KpiCard from "../components/KpiCard";
 import { percentChange } from "../comparisons";
 import PerformanceChart from "../components/PerformanceChart";
-
-const PERIODS = [
-  { key: "30d", label: "30 days", full: "Last 30 days", days: 30 },
-  { key: "90d", label: "90 days", full: "Last 90 days", days: 90 },
-  { key: "12m", label: "12 months", full: "Last 12 months", days: 365 },
-];
+import PeriodPicker from "../components/PeriodPicker";
+import { periodMeta, resolvePeriodKey } from "../periods";
 
 const TABS = [
   { key: "revenue", label: "Revenue" },
@@ -34,8 +30,6 @@ const TABS = [
   { key: "rating", label: "Rating" },
   { key: "cancellations", label: "Cancellations" },
 ];
-
-const isoDay = (date) => date.toISOString().slice(0, 10);
 
 function Thumb({ src, alt }) {
   const [failed, setFailed] = useState(false);
@@ -78,7 +72,16 @@ function StepBar({ label, value, of, icon: Icon }) {
 export default function ProductPerformancePage() {
   const { tourId } = useParams();
   const isWide = useMediaQuery("(min-width: 1024px)");
-  const [period, setPeriod] = useState("30d");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const period = resolvePeriodKey(searchParams.get("period") || "30d");
+  const setPeriod = useCallback(
+    (next) => {
+      const params = new URLSearchParams(searchParams);
+      params.set("period", next);
+      setSearchParams(params, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
   const [metric, setMetric] = useState("revenue");
   const [reloadKey, setReloadKey] = useState(0);
   const [tab, setTab] = useState("revenue");
@@ -92,17 +95,15 @@ export default function ProductPerformancePage() {
   const requestRef = useRef(0);
 
   const load = useCallback(async () => {
-    const config = PERIODS.find((entry) => entry.key === period) || PERIODS[0];
+    const config = periodMeta(period);
     const requestId = ++requestRef.current;
-    const to = new Date();
-    const from = new Date(Date.now() - config.days * 86_400_000);
 
     setLoading(true);
     setError(null);
 
     const [productResult, ga4Result] = await Promise.allSettled([
       fetchProductPerformance(tourId, period),
-      fetchGa4Funnel({ from: isoDay(from), to: isoDay(to) }),
+      fetchGa4Funnel({ from: config.from, to: config.to }),
     ]);
     if (requestId !== requestRef.current) return;
 
@@ -139,7 +140,7 @@ export default function ProductPerformancePage() {
     };
   }, [load, reloadKey]);
 
-  const config = PERIODS.find((entry) => entry.key === period) || PERIODS[0];
+  const config = periodMeta(period);
   const revenueDelta = data ? percentChange(data.revenue.gross, data.revenue.previousGross) : undefined;
   const bookingsDelta = data ? percentChange(data.bookings.total, data.bookings.previousTotal) : undefined;
   const views = ga4Row ? Number(ga4Row.itemsViewed) || 0 : 0;
@@ -193,24 +194,7 @@ export default function ProductPerformancePage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex rounded-lg bg-slate-100 p-0.5" role="group" aria-label="Reporting period">
-            {PERIODS.map((option) => (
-              <button
-                key={option.key}
-                type="button"
-                onClick={() => setPeriod(option.key)}
-                aria-pressed={period === option.key}
-                className={cn(
-                  "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-                  period === option.key
-                    ? "bg-white text-slate-900 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700",
-                )}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          <PeriodPicker value={period} onChange={setPeriod} />
           <button
             type="button"
             onClick={() => setReloadKey((key) => key + 1)}
@@ -307,6 +291,7 @@ export default function ProductPerformancePage() {
           error={null}
           onRetry={() => setReloadKey((key) => key + 1)}
           periodLabel={config.full}
+          previousLabel={config.previousLabel}
         />
       )}
 

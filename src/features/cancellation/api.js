@@ -1,8 +1,11 @@
 import api from "@/lib/axios";
 
-export async function fetchCancellationSummary(productId, days = 90) {
+export async function fetchCancellationSummary(productId, days = 90, period) {
   const params = { days };
   if (productId) params.productId = productId;
+  // A calendar month from the Performance page: without it the card would
+  // report a rolling window under a chart showing a specific month.
+  if (period) params.period = period;
   const response = await api.get("/suppliers/cancellation/summary", {
     params,
     skipGlobalErrorHandler: true,

@@ -50,6 +50,7 @@ export default function PerformanceChart({
   error = null,
   onRetry,
   periodLabel,
+  previousLabel = "Previous period",
 }) {
   const data = buckets.map((bucket, index) => ({
     label: bucket.label,
@@ -166,7 +167,7 @@ export default function PerformanceChart({
               <span className="h-2 w-2 rounded-full bg-emerald-600" /> {periodLabel}
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span className="h-0.5 w-4 rounded bg-slate-400" /> Previous period
+              <span className="h-0.5 w-4 rounded bg-slate-400" /> {previousLabel}
             </span>
             <span className="ml-auto font-medium text-slate-700 tabular-nums">
               {metric === "revenue" ? formatCurrency(total) : `${total} bookings`}
