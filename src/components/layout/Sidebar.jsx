@@ -1,5 +1,5 @@
 import { useState, useEffect, isValidElement } from "react";
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, Link, useLocation, useNavigate } from "react-router-dom";
 import { useSidebarStore } from "@/stores/sidebarStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useStaysWorkspaceStore } from "@/stores/staysWorkspaceStore";
@@ -15,6 +15,7 @@ import { STAYS_NAV_GROUPS } from "@/config/staysNav";
 import { WORKSPACES } from "@/config/staysWorkspace";
 import { LIVE_SITES } from "@/lib/platforms";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
 // `permission` comes from PAGE_ACCESS so the sidebar, the search palette and
 // the route guards can never disagree about who sees what.
@@ -41,6 +42,32 @@ function extractBusinessName(businessInfo) {
     try { const p = JSON.parse(businessInfo); return p.businessName || p.displayName || p.legalBusinessName || null; } catch { return null; }
   }
   return businessInfo.businessName || businessInfo.displayName || businessInfo.legalBusinessName || null;
+}
+
+/** Link for one submenu row. Availability uses `section`, Settings uses `tab`. */
+function childHref(parentPath, child) {
+  const params = new URLSearchParams();
+  if (child.section) params.set("section", child.section);
+  if (child.tab) params.set("tab", child.tab);
+  const query = params.toString();
+  return query ? `${parentPath}?${query}` : parentPath;
+}
+
+/** Query-aware active state for a submenu row. */
+function childIsActive(parentPath, child, location) {
+  if (location.pathname !== parentPath) return false;
+  const params = new URLSearchParams(location.search);
+
+  if (child.section) {
+    const active =
+      params.get("section") ||
+      // Calendar is the default section; a bare /stays/availability is it.
+      "calendar";
+    return active === child.section;
+  }
+
+  if (child.tab) return (params.get("tab") || "profile") === child.tab;
+  return false;
 }
 
 // Dots keep the hues they always had. Only the label colours changed, and
@@ -139,6 +166,23 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
   // Expressing the reset during render avoids a setState-from-effect cascade.
   const showLogoutConfirm = logoutConfirmOpen && !isCollapsed;
   const { hasPermission, isOwner, teamRoles, storefronts } = useTeamRole();
+
+  // Availability is the one expandable sidebar section. It starts expanded;
+  // a manual collapse is remembered against the exact route, so opening any
+  // section URL (deep link or search) expands it again without an effect.
+  const [collapsedMenus, setCollapsedMenus] = useState({});
+
+  const toggleMenu = (path) =>
+    setCollapsedMenus((current) => {
+      const next = { ...current };
+      // `location.key` is unique per history entry: returning to Availability
+      // through a link (or the search palette) is a new entry and expands again,
+      // while the chevron can still collapse the current visit.
+      const routeKey = location.key || `${location.pathname}${location.search}`;
+      if (next[path] === routeKey) delete next[path];
+      else next[path] = routeKey;
+      return next;
+    });
 
   // Who the viewer is acting as. A team member's own account is a plain
   // `customer` account, so testing `user.roles` alone hid the business card
@@ -246,7 +290,8 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
   function NavItem({ item, isCollapsed, closeMobile }) {
     // Active state is computed here (not read from NavLink) so config can
     // express `end` (exact match for workspace roots such as `/stays`) and
-    // `match` (query-aware items such as Settings → Team).
+    // `match` (query-aware items such as Settings → Team and the Availability
+    // sections).
     const isActive = item.match
       ? item.match(location)
       : item.end
@@ -258,6 +303,17 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
     // strings). Icon components are forwardRef objects — `typeof` cannot tell
     // them apart from elements, so use isValidElement and wrap the component form.
     const icon = isValidElement(item.icon) ? item.icon : <item.icon size={20} />;
+
+    // Only Availability opts into a sidebar submenu. Settings still uses
+    // `children` for the search palette without adding five sidebar rows.
+    const childItems = item.expandable
+      ? (item.children || []).filter(
+          (child) => !child.permission || hasPermission(child.permission),
+        )
+      : [];
+    const hasChildren = childItems.length > 0;
+    const routeKey = location.key || `${location.pathname}${location.search}`;
+    const expanded = hasChildren && collapsedMenus[item.path] !== routeKey;
 
     if (item.disabled) {
       return (
@@ -272,36 +328,111 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
       );
     }
 
+    const rowClass = () =>
+      `relative flex items-center gap-6 w-full rounded-lg text-sm font-medium transition-all duration-200 group ${
+        isActive
+          ? "bg-sidebar-hover text-sidebar-active"
+          : "text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-active"
+      } ${isCollapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"}`;
+
+    const childClass = (active) =>
+      `flex items-center rounded-md px-3 py-1.5 text-[13px] transition-colors ${
+        active
+          ? "bg-emerald-50 font-semibold text-emerald-700"
+          : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+      }`;
+
     return (
-      <NavLink
-        to={item.path}
-        end={item.end}
-        onClick={closeMobile}
-        className={() =>
-          `relative flex items-center gap-6 w-full rounded-lg text-sm font-medium transition-all duration-200 group ${
-            isActive
-              ? "bg-sidebar-hover text-sidebar-active"
-              : "text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-active"
-          } ${isCollapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5"}`
-        }
-        title={isCollapsed ? item.label : undefined}
-      >
-        {isActive && (
-          /* Was `bg-white`, marking the current route with a 5px bar. On a
-             white sidebar that bar vanished, so the page you are on stopped
-             being identifiable — the one thing this row exists to do. */
-          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[5px] h-[34px] bg-sidebar-active rounded-r-full" />
+      <div className={cn("relative", isCollapsed && hasChildren && "group")}>
+        <NavLink
+          to={item.path}
+          end={item.end}
+          onClick={closeMobile}
+          className={rowClass}
+          title={isCollapsed ? item.label : undefined}
+        >
+          {isActive && (
+            /* Was `bg-white`, marking the current route with a 5px bar. On a
+               white sidebar that bar vanished, so the page you are on stopped
+               being identifiable — the one thing this row exists to do. */
+            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[5px] h-[34px] bg-sidebar-active rounded-r-full" />
+          )}
+          <span className="shrink-0 relative">{icon}</span>
+          {!isCollapsed && (
+            <span className="truncate tracking-normal text-[15px]">{item.label}</span>
+          )}
+          {!isCollapsed && hasChildren && <span className="ml-auto w-5 shrink-0" aria-hidden="true" />}
+          {isCollapsed && !hasChildren && (
+            <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-white text-[#333] text-xs font-medium rounded-lg shadow-lg border border-[#eaeaea] whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none z-[70]">
+              {item.label}
+            </div>
+          )}
+        </NavLink>
+
+        {!isCollapsed && hasChildren && (
+          <button
+            type="button"
+            onClick={() => toggleMenu(item.path)}
+            aria-expanded={expanded}
+            aria-label={`${expanded ? "Collapse" : "Expand"} ${item.label} sections`}
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30"
+          >
+            <ChevronDown
+              size={14}
+              className={cn("transition-transform duration-200", !expanded && "-rotate-90")}
+            />
+          </button>
         )}
-        <span className="shrink-0 relative">{icon}</span>
-        {!isCollapsed && (
-          <span className="truncate tracking-normal text-[15px]">{item.label}</span>
-        )}
-        {isCollapsed && (
-          <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-white text-[#333] text-xs font-medium rounded-lg shadow-lg border border-[#eaeaea] whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none z-[70]">
-            {item.label}
+
+        {/* Collapsed rail: hover/focus flyout, since the 64px rail cannot show
+            indented rows. The nav switches to overflow-visible when collapsed
+            so this can escape the scroll container. */}
+        {isCollapsed && hasChildren && (
+          <div className="pointer-events-none invisible absolute left-full top-0 z-[70] ml-2 w-60 rounded-xl border border-slate-200 bg-white p-2 opacity-0 shadow-xl transition-all duration-150 group-hover:pointer-events-auto group-hover:visible group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:visible group-focus-within:opacity-100">
+            <p className="px-2 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              {item.label}
+            </p>
+            {childItems.map((child) => {
+              const active = childIsActive(item.path, child, location);
+              return (
+                <Link
+                  key={child.section || child.tab || child.label}
+                  to={childHref(item.path, child)}
+                  onClick={closeMobile}
+                  aria-current={active ? "page" : undefined}
+                  className={`block rounded-lg px-2 py-1.5 text-xs transition-colors ${
+                    active
+                      ? "bg-emerald-50 font-semibold text-emerald-700"
+                      : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                  }`}
+                >
+                  {child.label}
+                </Link>
+              );
+            })}
           </div>
         )}
-      </NavLink>
+
+        {!isCollapsed && expanded && (
+          <ul className="ml-7 mt-1 space-y-[2px] border-l border-slate-200/80 pl-2">
+            {childItems.map((child) => {
+              const active = childIsActive(item.path, child, location);
+              return (
+                <li key={child.section || child.tab || child.label}>
+                  <Link
+                    to={childHref(item.path, child)}
+                    onClick={closeMobile}
+                    aria-current={active ? "page" : undefined}
+                    className={childClass(active)}
+                  >
+                    {child.label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
     );
   }
 
@@ -446,7 +577,7 @@ const [logoutConfirmOpen, setShowLogoutConfirm] = useState(false);
         <WorkspaceSwitch isStays={isStays} isCollapsed={isCollapsed} onSelect={handleWorkspaceSelect} />
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3 min-h-0 scrollbar-none">
+        <nav className={`flex-1 py-3 min-h-0 scrollbar-none ${isCollapsed ? "overflow-visible" : "overflow-y-auto overflow-x-hidden"}`}>
           {navGroups.map((group) => (
             <div key={group.label || "main"}>
               {group.label && !isCollapsed && (

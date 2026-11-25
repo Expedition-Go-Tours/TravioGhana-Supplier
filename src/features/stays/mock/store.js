@@ -16,7 +16,7 @@ const delay = (ms = 120) => new Promise((resolve) => setTimeout(resolve, ms));
 const uid = (prefix) => `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 /** Bump when the seed or stored shape changes — old payloads reseed. */
-const STORAGE_VERSION = 6;
+const STORAGE_VERSION = 7;
 export const STAYS_MOCK_STORAGE_KEY = "stays-mock-db-v1";
 
 /**
@@ -66,6 +66,8 @@ function persist() {
 }
 
 let db = loadDb();
+if (!db.restrictionRules) db.restrictionRules = {};
+if (!db.valueAdds) db.valueAdds = {};
 
 function property(id) {
   const found = db.properties.find((p) => p.id === id);
@@ -136,6 +138,27 @@ function dayOffsetISO(days) {
   const date = new Date();
   date.setDate(date.getDate() + days);
   return date.toISOString();
+}
+
+/** `YYYY-MM-DD` today, in UTC, for mock date ranges. */
+function todayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function addDaysKey(iso, days) {
+  const date = new Date(`${iso}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function datesBetween(from, to) {
+  const out = [];
+  for (let date = from; date <= to; date = addDaysKey(date, 1)) out.push(date);
+  return out;
+}
+
+function inDateRange(date, from, to) {
+  return (!from || date >= from) && (!to || date <= to);
 }
 
 /** One earnings row per non-cancelled booking, at a 15% commission. */
@@ -386,9 +409,55 @@ export const staysMock = {
     if (plan && siblings.length <= 1) {
       throw new Error("Keep at least one rate plan for this room");
     }
-    p.ratePlans = p.ratePlans.filter((x) => x.id !== planId);
+    p.ratePlans = (p.ratePlans || []).filter((x) => x.id !== planId);
     persist();
     return clone(p);
+  },
+
+  async listRatePlans(propertyId) {
+    await delay();
+    const p = property(propertyId);
+    return clone({
+      propertyId: p.id,
+      propertyName: p.name,
+      currency: "GHS",
+      rooms: p.rooms || [],
+      ratePlans: p.ratePlans || [],
+    });
+  },
+
+  async updateGuestPricing(propertyId, planId, pricing) {
+    await delay();
+    const p = property(propertyId);
+    const plan = (p.ratePlans || []).find((row) => row.id === planId);
+    if (!plan) {
+      const error = new Error("Rate plan not found");
+      error.status = 404;
+      throw error;
+    }
+    Object.assign(plan, {
+      ...(pricing.baseGuests !== undefined ? { baseGuests: Number(pricing.baseGuests) } : {}),
+      ...(pricing.singleGuestDiscount !== undefined
+        ? { singleGuestDiscount: Number(pricing.singleGuestDiscount) }
+        : {}),
+      ...(pricing.extraAdult !== undefined ? { extraAdult: Number(pricing.extraAdult) } : {}),
+    });
+    persist();
+    return clone({ ratePlan: plan, currency: "GHS" });
+  },
+
+  async updateChildPricing(propertyId, planId, pricing) {
+    await delay();
+    const p = property(propertyId);
+    const plan = (p.ratePlans || []).find((row) => row.id === planId);
+    if (!plan) {
+      const error = new Error("Rate plan not found");
+      error.status = 404;
+      throw error;
+    }
+    plan.extraChild = Number(pricing.extraChild);
+    persist();
+    return clone({ ratePlan: plan, currency: "GHS" });
   },
 
   // ── Availability ──────────────────────────────────────────────────────
@@ -419,6 +488,298 @@ export const staysMock = {
     await delay();
     property(propertyId);
     delete db.overrides[`${roomId}|${date}`];
+    persist();
+    return { ok: true };
+  },
+
+  // ── Availability range tools ─────────────────────────────────────────
+  async getCalendar(propertyId, { from, to, roomId } = {}) {
+    await delay();
+    const p = property(propertyId);
+    const start = from || todayKey();
+    const end = to || addDaysKey(start, 30);
+    if (end < start) throw new Error("End date cannot be before start date");
+
+    const overrides = {};
+    for (const [key, value] of Object.entries(db.overrides)) {
+      const [keyRoomId, date] = key.split("|");
+      if (!inDateRange(date, start, end)) continue;
+      if (roomId && keyRoomId !== roomId) continue;
+      if (!p.rooms.some((room) => room.id === keyRoomId)) continue;
+      overrides[key] = clone(value);
+    }
+
+    const rules = (db.restrictionRules?.[propertyId] || []).filter(
+      (rule) =>
+        rule.isActive !== false &&
+        (!rule.startDate || rule.startDate <= end) &&
+        (!rule.endDate || rule.endDate >= start) &&
+        (!roomId || !rule.roomIds?.length || rule.roomIds.includes(roomId)),
+    );
+
+    return clone({
+      property: { id: p.id, name: p.name, currency: "GHS", timezone: "Africa/Accra" },
+      range: { from: start, to: end, days: datesBetween(start, end).length },
+      rooms: roomId ? p.rooms.filter((room) => room.id === roomId) : p.rooms,
+      ratePlans: roomId
+        ? (p.ratePlans || []).filter((plan) => plan.roomId === roomId)
+        : p.ratePlans || [],
+      overrides,
+      rules,
+      currency: "GHS",
+    });
+  },
+
+  async bulkAvailability(propertyId, { action, roomIds = [], from, to }) {
+    await delay();
+    property(propertyId);
+    const rooms = [...new Set(roomIds)];
+    if (!rooms.length) throw new Error("Choose at least one room");
+    const dates = datesBetween(from, to);
+    let affected = 0;
+
+    for (const roomId of rooms) {
+      for (const date of dates) {
+        const key = `${roomId}|${date}`;
+        const existing = db.overrides[key];
+        if (action === "close") {
+          db.overrides[key] = { ...(existing || {}), closed: true };
+          affected += 1;
+        } else if (existing) {
+          const rest = { ...existing };
+          delete rest.closed;
+          if (Object.keys(rest).length === 0) delete db.overrides[key];
+          else db.overrides[key] = { ...rest, closed: false };
+          affected += 1;
+        }
+      }
+    }
+
+    persist();
+    return {
+      action,
+      from,
+      to,
+      roomIds: rooms,
+      rooms: rooms.length,
+      days: dates.length,
+      affected,
+    };
+  },
+
+  async copyAvailability(propertyId, payload) {
+    await delay();
+    property(propertyId);
+    const {
+      roomIds = [],
+      sourceFrom,
+      sourceTo,
+      targetStart,
+      fields = ["price"],
+      overwrite = false,
+      dryRun = false,
+    } = payload;
+    const rooms = [...new Set(roomIds)];
+    if (!rooms.length) throw new Error("Choose at least one room");
+    const sourceDates = datesBetween(sourceFrom, sourceTo);
+    const operations = [];
+    let skipped = 0;
+
+    const hasValue = (row, field) => {
+      if (!row) return false;
+      if (field === "closed") return row.closed === true;
+      return row[field] !== null && row[field] !== undefined;
+    };
+
+    for (const roomId of rooms) {
+      sourceDates.forEach((date, offset) => {
+        const source = db.overrides[`${roomId}|${date}`];
+        if (!fields.some((field) => hasValue(source, field))) return;
+        const targetDate = addDaysKey(targetStart, offset);
+        const target = db.overrides[`${roomId}|${targetDate}`];
+        const data = {};
+        for (const field of fields) {
+          if (!hasValue(source, field)) continue;
+          if (!overwrite && hasValue(target, field)) continue;
+          data[field] = field === "price" ? Number(source.price) : source[field];
+        }
+        if (!Object.keys(data).length) {
+          skipped += 1;
+          return;
+        }
+        operations.push({ roomId, date: targetDate, fields: data });
+      });
+    }
+
+    if (dryRun) {
+      return {
+        dryRun: true,
+        source: { from: sourceFrom, to: sourceTo, days: sourceDates.length },
+        target: {
+          from: targetStart,
+          to: addDaysKey(targetStart, sourceDates.length - 1),
+          days: sourceDates.length,
+        },
+        roomIds: rooms,
+        fields,
+        wouldCopy: operations.length,
+        wouldSkip: skipped,
+        preview: operations.slice(0, 200),
+      };
+    }
+
+    for (const operation of operations) {
+      db.overrides[`${operation.roomId}|${operation.date}`] = {
+        ...(db.overrides[`${operation.roomId}|${operation.date}`] || {}),
+        ...operation.fields,
+      };
+    }
+    persist();
+
+    return {
+      dryRun: false,
+      source: { from: sourceFrom, to: sourceTo, days: sourceDates.length },
+      target: {
+        from: targetStart,
+        to: addDaysKey(targetStart, sourceDates.length - 1),
+        days: sourceDates.length,
+      },
+      roomIds: rooms,
+      fields,
+      copied: operations.length,
+      skipped,
+    };
+  },
+
+  // ── Dynamic restriction rules ────────────────────────────────────────
+  async listRestrictionRules(propertyId) {
+    await delay();
+    const p = property(propertyId);
+    return clone({
+      rules: db.restrictionRules[propertyId] || [],
+      rooms: p.rooms || [],
+      currency: "GHS",
+    });
+  },
+
+  async createRestrictionRule(propertyId, payload) {
+    await delay();
+    property(propertyId);
+    const now = new Date().toISOString();
+    const rule = {
+      id: uid("rule"),
+      propertyId,
+      name: payload.name || "",
+      startDate: payload.startDate || null,
+      endDate: payload.endDate || null,
+      weekdays: payload.weekdays || [],
+      roomIds: payload.roomIds || [],
+      minStay: payload.minStay ?? null,
+      maxStay: payload.maxStay ?? null,
+      stopSell: Boolean(payload.stopSell),
+      closedToArrival: Boolean(payload.closedToArrival),
+      closedToDeparture: Boolean(payload.closedToDeparture),
+      isActive: payload.isActive ?? true,
+      createdAt: now,
+      updatedAt: now,
+    };
+    db.restrictionRules[propertyId] = [...(db.restrictionRules[propertyId] || []), rule];
+    persist();
+    return clone(rule);
+  },
+
+  async updateRestrictionRule(propertyId, ruleId, payload) {
+    await delay();
+    property(propertyId);
+    const rules = db.restrictionRules[propertyId] || [];
+    const index = rules.findIndex((rule) => rule.id === ruleId);
+    if (index === -1) {
+      const error = new Error("Restriction rule not found");
+      error.status = 404;
+      throw error;
+    }
+    rules[index] = {
+      ...rules[index],
+      ...payload,
+      updatedAt: new Date().toISOString(),
+    };
+    db.restrictionRules[propertyId] = rules;
+    persist();
+    return clone(rules[index]);
+  },
+
+  async deleteRestrictionRule(propertyId, ruleId) {
+    await delay();
+    property(propertyId);
+    db.restrictionRules[propertyId] = (db.restrictionRules[propertyId] || []).filter(
+      (rule) => rule.id !== ruleId,
+    );
+    persist();
+    return { ok: true };
+  },
+
+  // ── Value adds ───────────────────────────────────────────────────────
+  async listValueAdds(propertyId) {
+    await delay();
+    property(propertyId);
+    const valueAdds = [...(db.valueAdds[propertyId] || [])].sort(
+      (a, b) => Number(b.isActive) - Number(a.isActive) || a.sortOrder - b.sortOrder,
+    );
+    return clone({ valueAdds, currency: "GHS" });
+  },
+
+  async createValueAdd(propertyId, payload) {
+    await delay();
+    property(propertyId);
+    const now = new Date().toISOString();
+    const valueAdd = {
+      id: uid("add"),
+      propertyId,
+      name: payload.name,
+      description: payload.description || "",
+      price: Number(payload.price),
+      unit: payload.unit || "PER_STAY",
+      isActive: payload.isActive ?? true,
+      sortOrder: Number(payload.sortOrder) || 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+    db.valueAdds[propertyId] = [...(db.valueAdds[propertyId] || []), valueAdd];
+    persist();
+    return clone(valueAdd);
+  },
+
+  async updateValueAdd(propertyId, valueAddId, payload) {
+    await delay();
+    property(propertyId);
+    const valueAdds = db.valueAdds[propertyId] || [];
+    const index = valueAdds.findIndex((row) => row.id === valueAddId);
+    if (index === -1) {
+      const error = new Error("Value add not found");
+      error.status = 404;
+      throw error;
+    }
+    valueAdds[index] = {
+      ...valueAdds[index],
+      ...payload,
+      price: payload.price === undefined ? valueAdds[index].price : Number(payload.price),
+      sortOrder:
+        payload.sortOrder === undefined
+          ? valueAdds[index].sortOrder
+          : Number(payload.sortOrder),
+      updatedAt: new Date().toISOString(),
+    };
+    db.valueAdds[propertyId] = valueAdds;
+    persist();
+    return clone(valueAdds[index]);
+  },
+
+  async deleteValueAdd(propertyId, valueAddId) {
+    await delay();
+    property(propertyId);
+    db.valueAdds[propertyId] = (db.valueAdds[propertyId] || []).filter(
+      (row) => row.id !== valueAddId,
+    );
     persist();
     return { ok: true };
   },

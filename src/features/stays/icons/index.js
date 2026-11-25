@@ -176,6 +176,8 @@ export {
   Infinity,
   ForkKnife,
   ForkKnife as Utensils,
+  Gift,
+  Baby,
   ThumbsDown,
   ThumbsUp,
   Star,

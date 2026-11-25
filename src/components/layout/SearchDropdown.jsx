@@ -72,12 +72,16 @@ function flattenNavItems(items) {
     out.push(item);
     if (item.children) {
       for (const child of item.children) {
+        const params = new URLSearchParams();
+        if (child.section) params.set("section", child.section);
+        if (child.tab) params.set("tab", child.tab);
+        const query = params.toString();
         out.push({
           label: child.label,
           parent: item.label,
-          path: `${item.path}?tab=${child.tab}`,
+          path: query ? `${item.path}?${query}` : item.path,
           iconName: item.iconName,
-          permission: item.permission,
+          permission: child.permission || item.permission,
           keywords: [...(item.keywords || []), ...(child.keywords || [])],
         });
       }
@@ -189,7 +193,17 @@ export default function SearchDropdown() {
         return hasPermission(item.permission);
       })
       .map((item) => (item.children
-        ? { ...item, children: item.children.filter((child) => canOpenSettingsTab(hasPermission, child.tab)) }
+        ? {
+            ...item,
+            children: item.children.filter((child) => {
+              // Availability sub-items inherit the parent's permission; Rate
+              // plans additionally requires stays.rates. Settings tabs keep
+              // their own tab-level rule.
+              if (child.permission && !hasPermission(child.permission)) return false;
+              if (child.tab) return canOpenSettingsTab(hasPermission, child.tab);
+              return true;
+            }),
+          }
         : item))
       .filter((item) => !item.children || item.children.length > 0);
     return flattenNavItems(filtered);

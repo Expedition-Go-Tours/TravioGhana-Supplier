@@ -30,6 +30,17 @@ export const STAYS_KEYS = {
   property: (id) => ["stays", "property", id],
   bookings: (filters = {}) => ["stays", "bookings", filters],
   availability: (propertyId, from, to) => ["stays", "availability", propertyId, from, to],
+  calendar: (propertyId, from, to, roomId) => [
+    "stays",
+    "calendar",
+    propertyId,
+    from,
+    to,
+    roomId || "all",
+  ],
+  restrictionRules: (propertyId) => ["stays", "restriction-rules", propertyId],
+  valueAdds: (propertyId) => ["stays", "value-adds", propertyId],
+  ratePlans: (propertyId) => ["stays", "rate-plans", propertyId],
   offers: (filter = "All") => ["stays", "offers", filter],
   reviews: (filter = "All") => ["stays", "reviews", filter],
   analytics: (period) => ["stays", "analytics", period],
@@ -139,6 +150,32 @@ export async function deleteRatePlan(propertyId, planId) {
   return res.data?.data?.property;
 }
 
+export async function listRatePlans(propertyId) {
+  if (staysUsesMockData) return staysMock.listRatePlans(propertyId);
+  const res = await api.get(`${BASE}/properties/${propertyId}/rate-plans`, requestConfig);
+  return res.data?.data;
+}
+
+export async function updateGuestPricing(propertyId, planId, pricing) {
+  if (staysUsesMockData) return staysMock.updateGuestPricing(propertyId, planId, pricing);
+  const res = await api.patch(
+    `${BASE}/properties/${propertyId}/rate-plans/${planId}/guest-pricing`,
+    pricing,
+    requestConfig,
+  );
+  return res.data?.data;
+}
+
+export async function updateChildPricing(propertyId, planId, pricing) {
+  if (staysUsesMockData) return staysMock.updateChildPricing(propertyId, planId, pricing);
+  const res = await api.patch(
+    `${BASE}/properties/${propertyId}/rate-plans/${planId}/child-pricing`,
+    pricing,
+    requestConfig,
+  );
+  return res.data?.data;
+}
+
 /* ── Availability ────────────────────────────────────────────────────────── */
 export async function getAvailability(propertyId, { from, to } = {}) {
   if (staysUsesMockData) return staysMock.getAvailability(propertyId, { from, to });
@@ -166,6 +203,107 @@ export async function clearAvailabilityCell(propertyId, { roomId, date }) {
     ...requestConfig,
     params: { roomId, date },
   });
+  return res.data?.data;
+}
+
+/* ── Availability range tools ────────────────────────────────────────────── */
+
+export async function getCalendar(propertyId, { from, to, roomId } = {}) {
+  if (staysUsesMockData) return staysMock.getCalendar(propertyId, { from, to, roomId });
+  const res = await api.get(`${BASE}/properties/${propertyId}/calendar`, {
+    ...requestConfig,
+    params: { from, to, roomId },
+  });
+  return res.data?.data;
+}
+
+export async function bulkAvailability(propertyId, payload) {
+  if (staysUsesMockData) return staysMock.bulkAvailability(propertyId, payload);
+  const res = await api.post(
+    `${BASE}/properties/${propertyId}/availability/bulk`,
+    payload,
+    requestConfig,
+  );
+  return res.data?.data;
+}
+
+export async function copyAvailability(propertyId, payload) {
+  if (staysUsesMockData) return staysMock.copyAvailability(propertyId, payload);
+  const res = await api.post(
+    `${BASE}/properties/${propertyId}/availability/copy`,
+    payload,
+    requestConfig,
+  );
+  return res.data?.data;
+}
+
+/* ── Dynamic restriction rules ───────────────────────────────────────────── */
+
+export async function listRestrictionRules(propertyId) {
+  if (staysUsesMockData) return staysMock.listRestrictionRules(propertyId);
+  const res = await api.get(`${BASE}/properties/${propertyId}/restriction-rules`, requestConfig);
+  return res.data?.data;
+}
+
+export async function createRestrictionRule(propertyId, payload) {
+  if (staysUsesMockData) return staysMock.createRestrictionRule(propertyId, payload);
+  const res = await api.post(
+    `${BASE}/properties/${propertyId}/restriction-rules`,
+    payload,
+    requestConfig,
+  );
+  return res.data?.data?.rule;
+}
+
+export async function updateRestrictionRule(propertyId, ruleId, payload) {
+  if (staysUsesMockData) return staysMock.updateRestrictionRule(propertyId, ruleId, payload);
+  const res = await api.patch(
+    `${BASE}/properties/${propertyId}/restriction-rules/${ruleId}`,
+    payload,
+    requestConfig,
+  );
+  return res.data?.data?.rule;
+}
+
+export async function deleteRestrictionRule(propertyId, ruleId) {
+  if (staysUsesMockData) return staysMock.deleteRestrictionRule(propertyId, ruleId);
+  const res = await api.delete(
+    `${BASE}/properties/${propertyId}/restriction-rules/${ruleId}`,
+    requestConfig,
+  );
+  return res.data?.data;
+}
+
+/* ── Value adds ──────────────────────────────────────────────────────────── */
+
+export async function listValueAdds(propertyId) {
+  if (staysUsesMockData) return staysMock.listValueAdds(propertyId);
+  const res = await api.get(`${BASE}/properties/${propertyId}/value-adds`, requestConfig);
+  return res.data?.data;
+}
+
+export async function createValueAdd(propertyId, payload) {
+  if (staysUsesMockData) return staysMock.createValueAdd(propertyId, payload);
+  const res = await api.post(`${BASE}/properties/${propertyId}/value-adds`, payload, requestConfig);
+  return res.data?.data?.valueAdd;
+}
+
+export async function updateValueAdd(propertyId, valueAddId, payload) {
+  if (staysUsesMockData) return staysMock.updateValueAdd(propertyId, valueAddId, payload);
+  const res = await api.patch(
+    `${BASE}/properties/${propertyId}/value-adds/${valueAddId}`,
+    payload,
+    requestConfig,
+  );
+  return res.data?.data?.valueAdd;
+}
+
+export async function deleteValueAdd(propertyId, valueAddId) {
+  if (staysUsesMockData) return staysMock.deleteValueAdd(propertyId, valueAddId);
+  const res = await api.delete(
+    `${BASE}/properties/${propertyId}/value-adds/${valueAddId}`,
+    requestConfig,
+  );
   return res.data?.data;
 }
 

@@ -561,6 +561,8 @@ export const seedStays = {
   ],
   /** `${roomId}|${date}` → { price, count, closed, minStay } */
   overrides: {},
+  restrictionRules: {},
+  valueAdds: {},
   payoutMethod: "Bank transfer",
   // Notifications — the Stays twin of the shared inbox: booking, review,
   // payout, message and listing events, each pointing at a Stays route.

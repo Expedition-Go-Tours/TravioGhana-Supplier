@@ -31,6 +31,7 @@ import {
   UserPlus,
 } from "@/features/stays/icons";
 import { PAGE_ACCESS } from "@/config/pageAccess";
+import { AVAILABILITY_SECTIONS } from "@/features/stays/config/availabilitySections";
 
 export const STAYS_NAV_GROUPS = [
   {
@@ -77,6 +78,19 @@ export const STAYS_NAV_GROUPS = [
         iconName: "CalendarDays",
         permission: PAGE_ACCESS["/stays/availability"],
         keywords: ["calendar", "inventory", "blocked", "dates"],
+        // Rendered as an expandable submenu in the sidebar. Settings uses
+        // `children` for search only, so the sidebar keys off this flag.
+        expandable: true,
+        // Every section shares this path. The submenu is built from the same
+        // config the pages and search use, so a section can never disappear
+        // from one surface.
+        children: AVAILABILITY_SECTIONS.map((section) => ({
+          label: section.label,
+          section: section.id,
+          keywords: section.keywords,
+          ...(section.permission ? { permission: section.permission } : {}),
+        })),
+        match: (location) => location.pathname === "/stays/availability",
       },
       {
         label: "Rate",

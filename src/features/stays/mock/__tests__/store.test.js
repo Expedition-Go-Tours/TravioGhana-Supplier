@@ -118,8 +118,189 @@ describe('availability overrides', () => {
   });
 });
 
-describe('bookings', () => {
-  it('filters by status and joins the property name', async () => {
+describe('availability range tools', () => {
+  it('returns one aggregate calendar payload', async () => {
+    await staysMock.setAvailabilityCell('p1', {
+      roomId: 'r1',
+      date: '2027-01-02',
+      values: { price: 900, closed: true },
+    });
+    const calendar = await staysMock.getCalendar('p1', {
+      from: '2027-01-01',
+      to: '2027-01-03',
+    });
+
+    expect(calendar.rooms).toHaveLength(1);
+    expect(calendar.ratePlans.length).toBeGreaterThan(0);
+    expect(calendar.overrides['r1|2027-01-02']).toEqual({ price: 900, closed: true });
+    expect(calendar.range).toEqual({ from: '2027-01-01', to: '2027-01-03', days: 3 });
+  });
+
+  it('closes and reopens a room across a range', async () => {
+    const closed = await staysMock.bulkAvailability('p1', {
+      action: 'close',
+      roomIds: ['r1'],
+      from: '2027-01-01',
+      to: '2027-01-03',
+    });
+    expect(closed.affected).toBe(3);
+    expect((await staysMock.getCalendar('p1', { from: '2027-01-01', to: '2027-01-03' })).overrides)
+      .toMatchObject({
+        'r1|2027-01-01': { closed: true },
+        'r1|2027-01-02': { closed: true },
+        'r1|2027-01-03': { closed: true },
+      });
+
+    const opened = await staysMock.bulkAvailability('p1', {
+      action: 'open',
+      roomIds: ['r1'],
+      from: '2027-01-01',
+      to: '2027-01-03',
+    });
+    expect(opened.affected).toBe(3);
+    expect((await staysMock.getCalendar('p1', { from: '2027-01-01', to: '2027-01-03' })).overrides)
+      .toEqual({});
+  });
+
+  it('previews and applies a copy without overwriting by default', async () => {
+    await staysMock.setAvailabilityCell('p1', {
+      roomId: 'r1',
+      date: '2027-02-01',
+      values: { price: 900, count: 2 },
+    });
+
+    const preview = await staysMock.copyAvailability('p1', {
+      roomIds: ['r1'],
+      sourceFrom: '2027-02-01',
+      sourceTo: '2027-02-01',
+      targetStart: '2027-03-01',
+      fields: ['price', 'count'],
+      dryRun: true,
+    });
+    expect(preview.wouldCopy).toBe(1);
+
+    const applied = await staysMock.copyAvailability('p1', {
+      roomIds: ['r1'],
+      sourceFrom: '2027-02-01',
+      sourceTo: '2027-02-01',
+      targetStart: '2027-03-01',
+      fields: ['price', 'count'],
+    });
+    expect(applied.copied).toBe(1);
+
+    const calendar = await staysMock.getCalendar('p1', {
+      from: '2027-03-01',
+      to: '2027-03-01',
+    });
+    expect(calendar.overrides['r1|2027-03-01']).toEqual({ price: 900, count: 2 });
+  });
+
+  it('keeps existing target values unless overwrite is on', async () => {
+    await staysMock.setAvailabilityCell('p1', {
+      roomId: 'r1',
+      date: '2027-02-01',
+      values: { price: 900 },
+    });
+    await staysMock.setAvailabilityCell('p1', {
+      roomId: 'r1',
+      date: '2027-03-01',
+      values: { price: 500 },
+    });
+
+    const safe = await staysMock.copyAvailability('p1', {
+      roomIds: ['r1'],
+      sourceFrom: '2027-02-01',
+      sourceTo: '2027-02-01',
+      targetStart: '2027-03-01',
+      fields: ['price'],
+    });
+    expect(safe.copied).toBe(0);
+    expect(safe.skipped).toBe(1);
+
+    await staysMock.copyAvailability('p1', {
+      roomIds: ['r1'],
+      sourceFrom: '2027-02-01',
+      sourceTo: '2027-02-01',
+      targetStart: '2027-03-01',
+      fields: ['price'],
+      overwrite: true,
+    });
+    const calendar = await staysMock.getCalendar('p1', {
+      from: '2027-03-01',
+      to: '2027-03-01',
+    });
+    expect(calendar.overrides['r1|2027-03-01'].price).toBe(900);
+  });
+});
+
+describe('restriction rules', () => {
+  it('creates, updates and deletes a rule', async () => {
+    const created = await staysMock.createRestrictionRule('p1', {
+      name: 'Weekend minimum',
+      roomIds: ['r1'],
+      weekdays: ['friday'],
+      minStay: 2,
+    });
+    expect(created).toMatchObject({ name: 'Weekend minimum', minStay: 2, stopSell: false });
+
+    const updated = await staysMock.updateRestrictionRule('p1', created.id, {
+      stopSell: true,
+      maxStay: 4,
+    });
+    expect(updated).toMatchObject({ minStay: 2, maxStay: 4, stopSell: true });
+
+    const { rules } = await staysMock.listRestrictionRules('p1');
+    expect(rules).toHaveLength(1);
+
+    await staysMock.deleteRestrictionRule('p1', created.id);
+    expect((await staysMock.listRestrictionRules('p1')).rules).toHaveLength(0);
+  });
+});
+
+describe('value adds', () => {
+  it('creates, updates and deletes a value add', async () => {
+    const created = await staysMock.createValueAdd('p1', {
+      name: 'Breakfast',
+      price: 45,
+      unit: 'PER_PERSON',
+    });
+    expect(created).toMatchObject({ name: 'Breakfast', price: 45, isActive: true });
+
+    const updated = await staysMock.updateValueAdd('p1', created.id, {
+      price: 50,
+      isActive: false,
+    });
+    expect(updated).toMatchObject({ price: 50, isActive: false, unit: 'PER_PERSON' });
+
+    expect((await staysMock.listValueAdds('p1')).valueAdds).toHaveLength(1);
+    await staysMock.deleteValueAdd('p1', created.id);
+    expect((await staysMock.listValueAdds('p1')).valueAdds).toHaveLength(0);
+  });
+});
+
+describe('focused rate-plan pricing', () => {
+  it('saves guest and child pricing without losing either', async () => {
+    const { ratePlans } = await staysMock.listRatePlans('p1');
+    const planId = ratePlans[0].id;
+
+    await staysMock.updateGuestPricing('p1', planId, {
+      baseGuests: 2,
+      singleGuestDiscount: 15,
+      extraAdult: 40,
+    });
+    await staysMock.updateChildPricing('p1', planId, { extraChild: 25 });
+
+    const refreshed = await staysMock.listRatePlans('p1');
+    expect(refreshed.ratePlans.find((plan) => plan.id === planId)).toMatchObject({
+      baseGuests: 2,
+      singleGuestDiscount: 15,
+      extraAdult: 40,
+      extraChild: 25,
+    });
+  });
+});
+
+describe('bookings', () => {  it('filters by status and joins the property name', async () => {
     const all = await staysMock.listBookings();
     expect(all).toHaveLength(7);
     const newOnly = await staysMock.listBookings({ status: 'New' });
