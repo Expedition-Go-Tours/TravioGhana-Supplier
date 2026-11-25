@@ -39,6 +39,7 @@ export default function CopyRatesSection() {
   const allSelected = rooms.length > 0 && roomIds.length === rooms.length;
 
   const toggleRoom = (roomId) => {
+    setPreview(null);
     if (roomIds.includes(roomId)) {
       setSelection(roomIds.filter((id) => id !== roomId));
     } else {
@@ -46,12 +47,14 @@ export default function CopyRatesSection() {
     }
   };
 
-  const toggleField = (field) =>
+  const toggleField = (field) => {
+    setPreview(null);
     setFields((current) =>
       current.includes(field)
         ? current.filter((value) => value !== field)
         : [...current, field],
     );
+  };
 
   const mutation = useMutation({
     mutationFn: (dryRun) =>
@@ -132,13 +135,13 @@ export default function CopyRatesSection() {
 
             <div className="grid gap-4 sm:grid-cols-3">
               <StaysField label="Source from">
-                <StaysInput type="date" value={sourceFrom} onChange={(event) => setSourceFrom(event.target.value)} />
+                <StaysInput type="date" value={sourceFrom} onChange={(event) => { setSourceFrom(event.target.value); setPreview(null); }} />
               </StaysField>
               <StaysField label="Source to">
-                <StaysInput type="date" value={sourceTo} onChange={(event) => setSourceTo(event.target.value)} />
+                <StaysInput type="date" value={sourceTo} onChange={(event) => { setSourceTo(event.target.value); setPreview(null); }} />
               </StaysField>
               <StaysField label="Copy to start">
-                <StaysInput type="date" value={targetStart} onChange={(event) => setTargetStart(event.target.value)} />
+                <StaysInput type="date" value={targetStart} onChange={(event) => { setTargetStart(event.target.value); setPreview(null); }} />
               </StaysField>
             </div>
 
@@ -147,7 +150,10 @@ export default function CopyRatesSection() {
                 <span>Rooms</span>
                 <button
                   type="button"
-                  onClick={() => setSelection(allSelected ? [] : rooms.map((room) => room.id))}
+                  onClick={() => {
+                    setPreview(null);
+                    setSelection(allSelected ? [] : rooms.map((room) => room.id));
+                  }}
                   className="text-xs font-medium text-emerald-700 hover:text-emerald-800"
                 >
                   {allSelected ? "Clear all" : "Select all"}
@@ -196,7 +202,10 @@ export default function CopyRatesSection() {
                 type="checkbox"
                 className="mt-0.5 h-4 w-4 accent-emerald-600"
                 checked={overwrite}
-                onChange={(event) => setOverwrite(event.target.checked)}
+                onChange={(event) => {
+                  setOverwrite(event.target.checked);
+                  setPreview(null);
+                }}
               />
               <span>
                 Overwrite values already set on the target dates
