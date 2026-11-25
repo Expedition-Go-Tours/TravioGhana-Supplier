@@ -10,6 +10,7 @@
 import api from "@/lib/axios";
 import { staysMock } from "./mock/store";
 import { staysUsesMockData } from "./api";
+import { fetchPayoutRequests, fetchFinanceSummary } from "./financeApi";
 
 const requestConfig = { skipGlobalErrorHandler: true };
 
@@ -155,27 +156,31 @@ export async function fetchPayouts(params = {}) {
       pagination: null,
     };
   }
-  const response = await api.get("/payouts/me", { ...requestConfig, params });
-  const payload = response.data?.data || {};
+  // Never call /payouts/me here: that is the tour payout ledger. The Stays
+  // settings tab shows Stays payout requests only.
+  const [requestsPayload, summary] = await Promise.all([
+    fetchPayoutRequests({ limit: params.limit || 10 }),
+    fetchFinanceSummary().catch(() => null),
+  ]);
+
   return {
-    payouts: (payload.payouts || []).map((payout) => ({
-      id: payout.id,
-      amount: Number(payout.amount) || 0,
-      status: payout.status,
-      date: payout.paidAt || payout.processedAt || payout.createdAt,
-      currency: payout.currency || "USD",
-      bookingNumber: payout.booking?.bookingNumber || "—",
-      tour: payout.booking?.property?.name || "—",
-      method: payout.payoutMethod?.type?.replace(/_/g, " ") || payout.paymentMethod || "—",
-      account:
-        payout.payoutMethod?.accountNumber?.slice(-4) ||
-        payout.payoutMethod?.mobileNumber?.slice(-4) ||
-        payout.payoutMethod?.paypalEmail ||
-        "—",
-      reference: payout.reference || "",
+    payouts: (requestsPayload.requests || []).map((request) => ({
+      id: request.id,
+      amount: Number(request.amount) || 0,
+      status: request.status,
+      date: request.createdAt,
+      currency: request.currency || "USD",
+      bookingNumber: request.requestNumber || "Payout request",
+      tour: request.cycleLabel || "",
+      method: request.method || "—",
+      account: "—",
+      reference: request.reference || "",
     })),
-    summary: payload.summary || {},
-    pagination: payload.pagination || null,
+    summary: {
+      totalEarned: Number(summary?.paidOut?.total) || 0,
+      currency: summary?.currency || "GHS",
+    },
+    pagination: requestsPayload.pagination || null,
   };
 }
 

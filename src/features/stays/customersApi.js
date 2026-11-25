@@ -1,13 +1,13 @@
 /**
  * Stays customers (chat) API — the Stays mirror of `features/chat/api.js`.
- * Chat is supplier/customer scoped, not tour scoped, so the live branch uses
- * the shared `/chat/*` endpoints the Experiences dashboard already uses.
+ * The live branch uses the Stays-only conversation endpoints, which force the
+ * STAYS product domain so a tour thread can never appear here.
  */
 import api from "@/lib/axios";
 import { staysMock } from "./mock/store";
 import { staysUsesMockData } from "./api";
 
-const BASE = "/chat";
+const BASE = "/stays/supplier";
 const requestConfig = { skipGlobalErrorHandler: true };
 
 export async function listStaysConversations() {
@@ -75,6 +75,6 @@ export async function uploadStaysChatImage(file) {
   }
   const form = new FormData();
   form.append("file", file);
-  const res = await api.post(`${BASE}/upload`, form, requestConfig);
+  const res = await api.post(`${BASE}/chat/upload`, form, requestConfig);
   return res.data?.data;
 }
